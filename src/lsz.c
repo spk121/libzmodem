@@ -193,6 +193,7 @@ time_t stop_time=0;
 int tcp_flag=0;
 char *tcp_server_address=0;
 int tcp_socket=-1;
+int hyperterm=0;
 
 int error_count;
 #define OVERHEAD 18
@@ -300,6 +301,7 @@ static struct option const long_options[] =
   {"tcp-server", no_argument, NULL, 6},
   {"tcp-client", required_argument, NULL, 7},
   {"no-unixmode", no_argument, NULL, 8},
+  {"hyperterm", no_argument, &hyperterm, 1},
   {NULL, 0, NULL, 0}
 };
 
@@ -1232,13 +1234,19 @@ wctxpn(struct zm_fileinfo *zi)
 	p=q;
 	while (q < (txbuf + MAX_BLOCK))
 		*q++ = 0;
-	/* note that we may lose some information here in case mode_t is wider than an 
-	 * int. But i believe sending %lo instead of %o _could_ break compatability
-	 */
 	if (!Ascii && (input_f!=stdin) && *zi->fname && fstat(fileno(input_f), &f)!= -1)
-		sprintf(p, "%lu %lo %o 0 %d %ld", (long) f.st_size, f.st_mtime,
-		  (unsigned int)((no_unixmode) ? 0 : f.st_mode), 
-		  Filesleft, Totalleft);
+		if (hyperterm) {
+			sprintf(p, "%lu", (long) f.st_size);
+		} else {
+			/* note that we may lose some information here 
+			 * in case mode_t is wider than an int. But i believe
+			 * sending %lo instead of %o _could_ break compatability
+			 */
+			sprintf(p, "%lu %lo %o 0 %d %ld", (long) f.st_size,
+				f.st_mtime,
+				(unsigned int)((no_unixmode) ? 0 : f.st_mode),
+				Filesleft, Totalleft);
+		}
 	if (Verbose)
 		vstringf(_("Sending: %s\n"),txbuf);
 	Totalleft -= f.st_size;
