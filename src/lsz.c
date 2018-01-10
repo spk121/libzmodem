@@ -53,10 +53,6 @@ void *mm_addr=NULL;
 #include "xstrtoul.h"
 #include "error.h"
 
-#ifndef STRICT_PROTOTYPES
-extern char *strstr();
-#endif
-
 unsigned Baudrate=2400;	/* Default, should be set by first mode() call */
 unsigned Txwindow;	/* Control the size of the transmitted window */
 unsigned Txwspac;	/* Spacing between zcrcq requests */

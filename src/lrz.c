@@ -41,10 +41,6 @@
 #include "xstrtoul.h"
 #include "error.h"
 
-#ifndef STRICT_PROTOTYPES
-extern char *strstr();
-#endif
-
 #define MAX_BLOCK 8192
 
 /*
