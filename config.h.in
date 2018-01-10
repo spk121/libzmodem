@@ -68,9 +68,6 @@
 /* Define if you have the ANSI C header files.  */
 #undef STDC_HEADERS
 
-/* Define if you can safely include both <sys/time.h> and <time.h>.  */
-#undef TIME_WITH_SYS_TIME
-
 /* Define if your <sys/time.h> declares struct tm.  */
 #undef TM_IN_SYS_TIME
 
@@ -124,9 +121,6 @@
 
 /* Define to 1 if you want support for the timesync protocol */
 #undef ENABLE_TIMESYNC
-
-/* define to 1. we have a replacement function for it. */
-#undef HAVE_STRERROR
 
 /* define to 1 if you want strict ANSI prototypes. will remove some 
    extern x(); declarations. */
@@ -206,9 +200,6 @@
 
 /* Define if you have the strdup function.  */
 #undef HAVE_STRDUP
-
-/* Define if you have the strerror function.  */
-#undef HAVE_STRERROR
 
 /* Define if you have the strftime function.  */
 #undef HAVE_STRFTIME

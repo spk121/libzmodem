@@ -34,6 +34,7 @@
 #include <getopt.h>
 #include <utime.h>
 #include <time.h>
+#include <string.h>
 
 #include "timing.h"
 #include "long-options.h"
@@ -41,7 +42,6 @@
 #include "error.h"
 
 #ifndef STRICT_PROTOTYPES
-extern char *strerror();
 extern char *strstr();
 #endif
 

@@ -35,6 +35,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <time.h>
+#include <string.h>
 
 #ifndef R_OK
 #  define R_OK 4
@@ -53,7 +54,6 @@ void *mm_addr=NULL;
 #include "error.h"
 
 #ifndef STRICT_PROTOTYPES
-extern char *strerror();
 extern char *strstr();
 #endif
 

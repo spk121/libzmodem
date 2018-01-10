@@ -3,6 +3,7 @@
   Copyright (C) until 1988 Chuck Forsberg (Omen Technology INC)
   Copyright (C) 1994 Matt Porter, Michael D. Black
   Copyright (C) 1996, 1997 Uwe Ohse
+  Copyright (C) 2018 Michael L. Gran
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -30,10 +31,6 @@
 
 #include <stdio.h>
 #include <errno.h>
-
-#ifndef HAVE_ERRNO_DECLARATION
-extern int errno;
-#endif
 
 #ifdef USE_SGTTY
 #  ifdef LLITOUT
