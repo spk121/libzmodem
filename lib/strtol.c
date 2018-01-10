@@ -30,9 +30,6 @@ USA.  */
 
 #include <ctype.h>
 #include <errno.h>
-#ifndef errno
-extern int errno;
-#endif
 
 #ifdef HAVE_LIMITS_H
 # include <limits.h>

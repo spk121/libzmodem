@@ -4,19 +4,6 @@ AC_DEFUN(AC_REPLACE_GNU_GETOPT,
 AC_SUBST(LIBOBJS)dnl
 ])
 
-dnl
-dnl taken from taylor uucp
-AC_DEFUN(LRZSZ_ERRNO_DECL,[
-AC_MSG_CHECKING(for errno declaration)
-AC_CACHE_VAL(lrzsz_cv_decl_errno,
-[AC_TRY_COMPILE([#include <errno.h>], [int i = errno; errno = 1;],
-lrzsz_cv_decl_errno=yes, lrzsz_cv_decl_errno=no)])
-AC_MSG_RESULT($lrzsz_cv_decl_errno)
-if test $lrzsz_cv_decl_errno = yes; then
-  AC_DEFINE([HAVE_ERRNO_DECLARATION])
-fi
-])
-
 dnl for ease of use
 AC_DEFUN([LRZSZ_HEADERS_TERM_IO],[
 AC_CHECK_HEADERS(termios.h sys/termios.h termio.h sys/termio.h sgtty.h)dnl

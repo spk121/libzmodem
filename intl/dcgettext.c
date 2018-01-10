@@ -39,9 +39,6 @@ char *alloca ();
 #endif
 
 #include <errno.h>
-#ifndef errno
-extern int errno;
-#endif
 #ifndef __set_errno
 # define __set_errno(val) errno = (val)
 #endif

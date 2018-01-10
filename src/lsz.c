@@ -57,10 +57,6 @@ extern char *strerror();
 extern char *strstr();
 #endif
 
-#ifndef HAVE_ERRNO_DECLARATION
-extern int errno;
-#endif
-
 unsigned Baudrate=2400;	/* Default, should be set by first mode() call */
 unsigned Txwindow;	/* Control the size of the transmitted window */
 unsigned Txwspac;	/* Spacing between zcrcq requests */

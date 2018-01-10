@@ -135,9 +135,6 @@
 /* where the localedata hides */
 /* #undef LOCALEDIR */
 
-/* do your system libraries declare errno? */
-#undef HAVE_ERRNO_DECLARATION
-
 /* define to type of speed_t (long?) */
 #undef speed_t
 

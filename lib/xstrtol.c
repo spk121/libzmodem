@@ -38,9 +38,6 @@
 #include <assert.h>
 
 #include <errno.h>
-#ifndef errno
-extern int errno;
-#endif
 
 #if HAVE_LIMITS_H
 # include <limits.h>
