@@ -12,7 +12,7 @@ AUTOMAKE_OPTIONS=ansi2knr
 EXTRA_DIST = ansi2knr.1 ansi2knr.c lrzszbug.in
 INCLUDES = -I.. -I$(srcdir) -I$(top_srcdir)/src -I../intl -I$(top_srcdir)/lib
 #DEFS = -DLOCALEDIR=\"$(localedir)\" -DOS=\"@host_os@\" -DCPU=\"@host_cpu@\"
-DEFS = -DNFGVMIN @DEFS@ -DLOCALEDIR=\"$(localedir)\"
+DEFS =  @DEFS@ -DLOCALEDIR=\"$(localedir)\"
 
 install-exec-local:
 	rm -f $(DESTDIR)/$(bindir)/`echo lsb | sed -e '$(transform)'`

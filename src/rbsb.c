@@ -51,12 +51,6 @@ long Locbit = LLITOUT;	/* Bit SUPPOSED to disable output translations */
 # endif
 #endif
 
-#if defined(HOWMANY) && HOWMANY  > 255
-#ifndef NFGVMIN
-Howmany must be 255 or less
-#endif
-#endif
-
 static struct {
 	unsigned baudr;
 	speed_t speedcode;
@@ -270,11 +264,7 @@ io_mode(int fd, int n)
 #else
 		tty.c_cc[VQUIT] = -1;			/* Quit char */
 #endif
-#ifdef NFGVMIN
 		tty.c_cc[VMIN] = 1;
-#else
-		tty.c_cc[VMIN] = 3;	 /* This many chars satisfies reads */
-#endif
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
 
 		tcsetattr(fd,TCSADRAIN,&tty);
@@ -302,11 +292,7 @@ io_mode(int fd, int n)
 		tty.c_cflag |= CS8;	
 		if (Twostop)
 			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
-#ifdef NFGVMIN
 		tty.c_cc[VMIN] = 1; /* This many chars satisfies reads */
-#else
-		tty.c_cc[VMIN] = HOWMANY; /* This many chars satisfies reads */
-#endif
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
 		tcsetattr(fd,TCSADRAIN,&tty);
 		Baudrate = getspeed(cfgetospeed(&tty));
@@ -346,11 +332,7 @@ io_mode(int fd, int n)
 		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? 03 : 030;	/* Interrupt char */
 #endif
 		tty.c_cc[VQUIT] = -1;			/* Quit char */
-#ifdef NFGVMIN
 		tty.c_cc[VMIN] = 1;
-#else
-		tty.c_cc[VMIN] = 3;	 /* This many chars satisfies reads */
-#endif
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
 
 		(void) ioctl(fd, TCSETAW, &tty);
@@ -373,11 +355,7 @@ io_mode(int fd, int n)
 		tty.c_cflag |= CS8;	/* Set character size = 8 */
 		if (Twostop)
 			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
-#ifdef NFGVMIN
 		tty.c_cc[VMIN] = 1; /* This many chars satisfies reads */
-#else
-		tty.c_cc[VMIN] = HOWMANY; /* This many chars satisfies reads */
-#endif
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
 		(void) ioctl(fd, TCSETAW, &tty);
 		did0 = TRUE;

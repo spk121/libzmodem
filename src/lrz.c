@@ -43,17 +43,8 @@
 
 #define MAX_BLOCK 8192
 
-/*
- * Max value for HOWMANY is 255 if NFGVMIN is not defined.
- *   A larger value reduces system overhead but may evoke kernel bugs.
- *   133 corresponds to an XMODEM/CRC sector
- */
 #ifndef HOWMANY
-#ifdef NFGVMIN
 #define HOWMANY MAX_BLOCK
-#else
-#define HOWMANY 255
-#endif
 #endif
 
 unsigned Baudrate = 2400;
@@ -819,11 +810,7 @@ wcrxpn(struct zm_fileinfo *zi, char *rpn)
 	register int c;
 	size_t Blklen=0;		/* record length of received packets */
 
-#ifdef NFGVMIN
 	READLINE_PF(1);
-#else
-	purgeline(0);
-#endif
 
 et_tu:
 	Firstsec=TRUE;
@@ -959,13 +946,8 @@ get2:
 				zperr(_("Sector number garbled"));
 		}
 		/* make sure eot really is eot and not just mixmash */
-#ifdef NFGVMIN
 		else if (firstch==EOT && READLINE_PF(1)==TIMEOUT)
 			return WCEOT;
-#else
-		else if (firstch==EOT && READLINE_PF>0)
-			return WCEOT;
-#endif
 		else if (firstch==CAN) {
 			if (Lastrx==CAN) {
 				zperr( _("Sender Cancelled"));
