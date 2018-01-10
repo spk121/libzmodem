@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <utime.h>
+#include <time.h>
 
 #include "timing.h"
 #include "long-options.h"
@@ -40,7 +41,6 @@
 #include "error.h"
 
 #ifndef STRICT_PROTOTYPES
-extern time_t time();
 extern char *strerror();
 extern char *strstr();
 #endif
