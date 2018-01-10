@@ -48,9 +48,6 @@
 /* Define if you need to in order for stat and other things to work.  */
 #undef _POSIX_SOURCE
 
-/* Define as the return type of signal handlers (int or void).  */
-#undef RETSIGTYPE
-
 /* Define if the setvbuf function takes the buffering type as its second
    argument and the buffer pointer as the third, as on System V
    before release 3.  */
@@ -106,9 +103,6 @@
 
 /* Define to 1 if you have the stpcpy function.  */
 #undef HAVE_STPCPY
-
-/* Define to 1 if your utime() takes struct utimbuf as second argument */
-#undef HAVE_STRUCT_UTIMBUF
 
 /* Define to 1 if ANSI function prototypes are usable.  */
 #undef PROTOTYPES
@@ -240,9 +234,6 @@
 /* Define if you have the times function.  */
 #undef HAVE_TIMES
 
-/* Define if you have the utime function.  */
-#undef HAVE_UTIME
-
 /* Define if you have the vasprintf function.  */
 #undef HAVE_VASPRINTF
 
@@ -317,9 +308,6 @@
 
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
-
-/* Define if you have the <utime.h> header file.  */
-#undef HAVE_UTIME_H
 
 /* Define if you have the <values.h> header file.  */
 #undef HAVE_VALUES_H

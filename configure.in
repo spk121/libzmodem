@@ -148,12 +148,8 @@ dnl Checks for library functions.
 if test $cross_compiling = no ; then
 	AC_FUNC_SETVBUF_REVERSED
 fi
-AC_TYPE_SIGNAL
-dnl suggested by autoscan, but not really needed.
-dnl AC_FUNC_UTIME_NULL
 AC_FUNC_MMAP
 AC_FUNC_ALLOCA
-AC_EGREP_HEADER([struct.*utimbuf], utime.h, AC_DEFINE(HAVE_STRUCT_UTIMBUF))
 
 AC_CHECK_FUNCS(gettimeofday settimeofday)
 AC_CHECK_FUNCS(strchr memcpy select vprintf)
