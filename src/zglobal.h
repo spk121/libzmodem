@@ -6,6 +6,7 @@
   Copyright (C) until 1998 Chuck Forsberg (OMEN Technology Inc)
   Copyright (C) 1994 Matt Porter
   Copyright (C) 1996, 1997 Uwe Ohse
+  Copyright (C) 2018 Michael L. Gran
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -360,7 +361,7 @@ extern int no_timeout;
 extern int Zctlesc;    /* Encode control characters */
 extern int under_rsh;
 
-RETSIGTYPE bibi __P ((int n));
+void bibi __P ((int n));
 
 #define sendline(c) putchar((c) & 0377)
 #define xsendline(c) putchar(c)

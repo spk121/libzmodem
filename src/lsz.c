@@ -3,6 +3,7 @@
   Copyright (C) until 1988 Chuck Forsberg (Omen Technology INC)
   Copyright (C) 1994 Matt Porter, Michael D. Black
   Copyright (C) 1996, 1997 Uwe Ohse
+  Copyright (C) 2018 Michael L. Gran
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -219,7 +220,7 @@ static int zrqinits_sent=0;
 static int play_with_sigint=0;
 
 /* called by signal interrupt or terminate to clean things up */
-RETSIGTYPE
+void
 bibi (int n)
 {
 	canit(STDOUT_FILENO);
@@ -235,7 +236,7 @@ bibi (int n)
 }
 
 /* Called when ZMODEM gets an interrupt (^C) */
-static RETSIGTYPE
+static void
 onintr(int n LRZSZ_ATTRIB_UNUSED)
 {
 	signal(SIGINT, SIG_IGN);

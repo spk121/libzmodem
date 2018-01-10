@@ -3,6 +3,7 @@
   Copyright (C) until 1998 Chuck Forsberg (OMEN Technology Inc)
   Copyright (C) 1994 Matt Porter
   Copyright (C) 1996, 1997 Uwe Ohse
+  Copyright (C) 2018 Michael L. Gran
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -43,7 +44,7 @@ static char *readline_buffer;
 int readline_left=0;
 char *readline_ptr;
 
-static RETSIGTYPE
+static void
 zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
 {
 	/* doesn't need to do anything */

@@ -1,6 +1,7 @@
 /*
   tcp.c - tcp handling for lrzsz
   Copyright (C) 1997 Uwe Ohse
+  Copyright (C) 2018 Michael L. Gran
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -38,7 +39,7 @@
 #include <stdlib.h>
 #include "error.h"
 
-static RETSIGTYPE
+static void
 tcp_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
 {
     /* doesn't need to do anything */
