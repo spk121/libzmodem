@@ -7,10 +7,6 @@ To install:
    Use the following options if you need to:
    --enable-pubdir=/var/spool/uucppublic
      if you want support for a public writeable directory.
-   --disable-mkdir
-     if rz shall never create directories (this option is only included
-     because disbaling the directory creation was possible with the
-     original sources).
    --prefix=/usr/local
      to install the programs and documentation under /usr/local instead
      of /usr (default).

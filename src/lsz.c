@@ -67,26 +67,26 @@ static int no_unixmode;
 
 int Canseek=1; /* 1: can; 0: only rewind, -1: neither */
 
-static int zsendfile __P ((struct zm_fileinfo *zi, const char *buf, size_t blen));
-static int getnak __P ((void));
-static int wctxpn __P ((struct zm_fileinfo *));
-static int wcs __P ((const char *oname, const char *remotename));
-static size_t zfilbuf __P ((struct zm_fileinfo *zi));
-static size_t filbuf __P ((char *buf, size_t count));
-static int getzrxinit __P ((void));
-static int calc_blklen __P ((long total_sent));
-static int sendzsinit __P ((void));
-static int wctx __P ((struct zm_fileinfo *));
-static int zsendfdata __P ((struct zm_fileinfo *));
-static int getinsync __P ((struct zm_fileinfo *, int flag));
-static void countem __P ((int argc, char **argv));
-static void chkinvok __P ((const char *s));
-static void usage __P ((int exitcode, const char *what));
-static int zsendcmd __P ((const char *buf, size_t blen));
-static void saybibi __P ((void));
-static int wcsend __P ((int argc, char *argp[]));
-static int wcputsec __P ((char *buf, int sectnum, size_t cseclen));
-static void usage1 __P ((int exitcode));
+static int zsendfile (struct zm_fileinfo *zi, const char *buf, size_t blen);
+static int getnak (void);
+static int wctxpn (struct zm_fileinfo *);
+static int wcs (const char *oname, const char *remotename);
+static size_t zfilbuf (struct zm_fileinfo *zi);
+static size_t filbuf (char *buf, size_t count);
+static int getzrxinit (void);
+static int calc_blklen (long total_sent);
+static int sendzsinit (void);
+static int wctx (struct zm_fileinfo *);
+static int zsendfdata (struct zm_fileinfo *);
+static int getinsync (struct zm_fileinfo *, int flag);
+static void countem (int argc, char **argv);
+static void chkinvok (const char *s);
+static void usage (int exitcode, const char *what);
+static int zsendcmd (const char *buf, size_t blen);
+static void saybibi (void);
+static int wcsend (int argc, char *argp[]);
+static int wcputsec (char *buf, int sectnum, size_t cseclen);
+static void usage1 (int exitcode);
 
 #define ZSDATA(x,y,z) \
 	do { if (Crc32t) {zsda32(x,y,z); } else {zsdata(x,y,z);}} while(0)

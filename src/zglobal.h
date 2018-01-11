@@ -27,14 +27,6 @@
 #include "config.h"
 #include <sys/types.h>
 
-#ifndef __P
-#if defined (__GNUC__) || (defined (__STDC__) && __STDC__)
-#define __P(args) args
-#else
-#define __P(args) ()
-#endif  /* GCC.  */
-#endif  /* Not __P.  */
-
 #ifdef __STDC__
 #include <stdarg.h>
 #else
@@ -310,7 +302,7 @@ extern int no_timeout;
 extern int Zctlesc;    /* Encode control characters */
 extern int under_rsh;
 
-void bibi __P ((int n));
+void bibi (int n);
 
 #define sendline(c) putchar((c) & 0377)
 #define xsendline(c) putchar(c)
@@ -321,10 +313,10 @@ extern int readline_left; /* number of buffered chars left to read */
 #define READLINE_PF(timeout) \
     (--readline_left >= 0? (*readline_ptr++ & 0377) : readline_internal(timeout))
 
-int readline_internal __P ((unsigned int timeout));
-void readline_purge __P ((void));
-void readline_setup __P ((int fd, size_t readnum, 
-	size_t buffer_size)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+int readline_internal (unsigned int timeout);
+void readline_purge (void);
+void readline_setup (int fd, size_t readnum, 
+	size_t buffer_size) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 
 
 /* rbsb.c */
@@ -336,9 +328,9 @@ extern unsigned char checked;
 extern int iofd;
 extern unsigned Baudrate;
 
-void zperr __P ((const char *fmt, ...));
-void zpfatal __P ((const char *fmt, ...));
-void vfile __P ((const char *format, ...));
+void zperr (const char *fmt, ...);
+void zpfatal (const char *fmt, ...);
+void vfile (const char *format, ...);
 #define vchar(x) putc(x,stderr)
 #define vstring(x) fputs(x,stderr)
 
@@ -348,19 +340,19 @@ void vfile __P ((const char *format, ...));
 #endif
 #endif
 #ifndef vstringf
-void vstringf __P ((const char *format, ...));
+void vstringf (const char *format, ...);
 #endif
 #define VPRINTF(level,format_args) do {if ((Verbose)>=(level)) \
 	vstringf format_args ; } while(0)
 
 /* rbsb.c */
-int from_cu __P ((void)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-int rdchk __P ((int fd));
-int io_mode __P ((int fd, int n)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-void sendbrk __P ((int fd));
+int from_cu (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+int rdchk (int fd);
+int io_mode (int fd, int n) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+void sendbrk (int fd);
 #define flushmo() fflush(stdout)
-void purgeline __P ((int fd));
-void canit __P ((int fd));
+void purgeline (int fd);
+void canit (int fd);
 
 
 /* crctab.c */
@@ -388,24 +380,24 @@ extern int Crc32;      /* Display flag indicating 32 bit CRC being received */
 extern int Znulls;     /* Number of nulls to send at beginning of ZDATA hdr */
 extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
 
-extern void zsendline __P ((int c));
-extern void zsendline_init __P ((void)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-void zsbhdr __P ((int type, char *hdr));
-void zshhdr __P ((int type, char *hdr));
-void zsdata __P ((const char *buf, size_t length, int frameend));
-void zsda32 __P ((const char *buf, size_t length, int frameend));
-int zrdata __P ((char *buf, int length, size_t *received));
-int zgethdr __P ((char *hdr, int eflag, size_t *));
-void stohdr __P ((size_t pos)) LRZSZ_ATTRIB_REGPARM(1);
-long rclhdr __P ((char *hdr)) LRZSZ_ATTRIB_REGPARM(1);
+extern void zsendline (int c);
+extern void zsendline_init (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+void zsbhdr (int type, char *hdr);
+void zshhdr (int type, char *hdr);
+void zsdata (const char *buf, size_t length, int frameend);
+void zsda32 (const char *buf, size_t length, int frameend);
+int zrdata (char *buf, int length, size_t *received);
+int zgethdr (char *hdr, int eflag, size_t *);
+void stohdr (size_t pos) LRZSZ_ATTRIB_REGPARM(1);
+long rclhdr (char *hdr) LRZSZ_ATTRIB_REGPARM(1);
 
-int tcp_server __P ((char *buf)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-int tcp_connect __P ((char *buf)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-int tcp_accept __P ((int d)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+int tcp_server (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+int tcp_connect (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+int tcp_accept (int d) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 
 
-const char * protname __P ((void)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-void lsyslog __P ((int, const char *,...));
+const char * protname (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+void lsyslog (int, const char *,...);
 
 
 
