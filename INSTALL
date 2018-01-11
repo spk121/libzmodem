@@ -5,32 +5,8 @@ To install:
 1) configure the package, possibly with
 		CFLAGS=-O2 ./configure
    Use the following options if you need to:
-   --disble-timesync
-     this saves a few bytes. The timesync protocol allows to set the
-     receivers system time to the sender's time (see option S in
-     the manual pages). Including timesync support doesn't introduce
-     any incompatabilites (but *using* timesync does).
    --enable-pubdir=/var/spool/uucppublic
      if you want support for a public writeable directory.
-   --enable-syslog[=[[FACILITY,]level]]
-     to include syslog support. Not much will be written to syslog,
-     just one line per file.
-     Default facility is LOG_UUCP, but you can change that to whatever
-     your syslog.h supports.
-     Level defaults to "default", meaning syslog is on by default,
-     but is can be forced ("force"), meaning users will not be
-     allowed to turn it off, and it can be "optional", meaning users
-     have to turn it on for every transmission.
-     Example:
-     	--enable-syslog=LOG_LOCAL0,force
-     	  every filetransfer will be logged to LOG_LOCAL0.
-     	--enable-syslog=default and --enable-syslog
-     	  every filetransfer will be logged to LOG_UUCP, unless
-     	  the user turns this off with the "--syslog=off" runtime
-     	  option of lsz and lrz.
-     	--enable-syslog=optional
-     	  no filetransfer will be logged, but syslogging can be
-     	  enabled with the "--syslog" runtime option of lsz and lrz.
    --disable-mkdir
      if rz shall never create directories (this option is only included
      because disbaling the directory creation was possible with the

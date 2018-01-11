@@ -177,11 +177,6 @@ rdchk(int fd)
 		return 0;
 	lf = read(fd, &checked, 1) ;
 	if (-1==fcntl(fd, F_SETFL, savestat)) {
-#ifdef ENABLE_SYSLOG
-		if (enable_syslog)
-			lsyslog(LOG_CRIT,"F_SETFL failed in rdchk(): %s",	
-				strerror(errno));
-#endif
 		zpfatal("rdchk: F_SETFL failed\n"); /* lose */
 		/* there is really no way to recover. And we can't tell
 		 * the other side what's going on if we can't write to

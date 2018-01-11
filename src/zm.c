@@ -511,22 +511,6 @@ count_blk(int size)
 	blocksizes[i].count++;
 }
 
-static void printout_blocksizes(void) __attribute__((__destructor__));
-static void 
-printout_blocksizes(void) 
-{
-	int i;
-	for (i=0;blocksizes[i].size;i++) {
-		if (blocksizes[i].count) {
-			lsyslog(LOG_DEBUG,"%4d byte: %ld blocks\n",
-				   blocksizes[i].size,blocksizes[i].count);
-		}
-	}
-	if (blocksizes[i].count) {
-		lsyslog(LOG_DEBUG,"unk. byte: %ld blocks",
-			   blocksizes[i].count);
-	}
-}
 #define COUNT_BLK(x) count_blk(x)
 #else
 #define COUNT_BLK(x)

@@ -129,37 +129,6 @@ int Zrwindow = 1400;	/* RX window size (controls garbage count) */
 int tryzhdrtype=ZRINIT;	/* Header type to send corresponding to Last rx close */
 time_t stop_time;
 
-#ifdef ENABLE_SYSLOG
-#  if defined(ENABLE_SYSLOG_FORCE) || defined(ENABLE_SYSLOG_DEFAULT)
-int enable_syslog=TRUE;
-#  else
-int enable_syslog=FALSE;
-#  endif
-#define DO_SYSLOG_FNAME(message) do { \
-	if (enable_syslog) { \
-		const char *shortname; \
-		if (!zi->fname) \
-			shortname="no.name"; \
-		else { \
-			shortname=strrchr(zi->fname,'/'); \
-			if (!shortname) \
-				shortname=zi->fname; \
-			else \
-				shortname++; \
-		} \
-        lsyslog message ; \
-	} \
-} while(0)
-#define DO_SYSLOG(message) do { \
-	if (enable_syslog) { \
-        lsyslog message ; \
-	} \
-} while(0)
-#else
-#define DO_SYSLOG_FNAME(message) do { } while(0)
-#define DO_SYSLOG(message) do { } while(0)
-#endif
-
 
 /* called by signal interrupt or terminate to clean things up */
 void
@@ -209,7 +178,6 @@ static struct option const long_options[] =
 	{"zmodem", no_argument, NULL, 'Z'},
 	{"overwrite", no_argument, NULL, 'y'},
 	{"null", no_argument, NULL, 'D'},
-	{"syslog", optional_argument, NULL , 2},
 	{"delay-startup", required_argument, NULL, 4},
 	{"o-sync", no_argument, NULL, 5},
 	{"o_sync", no_argument, NULL, 5},
@@ -247,10 +215,6 @@ main(int argc, char *argv[])
 
 	from_cu();
 	chkinvok(argv[0]);	/* if called as [-]rzCOMMAND set flag */
-
-#ifdef ENABLE_SYSLOG
-	openlog(program_name,LOG_PID,ENABLE_SYSLOG);
-#endif
 
 	setlocale (LC_ALL, "");
 	bindtextdomain (PACKAGE, LOCALEDIR);
@@ -381,7 +345,6 @@ main(int argc, char *argv[])
 			if (!under_rsh)
 				Restricted=0;
 			else  {
-				DO_SYSLOG((LOG_INFO,"--unrestrict option used under restricted shell"));
 				error(1,0,
 	_("security violation: can't do that under restricted shell\n"));
 			}
@@ -394,20 +357,6 @@ main(int argc, char *argv[])
 		case 'y':
 			Rxclob=TRUE; break;
 		case 2:
-#ifdef ENABLE_SYSLOG
-#  ifndef ENABLE_SYSLOG_FORCE
-			if (optarg && (!strcmp(optarg,"off") || !strcmp(optarg,"no"))) {
-				if (under_rsh)
-					error(0,0, _("cannot turnoff syslog"));
-				else
-					enable_syslog=FALSE;
-			}
-			else
-				enable_syslog=TRUE;
-#  else
-			error(0,0, _("cannot turnoff syslog"));
-#  endif
-#endif
 		case 3:
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, "km");
 			bytes_per_error = tmp;
@@ -597,7 +546,6 @@ usage(int exitcode, const char *what)
 "  -R, --restricted            restricted, more secure mode\n"
 "  -s, --stop-at {HH:MM|+N}    stop transmission at HH:MM or in N seconds\n"
 "  -S, --timesync              request remote time (twice: set local time)\n"
-"      --syslog[=off]          turn syslog on or off, if possible\n"
 "  -t, --timeout N             set timeout to N tenths of a second\n"
 "  -u, --keep-uppercase        keep upper case filenames\n"
 "  -U, --unrestrict            disable restricted mode (if allowed to)\n"
@@ -622,9 +570,6 @@ wcreceive(int argc, char **argp)
 {
 	int c;
 	struct zm_fileinfo zi;
-#ifdef ENABLE_SYSLOG
-	const char *shortname=NULL;;
-#endif
 	zi.fname=NULL;
 	zi.modtime=0;
 	zi.mode=0;
@@ -645,42 +590,23 @@ wcreceive(int argc, char **argp)
 				goto fubar;
 			c = rzfiles(&zi);
 
-#ifdef ENABLE_SYSLOG
-			shortname=NULL;
-#endif
 			if (c)
 				goto fubar;
 		} else {
 			for (;;) {
 				if (Verbose > 1
-#ifdef ENABLE_SYSLOG
-					|| enable_syslog
-#endif
 				)
 					timing(1,NULL);
-#ifdef ENABLE_SYSLOG
-				shortname=NULL;
-#endif
 				if (wcrxpn(&zi,secbuf)== ERROR)
 					goto fubar;
 				if (secbuf[0]==0)
 					return OK;
 				if (procheader(secbuf, &zi) == ERROR)
 					goto fubar;
-#ifdef ENABLE_SYSLOG
-				shortname=strrchr(zi.fname,'/');
-				if (shortname)
-					shortname++;
-				else
-					shortname=zi.fname;
-#endif
 				if (wcrx(&zi)==ERROR)
 					goto fubar;
 
 				if (Verbose > 1
-#ifdef ENABLE_SYSLOG
-					|| enable_syslog
-#endif
 				) {
 					double d;
 					long bps;
@@ -694,11 +620,6 @@ wcreceive(int argc, char **argp)
 							_("\rBytes received: %7ld/%7ld   BPS:%-6ld                \r\n"),
 							(long) zi.bytes_received, (long) zi.bytes_total, bps);
 					}
-#ifdef ENABLE_SYSLOG
-					if (enable_syslog)
-						lsyslog(LOG_INFO,"%s/%s: %ld Bytes, %ld BPS",
-							shortname,protname(),zi.bytes_received, bps);
-#endif
 				}
 			}
 		}
@@ -709,9 +630,6 @@ wcreceive(int argc, char **argp)
 		zi.bytes_total = DEFBYTL;
 
 		if (Verbose > 1
-#ifdef ENABLE_SYSLOG
-			|| enable_syslog
-#endif
 			) 
 			timing(1,NULL);
 		procheader(dummy, &zi);
@@ -725,32 +643,17 @@ wcreceive(int argc, char **argp)
 
 		strcpy(Pathname, *argp);
 		checkpath(Pathname);
-#ifdef ENABLE_SYSLOG
-		shortname=strrchr(*argp,'/');
-		if (shortname)
-			shortname++;
-		else
-			shortname=*argp;
-#endif
 		vchar('\n');
 		vstringf(_("%s: ready to receive %s"), program_name, Pathname);
 		vstring("\r\n");
 
 		if ((fout=fopen(Pathname, "w")) == NULL) {
-#ifdef ENABLE_SYSLOG
-			if (enable_syslog)
-				lsyslog(LOG_ERR,"%s/%s: cannot open: %m",
-					shortname,protname());
-#endif
 			return ERROR;
 		}
 		if (wcrx(&zi)==ERROR) {
 			goto fubar;
 		}
 		if (Verbose > 1
-#ifdef ENABLE_SYSLOG
-			|| enable_syslog
-#endif
 	 		) {
 			double d;
 			long bps;
@@ -763,20 +666,10 @@ wcreceive(int argc, char **argp)
 					_("\rBytes received: %7ld   BPS:%-6ld                \r\n"),
 					(long) zi.bytes_received, bps);
 			}
-#ifdef ENABLE_SYSLOG
-			if (enable_syslog)
-				lsyslog(LOG_INFO,"%s/%s: %ld Bytes, %ld BPS",
-					shortname,protname(),zi.bytes_received, bps);
-#endif
 		}
 	}
 	return OK;
 fubar:
-#ifdef ENABLE_SYSLOG
-	if (enable_syslog)
-		lsyslog(LOG_ERR,"%s/%s: got error", 
-			shortname ? shortname : "no.name", protname());
-#endif
 	canit(STDOUT_FILENO);
 	if (Topipe && fout) {
 		pclose(fout);  return ERROR;
@@ -999,7 +892,6 @@ do_crc_check(FILE *f, size_t remote_bytes, size_t check_bytes)
 	int c;
 	int t1=0,t2=0;
 	if (-1==fstat(fileno(f),&st)) {
-		DO_SYSLOG((LOG_ERR,"cannot fstat open file: %s",strerror(errno)));
 		return ERROR;
 	}
 	if (check_bytes==0 && ((size_t) st.st_size)!=remote_bytes)
@@ -1066,7 +958,6 @@ procheader(char *name, struct zm_fileinfo *zi)
 				/* alert - file name ended in with a / */
 				if (Verbose)
 					vstringf(_("file name ends with a /, skipped: %s\n"),name);
-				DO_SYSLOG((LOG_ERR,"file name ends with a /, skipped: %s", name));
 				return ERROR;
 			}
 			name=p;
@@ -1140,25 +1031,18 @@ procheader(char *name, struct zm_fileinfo *zi)
 		int i;
 		if (zmanag == ZF1_ZMNEW || zmanag==ZF1_ZMNEWL) {
 			if (-1==fstat(fileno(fout),&sta)) {
-#ifdef ENABLE_SYSLOG
-				int e=errno;
-#endif
 				if (Verbose)
 					vstringf(_("file exists, skipped: %s\n"),name);
-				DO_SYSLOG((LOG_ERR,"cannot fstat open file %s: %s",
-					name,strerror(e)));
 				return ERROR;
 			}
 			if (zmanag == ZF1_ZMNEW) {
 				if (sta.st_mtime > zi->modtime) {
-					DO_SYSLOG((LOG_INFO,"skipping %s: newer file exists", name));
 					return ERROR; /* skips file */
 				}
 			} else {
 				/* newer-or-longer */
 				if (((size_t) sta.st_size) >= zi->bytes_total 
 					&& sta.st_mtime > zi->modtime) {
-					DO_SYSLOG((LOG_INFO,"skipping %s: longer+newer file exists", name));
 					return ERROR; /* skips file */
 				}
 			}
@@ -1340,12 +1224,7 @@ procheader(char *name, struct zm_fileinfo *zi)
 #endif
 		if ( !fout)
 		{
-#ifdef ENABLE_SYSLOG
-			int e=errno;
-#endif
 			zpfatal(_("cannot open %s"), name_static);
-			DO_SYSLOG((LOG_ERR,"%s: cannot open: %s",
-				protname(),strerror(e)));
 			return ERROR;
 		}
 	}
@@ -1699,10 +1578,8 @@ again:
 						vstringf("%s: %s\n", program_name, 
 							_("not executed"));
 					zshhdr(ZCOMPL, Txhdr);
-					DO_SYSLOG((LOG_INFO,"rexec denied: %s",secbuf));
 					return ZCOMPL;
 				}
-				DO_SYSLOG((LOG_INFO,"rexec allowed: %s",secbuf));
 				if (cmdzack1flg & ZCACK1)
 					stohdr(0L);
 				else
@@ -1754,9 +1631,6 @@ rzfiles(struct zm_fileinfo *zi)
 		switch (c) {
 		case ZEOF:
 			if (Verbose > 1
-#ifdef ENABLE_SYSLOG
-				|| enable_syslog
-#endif
 	 		) {
 				double d;
 				long bps;
@@ -1769,8 +1643,6 @@ rzfiles(struct zm_fileinfo *zi)
 						_("\rBytes received: %7ld/%7ld   BPS:%-6ld                \r\n"),
 						(long) zi->bytes_received, (long) zi->bytes_total, bps);
 				}
-				DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: %ld Bytes, %ld BPS",shortname,
-						   protname(), (long) zi->bytes_total,bps));
 			}
 			/* FALL THROUGH */
 		case ZSKIP:
@@ -1778,7 +1650,6 @@ rzfiles(struct zm_fileinfo *zi)
 			{
 				if (Verbose) 
 					vstringf(_("Skipped"));
-				DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: skipped",shortname,protname()));
 			}
 			switch (tryz()) {
 			case ZCOMPL:
@@ -1792,7 +1663,6 @@ rzfiles(struct zm_fileinfo *zi)
 		default:
 			return c;
 		case ERROR:
-			DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error",shortname,protname()));
 			return ERROR;
 		}
 	}
@@ -1832,8 +1702,6 @@ rzfile(struct zm_fileinfo *zi)
 	n = 20;
 
 	if (procheader(secbuf,zi) == ERROR) {
-		DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: procheader error",
-				   shortname,protname()));
 		return (tryzhdrtype = ZSKIP);
 	}
 
@@ -1872,15 +1740,11 @@ nxthdr:
 		c = zgethdr(Rxhdr, 0, NULL);
 		switch (c) {
 		default:
-			DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error: zgethdr returned %d",shortname,
-					   protname(),c));
 			vfile("rzfile: zgethdr returned %d", c);
 			return ERROR;
 		case ZNAK:
 		case TIMEOUT:
 			if ( --n < 0) {
-				DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error: zgethdr returned %s",shortname,
-					   protname(),c == ZNAK ? "ZNAK" : "TIMEOUT"));
 				vfile("rzfile: zgethdr returned %d", c);
 				return ERROR;
 			}
@@ -1898,8 +1762,6 @@ nxthdr:
 			}
 			if (closeit(zi)) {
 				tryzhdrtype = ZFERR;
-				DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error: closeit return <>0",
-						   shortname, protname()));
 				vfile("rzfile: closeit returned <> 0");
 				return ERROR;
 			}
@@ -1907,8 +1769,6 @@ nxthdr:
 			return c;
 		case ERROR:	/* Too much garbage in header search error */
 			if ( --n < 0) {
-				DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error: zgethdr returned %d",
-						   shortname, protname(),c));
 				vfile("rzfile: zgethdr returned %d", c);
 				return ERROR;
 			}
@@ -1916,8 +1776,6 @@ nxthdr:
 			continue;
 		case ZSKIP:
 			closeit(zi);
-			DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error: sender skipped",
-					   shortname, protname()));
 			vfile("rzfile: Sender SKIPPED file");
 			return c;
 		case ZDATA:
@@ -1928,8 +1786,6 @@ nxthdr:
 #endif
 				if ( --n < 0) {
 					vfile("rzfile: out of sync");
-					DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: error: out of sync",
-					   shortname, protname()));
 					return ERROR;
 				}
 #if defined(SAVE_OOSB)
@@ -1944,12 +1800,6 @@ nxthdr:
 						if (neu)
 							neu->data=malloc(bytes_in_block);
 						if (neu && neu->data) {
-#ifdef ENABLE_SYSLOG
-/* call syslog to tell me if this happens */
-							lsyslog(LOG_ERR, 
-								   "saving out-of-sync-block %lx, len %lu",
-								   pos, (unsigned long) bytes_in_block);
-#endif
 							vfile("saving out-of-sync-block %lx, len %lu",pos,
 								  (unsigned long) bytes_in_block);
 							memcpy(neu->data,secbuf,bytes_in_block);
@@ -1988,8 +1838,6 @@ moredata:
 								/* too bad */
 								vfile(_("rzfile: bps rate %ld below min %ld"), 
 									  last_bps, min_bps);
-								DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: bps rate low: %ld < %ld",
-										   shortname, protname(), last_bps, min_bps));
 								return ERROR;
 							}
 						}
@@ -2002,8 +1850,6 @@ moredata:
 				if (stop_time && now>=stop_time) {
 					/* too bad */
 					vfile(_("rzfile: reached stop time"));
-					DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: reached stop time",
-							   shortname, protname()));
 					return ERROR;
 				}
 				
@@ -2020,22 +1866,16 @@ moredata:
 			{
 			case ZCAN:
 				vfile("rzfile: zrdata returned %d", c);
-				DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: zrdata returned ZCAN",
-						   shortname, protname()));
 				return ERROR;
 			case ERROR:	/* CRC error */
 				if ( --n < 0) {
 					vfile("rzfile: zgethdr returned %d", c);
-					DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: zrdata returned ERROR",
-							   shortname, protname()));
 					return ERROR;
 				}
 				zmputs(Attn);
 				continue;
 			case TIMEOUT:
 				if ( --n < 0) {
-					DO_SYSLOG_FNAME((LOG_INFO, "%s/%s: zrdata returned TIMEOUT",
-							   shortname, protname()));
 					vfile("rzfile: zgethdr returned %d", c);
 					return ERROR;
 				}

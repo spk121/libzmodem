@@ -42,36 +42,6 @@ AC_ARG_ENABLE(mkdir,
 	  	AC_DEFINE(ENABLE_MKDIR)
 	  fi],
 	[AC_DEFINE(ENABLE_MKDIR)])
-AC_ARG_ENABLE(syslog,
-	[--enable-syslog=FACILITY,{force,default,optional} include syslogsupport],
-	[
-	  if test "$enableval" = "no" ; then 
-		:
-	  else
-	    case "$enableval" in
-	    *,*)
-			level=`echo $enableval|sed -e 's/^.*,//'`
-			fac=`echo $enableval|sed -e 's/,.*$//'`
-			AC_DEFINE_UNQUOTED(ENABLE_SYSLOG,$fac)
-			;;
-		*)
-			lookup_facility=LOG_UUCP
-			level="$enableval"
-			;;
-		esac
-	  	if test "$level" = "force" ; then
-		  AC_DEFINE(ENABLE_SYSLOG_FORCE)
-	  	else 
-	  	  if test "$level" = "optional" ; then
-	  	    :
-	  	  else
-		    AC_DEFINE(ENABLE_SYSLOG_DEFAULT)
-		  fi
-	  	fi
-	  fi],[
-		AC_DEFINE(ENABLE_SYSLOG_DEFAULT)
-		lookup_facility=LOG_UUCP
-	  ])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -103,10 +73,6 @@ if test `hostname` = tirka.ohse.de -a "$cross_compiling" = no ; then
 fi
 
 dnl Checks for libraries.
-dnl SCO needs this.
-AC_CHECK_LIB(socket,syslog,,,)
-dnl BeOS needs this
-AC_CHECK_LIB(be,syslog,,,)
 dnl slowlartis needs this
 AC_CHECK_LIB(nsl,gethostbyname,,,)
 
@@ -115,7 +81,7 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(limits.h sys/ioctl.h sys/time.h unistd.h sys/times.h)
 LRZSZ_HEADERS_TERM_IO
 AC_CHECK_HEADERS(termios.h sys/termios.h termio.h sys/termio.h sgtty.h)
-AC_CHECK_HEADERS(sys/mman.h syslog.h sys/syslog.h sys/param.h)
+AC_CHECK_HEADERS(sys/mman.h sys/param.h)
 AC_CHECK_HEADERS(sys/select.h strings.h arpa/inet.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -136,7 +102,7 @@ AC_FUNC_ALLOCA
 
 AC_CHECK_FUNCS(gettimeofday settimeofday)
 AC_CHECK_FUNCS(strchr memcpy select vprintf)
-AC_CHECK_FUNCS(times rdchk syslog siginterrupt)
+AC_CHECK_FUNCS(times rdchk siginterrupt)
 AC_REPLACE_FUNCS(mkdir mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 
@@ -206,31 +172,6 @@ if test $libquark_cv_var_timezone = yes ; then
 else
 	AC_MSG_RESULT(no)
 fi
-if test "x$lookup_facility" = x ; then
-	:
-else
-	AC_MSG_CHECKING([for $lookup_facility])
-	AC_CACHE_VAL(lrzsz_cv_lookup_facility,[
-		AC_EGREP_CPP(ihave$lookup_facility, [
-#ifdef HAVE_SYSLOG_H
-#include <syslog.h>
-#else
-#include <sys/syslog.h>
-#endif
-#ifdef $lookup_facility
-ihave$lookup_facility
-#endif
-		], lrzsz_cv_lookup_facility=yes, lrzsz_cv_lookup_facility=no)
-	])
-	if test $lrzsz_cv_lookup_facility = yes ; then
-		AC_MSG_RESULT(yes)
-		AC_DEFINE_UNQUOTED(ENABLE_SYSLOG,$lookup_facility)
-	else
-		AC_DEFINE(ENABLE_SYSLOG,LOG_USER)
-		AC_MSG_RESULT(no)
-	fi
-fi
-
 
 AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
