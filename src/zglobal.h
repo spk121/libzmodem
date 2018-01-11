@@ -145,37 +145,16 @@ struct termios;
 #if defined HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-/* The following is from pathmax.h.  */
-/* Non-POSIX BSD systems might have gcc's limits.h, which doesn't define
-   PATH_MAX but might cause redefinition warnings when sys/param.h is
-   later included (as on MORE/BSD 4.3).  */
-#if defined(_POSIX_VERSION) || (defined(HAVE_LIMITS_H) && !defined(__GNUC__))
-# include <limits.h>
-#endif
 
-#ifndef _POSIX_PATH_MAX
-# define _POSIX_PATH_MAX 255
-#endif
-
-#if !defined(PATH_MAX) && defined(_PC_PATH_MAX)
-# define PATH_MAX (pathconf ("/", _PC_PATH_MAX) < 1 ? 1024 : pathconf ("/", _PC_PATH_MAX))
-#endif
+#include <limits.h>
 
 /* Don't include sys/param.h if it already has been.  */
 #if defined(HAVE_SYS_PARAM_H) && !defined(PATH_MAX) && !defined(MAXPATHLEN)
 # include <sys/param.h>
 #endif
 
-#if !defined(PATH_MAX) && defined(MAXPATHLEN)
-# define PATH_MAX MAXPATHLEN
-#endif
-
 #if !defined(LONG_MAX) && defined(HAVE_LIMITS_H)
 # include <limits.h>
-#endif
-
-#ifndef PATH_MAX
-# define PATH_MAX _POSIX_PATH_MAX
 #endif
 
 #ifdef __GNUC__
