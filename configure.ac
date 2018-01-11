@@ -37,12 +37,9 @@ AC_ARG_ENABLE(pubdir,
 	    AC_DEFINE([PUBDIR],"$enableval", [A public writeable directory])
 	  fi])
 dnl Checks for programs.
-AC_PROG_GCC_TRADITIONAL
 dnl AC_PROG_INSTALL  included in AM_INIT_AUTOMAKE
 dnl AC_PROG_MAKE_SET included in AM_INIT_AUTOMAKE
 AC_PROG_RANLIB
-AC_C_CONST
-AC_C_INLINE
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -51,10 +48,6 @@ AC_CHECK_HEADERS(sys/param.h)
 AC_CHECK_HEADERS(arpa/inet.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
-AC_TYPE_SIZE_T
-AC_TYPE_MODE_T
-AC_TYPE_OFF_T
-AC_STRUCT_TM
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS(vprintf)
