@@ -562,11 +562,8 @@ main(int argc, char **argv)
 	if (startup_delay)
 		sleep(startup_delay);
 
-#ifdef HAVE_SIGINTERRUPT
 	/* we want interrupted system calls to fail and not to be restarted. */
 	siginterrupt(SIGALRM,1);
-#endif
-
 
 	npats = argc - optind;
 	patts=&argv[optind];

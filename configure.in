@@ -101,7 +101,7 @@ AC_FUNC_MMAP
 AC_FUNC_ALLOCA
 
 AC_CHECK_FUNCS(strchr memcpy select vprintf)
-AC_CHECK_FUNCS(times rdchk siginterrupt)
+AC_CHECK_FUNCS(times rdchk)
 AC_REPLACE_FUNCS(mkdir mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 
