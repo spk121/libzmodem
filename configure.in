@@ -27,16 +27,6 @@ case $VERSION in
 esac
 changequote([, ])dnl
 
-
-AC_ARG_ENABLE(timesync,
-	[--disable-timesync   exclude support for timesync protocol],
-	[if test "$enableval" = "no" ; then 
-		:
-	  else
-		AC_DEFINE(ENABLE_TIMESYNC)
-	  fi],
-	[AC_DEFINE(ENABLE_TIMESYNC)])
-AC_SUBST(ENABLE_TIMESYNC)
 AC_ARG_ENABLE(pubdir,
 	[--enable-pubdir=/path   include support for a public writeable directory],
 	[if test "$enableval" = "no" ; then 
@@ -111,11 +101,6 @@ if test `hostname` = tirka.ohse.de -a "$cross_compiling" = no ; then
 		esac
 	fi
 fi
-case "$CFLAGS" in
-*-Wstrict-prototypes*)
-	AC_DEFINE(STRICT_PROTOTYPES)
-	;;
-esac
 
 dnl Checks for libraries.
 dnl SCO needs this.

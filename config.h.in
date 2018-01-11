@@ -119,9 +119,6 @@
 /* Define to public writable directory if you want this. Leave out the "'s */
 #undef PUBDIR
 
-/* Define to 1 if you want support for the timesync protocol */
-#undef ENABLE_TIMESYNC
-
 /* define to 1 if you want strict ANSI prototypes. will remove some 
    extern x(); declarations. */
 #undef STRICT_PROTOTYPES

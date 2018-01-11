@@ -79,10 +79,8 @@ int zmodem_requested=FALSE;
 
 char secbuf[MAX_BLOCK + 1];
 
-#ifdef ENABLE_TIMESYNC
 int timesync_flag=0;
 int in_timesync=0;
-#endif
 int in_tcpsync=0;
 int tcpsync_flag=1;
 int tcp_socket=-1;
@@ -353,7 +351,6 @@ main(int argc, char *argv[])
 			break;
 		case 'R': Restricted++;  break;
 		case 'S':
-#ifdef ENABLE_TIMESYNC
 			timesync_flag++;
 			if (timesync_flag==2) {
 #ifdef HAVE_SETTIMEOFDAY
@@ -363,7 +360,6 @@ main(int argc, char *argv[])
 					error(0,0,
 				_("not running as root (this is good!), can not set time\n"));
 			}
-#endif
 			break;
 		case 't':
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
@@ -1107,11 +1103,9 @@ procheader(char *name, struct zm_fileinfo *zi)
 	if (skip_if_not_found)
 		openmode="r+";
 
-#ifdef ENABLE_TIMESYNC
 	in_timesync=0;
 	if (timesync_flag && 0==strcmp(name,"$time$.t"))
 		in_timesync=1;
-#endif
 	in_tcpsync=0;
 	if (tcpsync_flag && 0==strcmp(name,"$tcp$.t"))
 		in_tcpsync=1;
@@ -1137,10 +1131,8 @@ procheader(char *name, struct zm_fileinfo *zi)
 	/* Check for existing file */
 	if (zconv != ZCRESUM && !Rxclob && (zmanag&ZF1_ZMMASK) != ZF1_ZMCLOB 
 		&& (zmanag&ZF1_ZMMASK) != ZF1_ZMAPND
-#ifdef ENABLE_TIMESYNC
 	    && !in_timesync
 	    && !in_tcpsync
-#endif
 		&& (fout=fopen(name, "r"))) {
 		struct stat sta;
 		char *tmpname;
@@ -1219,7 +1211,6 @@ procheader(char *name, struct zm_fileinfo *zi)
 			*p = 0;
 	}
 
-#ifdef ENABLE_TIMESYNC
 	if (in_timesync)
 	{
 		long t=time(0);
@@ -1242,7 +1233,6 @@ procheader(char *name, struct zm_fileinfo *zi)
 #endif
 		return ERROR; /* skips file */
 	}
-#endif /* ENABLE_TIMESYNC */
 	if (in_tcpsync) {
 		fout=tmpfile();
 		if (!fout) {
@@ -1623,10 +1613,8 @@ tryz(void)
 #else
 		Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO;
 #endif
-#ifdef ENABLE_TIMESYNC
 		if (timesync_flag)
 			Txhdr[ZF1] |= ZF1_TIMESYNC;
-#endif
 		if (Zctlesc)
 			Txhdr[ZF0] |= TESCCTL; /* TESCCTL == ESCCTL */
 		zshhdr(tryzhdrtype, Txhdr);
