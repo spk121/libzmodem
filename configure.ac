@@ -11,12 +11,6 @@ AC_PREREQ(2.12)
 
 ALL_LINGUAS="de"
 
-changequote(,)dnl
-case $VERSION in
-	[0-9]*.[0-9]*.[0-9]*) README_ALPHA="README-alpha";;
-	*) README_ALPHA=;;
-esac
-changequote([, ])dnl
 AC_ARG_ENABLE(pubdir,
 	[--enable-pubdir=/path   include support for a public writeable directory],
 	[if test "$enableval" = "no" ; then 
