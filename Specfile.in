@@ -47,7 +47,7 @@ strip $RPM_BUILD_ROOT/usr/bin/{rb,rx,rz,sb,sx,sz}
 
 %files
 %defattr(-,root,root)
-%doc AUTHORS COMPATABILITY ChangeLog NEWS README README.gettext TODO THANKS README.cvs README.isdn4linux README.systems README.tests
+%doc AUTHORS COMPATABILITY ChangeLog NEWS README README.gettext TODO THANKS README.cvs README.systems README.tests
 /usr/bin/sz
 /usr/bin/sb
 /usr/bin/sx

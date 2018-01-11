@@ -1,5 +1,5 @@
 SUBDIRS = lib intl src po man testsuite
-EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs README.isdn4linux \
+EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
 	README.gettext rpmrc buildrpm systype.in fastcheck.sh README.tests
 noinst_SCRIPTS=systype
 PR=@PACKAGE@-@VERSION@
