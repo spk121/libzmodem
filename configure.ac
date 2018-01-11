@@ -50,9 +50,6 @@ dnl Checks for library functions.
 AC_REPLACE_FUNCS(strtoul strtol)
 
 dnl special tests
-AC_SUBST(CFLAGS)
-AC_SUBST(LDFLAGS)
-AC_SUBST(LIBS)
 
 dnl AM_GNU_GETTEXT([no-libtool])
 

@@ -1,5 +1,4 @@
 noinst_LIBRARIES=libzmodem.a
-AM_CFLAGS=@CFLAGS@
 
 EXTRA_DIST = ansi2knr.1 ansi2knr.c \
 	getopt.c getopt1.c \
