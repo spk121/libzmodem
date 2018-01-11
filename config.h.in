@@ -104,24 +104,11 @@
 /* Define to 1 if ANSI function prototypes are usable.  */
 #undef PROTOTYPES
 
-/* Define to LOG_xxx (a syslog facility) if syslog() shall be used */
-#undef ENABLE_SYSLOG
-
-/* Define to 1 if syslogging shall be forced */
-#undef ENABLE_SYSLOG_FORCE
-
-/* Define to 1 if syslogging shall be default */
-#undef ENABLE_SYSLOG_DEFAULT
-
 /* Define to 1 if lrz shall create directories if needed */
 #undef ENABLE_MKDIR
 
 /* Define to public writable directory if you want this. Leave out the "'s */
 #undef PUBDIR
-
-/* define to 1 if you want strict ANSI prototypes. will remove some 
-   extern x(); declarations. */
-#undef STRICT_PROTOTYPES
 
 /* where the localedata hides */
 /* #undef LOCALEDIR */
@@ -150,9 +137,6 @@
 /* Define if you have the getpagesize function.  */
 #undef HAVE_GETPAGESIZE
 
-/* Define if you have the gettimeofday function.  */
-#undef HAVE_GETTIMEOFDAY
-
 /* Define if you have the memcpy function.  */
 #undef HAVE_MEMCPY
 
@@ -180,9 +164,6 @@
 /* Define if you have the setlocale function.  */
 #undef HAVE_SETLOCALE
 
-/* Define if you have the settimeofday function.  */
-#undef HAVE_SETTIMEOFDAY
-
 /* Define if you have the siginterrupt function.  */
 #undef HAVE_SIGINTERRUPT
 
@@ -209,9 +190,6 @@
 
 /* Define if you have the strtoul function.  */
 #undef HAVE_STRTOUL
-
-/* Define if you have the syslog function.  */
-#undef HAVE_SYSLOG
 
 /* Define if you have the times function.  */
 #undef HAVE_TIMES
@@ -261,9 +239,6 @@
 /* Define if you have the <sys/select.h> header file.  */
 #undef HAVE_SYS_SELECT_H
 
-/* Define if you have the <sys/syslog.h> header file.  */
-#undef HAVE_SYS_SYSLOG_H
-
 /* Define if you have the <sys/termio.h> header file.  */
 #undef HAVE_SYS_TERMIO_H
 
@@ -275,9 +250,6 @@
 
 /* Define if you have the <sys/times.h> header file.  */
 #undef HAVE_SYS_TIMES_H
-
-/* Define if you have the <syslog.h> header file.  */
-#undef HAVE_SYSLOG_H
 
 /* Define if you have the <termio.h> header file.  */
 #undef HAVE_TERMIO_H
