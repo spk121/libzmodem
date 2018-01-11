@@ -41,13 +41,9 @@
 #include <unistd.h>
 
 
-#if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP)
-#  include <sys/mman.h>
+#include <sys/mman.h>
 size_t mm_size;
 void *mm_addr=NULL;
-#else
-#  undef HAVE_MMAP
-#endif
 #include "timing.h"
 #include "long-options.h"
 #include "xstrtoul.h"
@@ -89,18 +85,12 @@ static void usage1 (int exitcode);
 
 #define ZSDATA(x,y,z) \
 	do { if (Crc32t) {zsda32(x,y,z); } else {zsdata(x,y,z);}} while(0)
-#ifdef HAVE_MMAP
 #define DATAADR (mm_addr ? ((char *)mm_addr)+zi->bytes_sent : txbuf)
-#else
-#define DATAADR (txbuf)
-#endif
 
 int Filesleft;
 long Totalleft;
 size_t buffersize=16384;
-#ifdef HAVE_MMAP
 int use_mmap=1;
-#endif
 
 /*
  * Attention string to be executed by receiver to interrupt streaming data
@@ -353,9 +343,7 @@ main(int argc, char **argv)
 				buffersize= (size_t) -1;
 			else
 				buffersize=strtol(optarg,NULL,10);
-#ifdef HAVE_MMAP
 			use_mmap=0;
-#endif
 			break;
 		case 'C': 
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
@@ -911,9 +899,7 @@ wcs(const char *oname, const char *remotename)
 	struct stat f;
 	char name[PATH_MAX+1];
 	struct zm_fileinfo zi;
-#ifdef HAVE_MMAP
 	int dont_mmap_this=0;
-#endif
 	if (Restricted) {
 		/* restrict pathnames to current tree or uucppublic */
 		if ( strstr(oname, "../")
@@ -937,9 +923,7 @@ wcs(const char *oname, const char *remotename)
 			sprintf(name, "s%lu.lsz", (unsigned long) getpid());
 		}
 		input_f=stdin;
-#ifdef HAVE_MMAP
 		dont_mmap_this=1;
-#endif
 	} else if ((input_f=fopen(oname, "r"))==NULL) {
 		int e=errno;
 		error(0,e, _("cannot open %s"),oname);
@@ -948,9 +932,7 @@ wcs(const char *oname, const char *remotename)
 	} else {
 		strcpy(name, oname);
 	}
-#ifdef HAVE_MMAP
 	if (!use_mmap || dont_mmap_this)
-#endif
 	{
 		static char *s=NULL;
 		static size_t last_length=0;
@@ -1663,7 +1645,6 @@ again:
 			return ERROR;
 		case ZCRC:
 			crc = 0xFFFFFFFFL;
-#ifdef HAVE_MMAP
 			if (use_mmap && !mm_addr)
 			{
 				struct stat st;
@@ -1689,7 +1670,6 @@ again:
 				}
 				crc = ~crc;
 			} else
-#endif
 			if (Canseek >= 0) {
 				if (rxpos==0) {
 					struct stat st;
@@ -1710,12 +1690,10 @@ again:
 		case ZSKIP:
 			if (input_f)
 				fclose(input_f);
-#ifdef HAVE_MMAP
 			else if (mm_addr) {
 				munmap(mm_addr,mm_size);
 				mm_addr=NULL;
 			}
-#endif
 
 			vfile("receiver skipped");
 			return c;
@@ -1724,9 +1702,7 @@ again:
 			 * Suppress zcrcw request otherwise triggered by
 			 * lastsync==bytcnt
 			 */
-#ifdef HAVE_MMAP
 			if (!mm_addr)
-#endif
 			if (rxpos && fseek(input_f, (long) rxpos, 0)) {
 				int er=errno;
 				vfile("fseek failed: %s", strerror(er));
@@ -1754,7 +1730,6 @@ zsendfdata (struct zm_fileinfo *zi)
 	static long total_sent = 0;
 	static time_t low_bps=0;
 
-#ifdef HAVE_MMAP
 	if (use_mmap && !mm_addr)
 	{
 		struct stat st;
@@ -1770,7 +1745,6 @@ zsendfdata (struct zm_fileinfo *zi)
 			}
 		}
 	}
-#endif
 
 	if (play_with_sigint)
 		signal (SIGINT, onintr);
@@ -1844,7 +1818,6 @@ zsendfdata (struct zm_fileinfo *zi)
 		total_sent += blklen + OVERHEAD;
 		if (Verbose > 2 && blklen != old)
 			vstringf (_("blklen now %d\n"), blklen);
-#ifdef HAVE_MMAP
 		if (mm_addr) {
 			if (zi->bytes_sent + blklen < mm_size)
 				n = blklen;
@@ -1853,7 +1826,6 @@ zsendfdata (struct zm_fileinfo *zi)
 				zi->eof_seen = 1;
 			}
 		} else
-#endif
 			n = zfilbuf (zi);
 		if (zi->eof_seen) {
 			e = ZCRCE;
@@ -2149,9 +2121,7 @@ getinsync(struct zm_fileinfo *zi, int flag)
 			/*   dump the modem's buffer.		 */
 			if (input_f)
 				clearerr(input_f);	/* In case file EOF seen */
-#ifdef HAVE_MMAP
 			if (!mm_addr)
-#endif
 			if (fseek(input_f, (long) rxpos, 0))
 				return ERROR;
 			zi->eof_seen = 0;
@@ -2170,12 +2140,10 @@ getinsync(struct zm_fileinfo *zi, int flag)
 		case ZSKIP:
 			if (input_f)
 				fclose(input_f);
-#ifdef HAVE_MMAP
 			else if (mm_addr) {
 				munmap(mm_addr,mm_size);
 				mm_addr=NULL;
 			}
-#endif
 			return c;
 		case ERROR:
 		default:
