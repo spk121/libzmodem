@@ -9,18 +9,7 @@ AM_PROG_AR
 dnl AC_C_CROSS is in AC_PROG_CC since 2.12
 AC_PREREQ(2.12)
 
-PACKAGE_VERSION="$PACKAGE-$VERSION"
-AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE")
-AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
-AC_DEFINE_UNQUOTED(PACKAGE_VERSION, "$PACKAGE_VERSION")
-AC_SUBST(PACKAGE)
-AC_SUBST(VERSION)
-AC_SUBST(PACKAGE_VERSION)
-
 ALL_LINGUAS="de"
-
-AC_SUBST(PACKAGE)
-AC_SUBST(VERSION)
 
 changequote(,)dnl
 case $VERSION in
@@ -28,7 +17,6 @@ case $VERSION in
 	*) README_ALPHA=;;
 esac
 changequote([, ])dnl
-
 AC_ARG_ENABLE(pubdir,
 	[--enable-pubdir=/path   include support for a public writeable directory],
 	[if test "$enableval" = "no" ; then 
