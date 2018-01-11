@@ -35,6 +35,7 @@
 #include <utime.h>
 #include <time.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "timing.h"
 #include "long-options.h"
@@ -93,7 +94,7 @@ int tcp_flag=0;
 char *tcp_server_address=NULL;
 
 char tcp_buf[256]="";
-#if defined(F_GETFD) && defined(F_SETFD) && defined(O_SYNC)
+#ifdef O_SYNC
 static int o_sync = 0;
 #endif
 static int rzfiles __P ((struct zm_fileinfo *));
@@ -430,7 +431,7 @@ main(int argc, char *argv[])
 				STRTOL_FATAL_ERROR (optarg, _("startup delay"), s_err);
 			break;
 		case 5:
-#if defined(F_GETFD) && defined(F_SETFD) && defined(O_SYNC)
+#ifdef O_SYNC
 			o_sync=1;
 #else
 			error(0,0, _("O_SYNC not supported by the kernel"));
@@ -1366,7 +1367,7 @@ buffer_it:
 	if (Topipe == 0) {
 		static char *s=NULL;
 		static size_t last_length=0;
-#if defined(F_GETFD) && defined(F_SETFD) && defined(O_SYNC)
+#ifdef O_SYNC
 		if (o_sync) {
 			int oldflags;
 			oldflags = fcntl (fileno(fout), F_GETFD, 0);
