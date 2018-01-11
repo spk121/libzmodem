@@ -26,10 +26,6 @@
 #include "timing.h"
 #include <sys/time.h>
 
-/* Prefer gettimeofday to ftime to times.  */
-#  undef HAVE_TIMES
-
-
 double 
 timing (int reset, time_t *nowp)
 {
