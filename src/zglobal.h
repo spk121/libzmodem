@@ -393,9 +393,5 @@ int tcp_accept (int d) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 
 
 const char * protname (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-void lsyslog (int, const char *,...);
-
-
-
 
 #endif

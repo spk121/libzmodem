@@ -37,6 +37,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #ifndef R_OK
 #  define R_OK 4
@@ -882,26 +883,6 @@ wcsend (int argc, char *argp[])
 	}
 	Totsecs = 0;
 	if (Filcnt == 0) {			/* bitch if we couldn't open ANY files */
-#if 0
-	/* i *really* do not like this */
-		if (protocol != ZM_XMODEM) {
-			const char *Cmdstr;		/* Pointer to the command string */
-			command_mode = TRUE;
-			Cmdstr = "echo \"lsz: Can't open any requested files\"";
-			if (getnak ()) {
-				Exitcode = 0200;
-				canit(STDOUT_FILENO);
-			}
-			if (!zmodem_requested)
-				canit(STDOUT_FILENO);
-			else if (zsendcmd (Cmdstr, 1 + strlen (Cmdstr))) {
-				Exitcode = 0200;
-				canit(STDOUT_FILENO);
-			}
-			Exitcode = 1;
-			return OK;
-		}
-#endif
 		canit(STDOUT_FILENO);
 		vstring ("\r\n");
 		vstringf (_ ("Can't open any requested files."));
@@ -1647,9 +1628,6 @@ zsendfile(struct zm_fileinfo *zi, const char *buf, size_t blen)
 	/* we are going to send a ZFILE. There cannot be much useful
 	 * stuff in the line right now (*except* ZCAN?). 
 	 */
-#if 0
-	purgeline(io_mode_fd); /* might possibly fix stefan glasers problems */
-#endif
 
 	for (;;) {
 		Txhdr[ZF0] = Lzconv;	/* file conversion request */
@@ -1892,16 +1870,6 @@ zsendfdata (struct zm_fileinfo *zi)
 			if (Verbose>3)
 				vstringf("e=ZCRCW/bytcnt == Lastsync == %ld", 
 					(unsigned long) Lastsync);
-#if 0
-		/* what is this good for? Rxbuflen/newcnt normally are short - so after
-		 * a few KB ZCRCW will be used? (newcnt is never incremented)
-		 */
-		} else if (Rxbuflen && (newcnt -= n) <= 0) {
-			e = ZCRCW;
-			if (Verbose>3)
-				vstringf("e=ZCRCW/Rxbuflen(newcnt=%ld,n=%ld)", 
-					(unsigned long) newcnt,(unsigned long) n);
-#endif
 		} else if (Txwindow && (Txwcnt += n) >= Txwspac) {
 			Txwcnt = 0;
 			e = ZCRCQ;
