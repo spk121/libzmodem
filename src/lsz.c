@@ -36,6 +36,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #ifndef R_OK
 #  define R_OK 4
@@ -929,9 +930,6 @@ wcsend (int argc, char *argp[])
 static int
 wcs(const char *oname, const char *remotename)
 {
-#if !defined(S_ISDIR)
-	int c;
-#endif
 	struct stat f;
 	char *name;
 	struct zm_fileinfo zi;
@@ -1012,12 +1010,7 @@ wcs(const char *oname, const char *remotename)
 	vpos = 0;
 	/* Check for directory or block special files */
 	fstat(fileno(input_f), &f);
-#if defined(S_ISDIR)
 	if (S_ISDIR(f.st_mode) || S_ISBLK(f.st_mode)) {
-#else
-	c = f.st_mode & S_IFMT;
-	if (c == S_IFDIR || c == S_IFBLK) {
-#endif
 		error(0,0, _("is not a file: %s"),name);
 		fclose(input_f);
 		return OK;
@@ -2342,13 +2335,7 @@ countem (int argc, char **argv)
 			vstringf ("\nCountem: %03d %s ", argc, *argv);
 		}
 		if (access (*argv, R_OK) >= 0 && stat (*argv, &f) >= 0) {
-#if defined(S_ISDIR)
 			if (!S_ISDIR(f.st_mode) && !S_ISBLK(f.st_mode)) {
-#else
-			int c;
-			c = f.st_mode & S_IFMT;
-			if (c != S_IFDIR && c != S_IFBLK) {
-#endif
 				++Filesleft;
 				Totalleft += f.st_size;
 			}
