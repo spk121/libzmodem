@@ -1582,8 +1582,6 @@ rzfiles(struct zm_fileinfo *zi)
  * blocks a,b,c,d, of which a is ok, b fails, we might want to save 
  * c and d. But, alas, i never saw c and d.
  */
-#define SAVE_OOSB
-#ifdef SAVE_OOSB
 typedef struct oosb_t {
 	size_t pos;
 	size_t len;
@@ -1591,7 +1589,6 @@ typedef struct oosb_t {
 	struct oosb_t *next;
 } oosb_t;
 struct oosb_t *anker=NULL;
-#endif
 
 /*
  * Receive a file with ZMODEM protocol
@@ -1620,7 +1617,6 @@ rzfile(struct zm_fileinfo *zi)
 		zshhdr(ZRPOS, Txhdr);
 		goto skip_oosb;
 nxthdr:
-#ifdef SAVE_OOSB
 		if (anker) {
 			oosb_t *akt,*last,*next;
 			for (akt=anker,last=NULL;akt;last= akt ? akt : last ,akt=next) {
@@ -1645,7 +1641,6 @@ nxthdr:
 				}
 			}
 		}
-#endif
 	skip_oosb:
 		c = zgethdr(Rxhdr, 0, NULL);
 		switch (c) {
@@ -1690,15 +1685,12 @@ nxthdr:
 			return c;
 		case ZDATA:
 			if (rclhdr(Rxhdr) != (long) zi->bytes_received) {
-#if defined(SAVE_OOSB)
 				oosb_t *neu;
 				size_t pos=rclhdr(Rxhdr);
-#endif
 				if ( --n < 0) {
 					vfile("rzfile: out of sync");
 					return ERROR;
 				}
-#if defined(SAVE_OOSB)
 				switch (c = zrdata(secbuf, MAX_BLOCK,&bytes_in_block))
 				{
 				case GOTCRCW:
@@ -1722,7 +1714,6 @@ nxthdr:
 							free(neu);
 					}
 				}
-#endif
 				zmputs(Attn);  continue;
 			}
 moredata:
