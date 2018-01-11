@@ -38,10 +38,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
-#ifndef R_OK
-#  define R_OK 4
-#endif
 
 #if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP)
 #  include <sys/mman.h>
