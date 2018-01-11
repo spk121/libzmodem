@@ -27,11 +27,7 @@
 #include "config.h"
 #include <sys/types.h>
 
-#ifdef __STDC__
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 #  include <sys/time.h>
 #  include <time.h>

@@ -24,43 +24,24 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#ifdef __STDC__
-#  define WAYTOGO
 #  include <stdarg.h>
-#  define VA_START(args, lastarg) va_start(args, lastarg)
-#else
-#  include <varargs.h>
-#  define VA_START(args, lastarg) va_start(args)
-#endif
 
 void
-#ifdef WAYTOGO
 zperr(const char *fmt, ...)
-#else
-zperr(fmt, va_alist)
-	const char *fmt;
-	va_dcl
-#endif
 {
     va_list ap;
 
 	if (Verbose<=0)
 		return;
 	fprintf(stderr,_("Retry %d: "),errors);
-    VA_START(ap, fmt);
+    va_start(ap, fmt);
     vfprintf(stderr,fmt, ap);
     va_end(ap);
     putc('\n',stderr);
 }
 
 void
-#ifdef WAYTOGO
 zpfatal(const char *fmt, ...)
-#else
-zpfatal(fmt, va_alist)
-	const char *fmt;
-	va_dcl
-#endif
 {
     va_list ap;
     int err=errno;
@@ -68,26 +49,20 @@ zpfatal(fmt, va_alist)
 	if (Verbose<=0)
 		return;
 	fprintf(stderr,"%s: ",program_name);
-    VA_START(ap, fmt);
+    va_start(ap, fmt);
     vfprintf(stderr,fmt, ap);
     va_end(ap);
 	fprintf(stderr,": %s\n",strerror(err));
 }
 
 void 
-#ifdef WAYTOGO
 vfile(const char *format, ...)
-#else
-vfile(format, va_alist)
-	const char *format;
-	va_dcl
-#endif
 {
     va_list ap;
 
 	if (Verbose < 3)
 		return;
-    VA_START(ap, format);
+    va_start(ap, format);
     vfprintf(stderr,format, ap);
     va_end(ap);
     putc('\n',stderr);
@@ -96,17 +71,11 @@ vfile(format, va_alist)
 #ifndef vstringf
 /* if using gcc this function is not needed */
 void 
-#ifdef WAYTOGO
 vstringf(const char *format, ...)
-#else
-vstringf(format, va_alist)
-	const char *format;
-	va_dcl
-#endif
 {
     va_list ap;
 
-    VA_START(ap, format);
+    va_start(ap, format);
     vfprintf(stderr,format, ap);
     va_end(ap);
 }
