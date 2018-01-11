@@ -104,9 +104,6 @@
 /* Define to 1 if ANSI function prototypes are usable.  */
 #undef PROTOTYPES
 
-/* Define to 1 if lrz shall create directories if needed */
-#undef ENABLE_MKDIR
-
 /* Define to public writable directory if you want this. Leave out the "'s */
 #undef PUBDIR
 
@@ -140,9 +137,6 @@
 /* Define if you have the memcpy function.  */
 #undef HAVE_MEMCPY
 
-/* Define if you have the mkdir function.  */
-#undef HAVE_MKDIR
-
 /* Define if you have the mktime function.  */
 #undef HAVE_MKTIME
 
@@ -163,9 +157,6 @@
 
 /* Define if you have the setlocale function.  */
 #undef HAVE_SETLOCALE
-
-/* Define if you have the siginterrupt function.  */
-#undef HAVE_SIGINTERRUPT
 
 /* Define if you have the stpcpy function.  */
 #undef HAVE_STPCPY

@@ -1181,12 +1181,6 @@ procheader(char *name, struct zm_fileinfo *zi)
 				fclose(fout);
 		}
 		fout = fopen(name_static, openmode);
-#ifdef ENABLE_MKDIR
-		if ( !fout && Restricted < 2) {
-			if (make_dirs(name_static))
-				fout = fopen(name_static, openmode);
-		}
-#endif
 		if ( !fout)
 		{
 			zpfatal(_("cannot open %s"), name_static);
@@ -1241,53 +1235,6 @@ buffer_it:
 	return OK;
 }
 
-#ifdef ENABLE_MKDIR
-/*
- *  Directory-creating routines from Public Domain TAR by John Gilmore
- */
-
-/*
- * After a file/link/symlink/dir creation has failed, see if
- * it's because some required directory was not present, and if
- * so, create all required dirs.
- */
-static int
-make_dirs(char *pathname)
-{
-	register char *p;		/* Points into path */
-	int madeone = 0;		/* Did we do anything yet? */
-	int save_errno = errno;		/* Remember caller's errno */
-
-	if (errno != ENOENT)
-		return 0;		/* Not our problem */
-
-	for (p = strchr(pathname, '/'); p != NULL; p = strchr(p+1, '/')) {
-		/* Avoid mkdir of empty string, if leading or double '/' */
-		if (p == pathname || p[-1] == '/')
-			continue;
-		/* Avoid mkdir where last part of path is '.' */
-		if (p[-1] == '.' && (p == pathname+1 || p[-2] == '/'))
-			continue;
-		*p = 0;				/* Truncate the path there */
-		if ( !mkdir(pathname, 0777)) {	/* Try to create it as a dir */
-			vfile("Made directory %s\n", pathname);
-			madeone++;		/* Remember if we made one */
-			*p = '/';
-			continue;
-		}
-		*p = '/';
-		if (errno == EEXIST)		/* Directory already exists */
-			continue;
-		/*
-		 * Some other error in the mkdir.  We return to the caller.
-		 */
-		break;
-	}
-	errno = save_errno;		/* Restore caller's errno */
-	return madeone;			/* Tell them to retry if we made one */
-}
-
-#endif /* ENABLE_MKDIR */
 
 /*
  * Putsec writes the n characters of buf to receive file fout.

@@ -34,15 +34,6 @@ AC_ARG_ENABLE(pubdir,
 	  else 
 	    AC_DEFINE_UNQUOTED(PUBDIR,"$enableval")
 	  fi])
-AC_ARG_ENABLE(mkdir,
-	[--disable-mkdir   disable support for creating directories (lrz)],
-	[if test "$enableval" = "no" ; then 
-		:
-	  else
-	  	AC_DEFINE(ENABLE_MKDIR)
-	  fi],
-	[AC_DEFINE(ENABLE_MKDIR)])
-
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
@@ -102,7 +93,7 @@ AC_FUNC_ALLOCA
 
 AC_CHECK_FUNCS(strchr memcpy select vprintf)
 AC_CHECK_FUNCS(times rdchk)
-AC_REPLACE_FUNCS(mkdir mktime strdup strtoul strtol strpbrk)
+AC_REPLACE_FUNCS(mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 
 AC_REPLACE_GNU_GETOPT
