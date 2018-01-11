@@ -47,7 +47,6 @@ AC_HEADER_STDC
 dnl Checks for typedefs, structures, and compiler characteristics.
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(vprintf)
 AC_CHECK_FUNCS(times)
 AC_REPLACE_FUNCS(mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
