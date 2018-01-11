@@ -661,15 +661,12 @@ main(int argc, char **argv)
 			 * might be useful if the receiver has already died or
 			 * if there is dirt left if the line 
 			 */
-#ifdef HAVE_SELECT
 			struct timeval t;
 			unsigned char throwaway;
 			fd_set f;
-#endif
 
 			purgeline(io_mode_fd);
 				
-#ifdef HAVE_SELECT
 			t.tv_sec = 0;
 			t.tv_usec = 0;
 				
@@ -680,7 +677,6 @@ main(int argc, char **argv)
 				if (0==read(io_mode_fd,&throwaway,1)) /* EOF ... */
 					break;
 			}
-#endif
 
 			purgeline(io_mode_fd);
 			stohdr(0L);

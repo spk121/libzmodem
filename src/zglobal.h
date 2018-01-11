@@ -29,23 +29,14 @@
 
 #include <stdarg.h>
 
-#  include <sys/time.h>
+//#  include <sys/time.h>
 #  include <time.h>
 #ifdef SYS_TIME_WITHOUT_SYS_SELECT
 #  undef HAVE_SYS_SELECT_H
 #endif
 
 
-#ifdef HAVE_SYS_SELECT_H
-#  include <sys/select.h>
-#endif
-#ifdef __BEOS__
- /* BeOS 4.0: sys/select.h is almost completely #ifdefd out */
-#define  HAVE_SOCKET_H
-#ifdef HAVE_SOCKET_H
-#include <socket.h>
-#endif
-#endif
+#include <sys/select.h>
 
 #if STDC_HEADERS
 # include <string.h>
