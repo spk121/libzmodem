@@ -39,9 +39,7 @@ long Locbit = LLITOUT;	/* Bit SUPPOSED to disable output translations */
 #  endif
 #endif
 
-#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
-#endif
 
 #ifdef MAJOR_IN_MKDEV
 #include <sys/mkdev.h>
@@ -145,7 +143,6 @@ from_cu(void)
 int Twostop;		/* Use two stop bits */
 
 
-#ifdef READCHECK_FIONREAD
 /*
  *  Return non 0 if something to read from io descriptor f
  */
@@ -157,45 +154,6 @@ rdchk(int fd)
 	ioctl(fd, FIONREAD, &lf);
 	return ((int) lf);
 }
-#endif
-
-#ifdef READCHECK_GETFL
-unsigned char checked = '\0' ;
-/*
- * Nonblocking I/O is a bit different in System V, Release 2
- */
-int 
-rdchk(int fd)
-{
-	int lf, savestat;
-
-	savestat = fcntl(fd, F_GETFL) ;
-	if (savestat == -1)
-		return 0;
-#ifdef OVERLY_PARANOID
-	if (-1==fcntl(fd, F_SETFL, savestat | O_NDELAY))
-		return 0;
-	lf = read(fd, &checked, 1) ;
-	if (-1==fcntl(fd, F_SETFL, savestat)) {
-		zpfatal("rdchk: F_SETFL failed\n"); /* lose */
-		/* there is really no way to recover. And we can't tell
-		 * the other side what's going on if we can't write to
-		 * fd, but we try.
-		 */
-		canit(fd);
-		exit(1); 
-	}
-#else
-	fcntl(fd, F_SETFL, savestat | O_NDELAY);
-	lf = read(fd, &checked, 1) ;
-	fcntl(fd, F_SETFL, savestat);
-#endif
-	return(lf == -1 && errno==EWOULDBLOCK ? 0 : lf) ;
-}
-#endif
-
-
-
 
 
 #ifdef USE_TERMIOS
@@ -243,13 +201,8 @@ io_mode(int fd, int n)
 		if (Twostop)
 			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
 
-#ifdef READCHECK
 		tty.c_lflag = protocol==ZM_ZMODEM ? 0 : ISIG;
 		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? -1 : 030;	/* Interrupt char */
-#else
-		tty.c_lflag = 0;
-		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? 03 : 030;	/* Interrupt char */
-#endif
 #ifdef _POSIX_VDISABLE
 		if (((int) _POSIX_VDISABLE)!=(-1)) {
 			tty.c_cc[VQUIT] = _POSIX_VDISABLE;		/* Quit char */
@@ -319,13 +272,8 @@ io_mode(int fd, int n)
 			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
 
 
-#ifdef READCHECK
 		tty.c_lflag = protocol==ZM_ZMODEM ? 0 : ISIG;
 		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? -1 : 030;	/* Interrupt char */
-#else
-		tty.c_lflag = 0;
-		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? 03 : 030;	/* Interrupt char */
-#endif
 		tty.c_cc[VQUIT] = -1;			/* Quit char */
 		tty.c_cc[VMIN] = 1;
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
@@ -386,11 +334,7 @@ io_mode(int fd, int n)
 		}
 		tty = oldtty;
 		tch = oldtch;
-#ifdef READCHECK
 		tch.t_intrc = Zmodem ? -1:030;	/* Interrupt char */
-#else
-		tch.t_intrc = Zmodem ? 03:030;	/* Interrupt char */
-#endif
 		tty.sg_flags |= (ODDP|EVENP|CBREAK);
 		tty.sg_flags &= ~(ALLDELAY|CRMOD|ECHO|LCASE);
 		ioctl(fd, TIOCSETP, &tty);

@@ -57,21 +57,8 @@ char *strchr (), *strrchr ();
 
 #include <sys/stat.h>
 
-/* we need to decide whether readcheck is possible */
-#  include <fcntl.h>
-#ifdef HAVE_SYS_IOCTL_H
-#  include <sys/ioctl.h>
-#endif
-#ifdef FIONREAD
-#  define READCHECK_FIONREAD
-#  define READCHECK
-#else
-#  ifdef F_GETFL
-#    define READCHECK
-#    define READCHECK_READS
-#    define READCHECK_GETFL
-#  endif
-#endif
+#include <fcntl.h>
+#include <sys/ioctl.h>
 
 /* used to use #elif, but native braindead hpux 9.00 c compiler didn't 
  * understand it */
@@ -282,9 +269,6 @@ void readline_setup (int fd, size_t readnum,
 /* rbsb.c */
 extern int Fromcu;
 extern int Twostop;
-#ifdef READCHECK_READS
-extern unsigned char checked;
-#endif
 extern int iofd;
 extern unsigned Baudrate;
 

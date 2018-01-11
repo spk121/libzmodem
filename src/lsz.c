@@ -97,11 +97,7 @@ int use_mmap=1;
  *  when an error is detected.  A pause (0336) may be needed before the
  *  ^C (03) or after it.
  */
-#ifdef READCHECK
 char Myattn[] = { 0 };
-#else
-char Myattn[] = { 03, 0336, 0 };
-#endif
 
 FILE *input_f;
 
@@ -1482,13 +1478,6 @@ getzrxinit(void)
 			if ( play_with_sigint)
 				signal(SIGINT, SIG_IGN);
 			io_mode(io_mode_fd,2);	/* Set cbreak, XON/XOFF, etc. */
-#ifndef READCHECK
-			/* Use MAX_BLOCK byte frames if no sample/interrupt */
-			if (Rxbuflen < 32 || Rxbuflen > MAX_BLOCK) {
-				Rxbuflen = MAX_BLOCK;
-				vfile("Rxbuflen=%d", Rxbuflen);
-			}
-#endif
 			/* Override to force shorter frame length */
 			if (Tframlen && Rxbuflen > Tframlen)
 				Rxbuflen = Tframlen;
@@ -1758,7 +1747,6 @@ zsendfdata (struct zm_fileinfo *zi)
 		case ZRINIT:
 			return OK;
 		}
-#ifdef READCHECK
 		/*
 		 * If the reverse channel can be tested for data,
 		 *  this logic may be used to detect error packets
@@ -1766,11 +1754,7 @@ zsendfdata (struct zm_fileinfo *zi)
 		 *  rdchk(fdes) returns non 0 if a character is available
 		 */
 		while (rdchk (io_mode_fd)) {
-#ifdef READCHECK_READS
-			switch (checked)
-#else
 			switch (READLINE_PF (1))
-#endif
 			{
 			case CAN:
 			case ZPAD:
@@ -1781,7 +1765,6 @@ zsendfdata (struct zm_fileinfo *zi)
 				READLINE_PF (100);
 			}
 		}
-#endif
 	}
 
 	newcnt = Rxbuflen;
@@ -1880,7 +1863,6 @@ zsendfdata (struct zm_fileinfo *zi)
 		bytcnt = zi->bytes_sent += n;
 		if (e == ZCRCW)
 			goto waitack;
-#ifdef READCHECK
 		/*
 		 * If the reverse channel can be tested for data,
 		 *  this logic may be used to detect error packets
@@ -1889,11 +1871,7 @@ zsendfdata (struct zm_fileinfo *zi)
 		 */
 		fflush (stdout);
 		while (rdchk (io_mode_fd)) {
-#ifdef READCHECK_READS
-			switch (checked)
-#else
 			switch (READLINE_PF (1))
-#endif
 			{
 			case CAN:
 			case ZPAD:
@@ -1910,7 +1888,6 @@ zsendfdata (struct zm_fileinfo *zi)
 				++junkcount;
 			}
 		}
-#endif							/* READCHECK */
 		if (Txwindow) {
 			size_t tcount = 0;
 			while ((tcount = zi->bytes_sent - Lrxpos) >= Txwindow) {
