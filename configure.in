@@ -85,7 +85,7 @@ AC_STRUCT_TM
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS(strchr memcpy vprintf)
-AC_CHECK_FUNCS(times rdchk)
+AC_CHECK_FUNCS(times)
 AC_REPLACE_FUNCS(mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 

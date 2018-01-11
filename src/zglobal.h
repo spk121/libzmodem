@@ -58,24 +58,18 @@ char *strchr (), *strrchr ();
 #include <sys/stat.h>
 
 /* we need to decide whether readcheck is possible */
-#ifdef HAVE_FCNTL_H
 #  include <fcntl.h>
-#endif
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
 #endif
-#ifdef HAVE_RDCHK
+#ifdef FIONREAD
+#  define READCHECK_FIONREAD
 #  define READCHECK
 #else
-#  ifdef FIONREAD
-#    define READCHECK_FIONREAD
+#  ifdef F_GETFL
 #    define READCHECK
-#  else
-#    ifdef F_GETFL
-#      define READCHECK
-#      define READCHECK_READS
-#      define READCHECK_GETFL
-#    endif
+#    define READCHECK_READS
+#    define READCHECK_GETFL
 #  endif
 #endif
 
