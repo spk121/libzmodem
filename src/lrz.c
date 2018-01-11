@@ -1140,7 +1140,6 @@ procheader(char *name, struct zm_fileinfo *zi)
 		checkpath(name_static);
 		if (Nflag)
 		{
-			/* cast because we might not have a prototyp for strdup :-/ */
 			free(name_static);
 			name_static=(char *) strdup("/dev/null");
 			if (!name_static)

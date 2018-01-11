@@ -2,9 +2,8 @@ noinst_LIBRARIES=libzmodem.a
 AM_CFLAGS=@CFLAGS@
 
 EXTRA_DIST = ansi2knr.1 ansi2knr.c \
-	getopt.c getopt1.c mktime.c \
-	strdup.c strpbrk.c strtol.c strtoul.c stpcpy.c \
-	strftime.c vasprintf.c
+	getopt.c getopt1.c \
+	strtol.c strtoul.c
 
 libzmodem_a_SOURCES = long-options.c xstrtol.c xstrtoul.c error.c
 libzmodem_a_LIBADD  = @LIBOBJS@ @ALLOCA@
