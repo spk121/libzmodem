@@ -94,7 +94,7 @@ dnl AC_LINK_FILES($nls_cv_header_libgt, $nls_cv_header_intl)
 
 
 AC_CONFIG_FILES([Makefile intl/Makefile lib/Makefile testsuite/Makefile \
-man/Makefile po/Makefile.in src/Makefile debian/rules Specfile \
+man/Makefile po/Makefile.in src/Makefile debian/rules \
 src/lrzszbug],
 [sed -e "/POTFILES =/r po/POTFILES" po/Makefile.in > po/Makefile; 
 chmod +x debian/rules;

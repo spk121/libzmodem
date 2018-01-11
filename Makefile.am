@@ -1,6 +1,6 @@
 SUBDIRS = lib intl src po man testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
-	README.gettext rpmrc buildrpm fastcheck.sh README.tests
+	README.gettext fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
 CLEAN_FILES=fastcheck.done
 
@@ -67,7 +67,4 @@ cvs-dist:
 	fi
 	cvs tag `echo "Release-$(VERSION)" | sed 's/\./-/g'`
 	$(MAKE) dist
-
-rpm: $(PR).tar.gz Specfile
-	$(srcdir)/buildrpm $(srcdir)
 
