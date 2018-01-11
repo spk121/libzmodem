@@ -982,11 +982,7 @@ wcs(const char *oname, const char *remotename)
 		zi.fname=name;
 	zi.modtime=f.st_mtime;
 	zi.mode=f.st_mode;
-#if defined(S_ISFIFO)
 	zi.bytes_total= (S_ISFIFO(f.st_mode)) ? DEFBYTL : f.st_size;
-#else
-	zi.bytes_total= c == S_IFIFO ? DEFBYTL : f.st_size;
-#endif
 	zi.bytes_sent=0;
 	zi.bytes_received=0;
 	zi.bytes_skipped=0;
@@ -1507,11 +1503,7 @@ getzrxinit(void)
 
 			/* If using a pipe for testing set lower buf len */
 			fstat(0, &f);
-#if defined(S_ISCHR)
 			if (! (S_ISCHR(f.st_mode))) {
-#else
-			if ((f.st_mode & S_IFMT) != S_IFCHR) {
-#endif
 				Rxbuflen = MAX_BLOCK;
 			}
 			/*
@@ -1520,11 +1512,7 @@ getzrxinit(void)
 			 */
 			if ( !command_mode) {
 				fstat(fileno(input_f), &f);
-#if defined(S_ISREG)
 				if (!(S_ISREG(f.st_mode))) {
-#else
-				if ((f.st_mode & S_IFMT) != S_IFREG) {
-#endif
 					Canseek = -1;
 					/* return ERROR; */
 				}

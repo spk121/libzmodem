@@ -36,6 +36,7 @@
 #include <time.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 #include "timing.h"
 #include "long-options.h"
@@ -1883,11 +1884,7 @@ closeit(struct zm_fileinfo *zi)
 		timep.modtime = zi->modtime;
 		utime(Pathname, &timep);
 	}
-#ifdef S_ISREG
 	if (S_ISREG(zi->mode)) {
-#else
-	if ((zi->mode&S_IFMT) == S_IFREG) {
-#endif
 		/* we must not make this program executable if running 
 		 * under rsh, because the user might have uploaded an
 		 * unrestricted shell.
