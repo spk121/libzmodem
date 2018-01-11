@@ -1,8 +1,10 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(src/crctab.c)
-AM_INIT_AUTOMAKE(lrzsz, 0.12.20)
-AM_CONFIG_HEADER(config.h)
-
+AC_INIT([lrzsz], [0.12.21-mlg], [mike@lonelycactus.com])
+AM_INIT_AUTOMAKE(-Wall foreign)
+AC_PROG_CC
+AC_CONFIG_HEADERS([config.h])
+AC_USE_SYSTEM_EXTENSIONS
+AM_PROG_AR
 
 dnl AC_C_CROSS is in AC_PROG_CC since 2.12
 AC_PREREQ(2.12)
@@ -32,18 +34,13 @@ AC_ARG_ENABLE(pubdir,
 	[if test "$enableval" = "no" ; then 
 		: 
 	  else 
-	    AC_DEFINE_UNQUOTED(PUBDIR,"$enableval")
+	    AC_DEFINE([PUBDIR],"$enableval", [A public writeable directory])
 	  fi])
 dnl Checks for programs.
-AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 dnl AC_PROG_INSTALL  included in AM_INIT_AUTOMAKE
 dnl AC_PROG_MAKE_SET included in AM_INIT_AUTOMAKE
 AC_PROG_RANLIB
-AC_ISC_POSIX
-AC_AIX
-AC_MINIX
-AM_C_PROTOTYPES
 AC_C_CONST
 AC_C_INLINE
 
@@ -80,7 +77,6 @@ AC_TYPE_SIZE_T
 AC_TYPE_MODE_T
 AC_TYPE_OFF_T
 LRZSZ_TYPE_SPEED_T
-AC_STRUCT_ST_RDEV
 AC_STRUCT_TM
 
 dnl Checks for library functions.
@@ -91,9 +87,6 @@ AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 
 AC_REPLACE_GNU_GETOPT
 
-dnl for lib/error.c
-AC_DEFINE(HAVE_STRERROR)
-
 
 dnl special tests
 
@@ -103,14 +96,16 @@ AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
 AC_SUBST(LIBS)
 
-AM_GNU_GETTEXT
+dnl AM_GNU_GETTEXT([no-libtool])
 
-AC_DEFINE_UNQUOTED(LOCALEDIR,"$prefix/$DATADIRNAME")
-AC_LINK_FILES($nls_cv_header_libgt, $nls_cv_header_intl)
+dnl AC_DEFINE_UNQUOTED(LOCALEDIR,"$prefix/$DATADIRNAME")
+dnl AC_LINK_FILES($nls_cv_header_libgt, $nls_cv_header_intl)
 
-AC_OUTPUT([Makefile intl/Makefile lib/Makefile testsuite/Makefile \
+
+AC_CONFIG_FILES([Makefile intl/Makefile lib/Makefile testsuite/Makefile \
 man/Makefile po/Makefile.in src/Makefile debian/rules Specfile systype \
 src/lrzszbug],
 [sed -e "/POTFILES =/r po/POTFILES" po/Makefile.in > po/Makefile; 
 chmod +x debian/rules;
 test -z "$CONFIG_HEADERS" || echo timestamp > stamp-h])
+AC_OUTPUT
