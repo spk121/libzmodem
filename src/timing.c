@@ -24,6 +24,7 @@
 #include "zglobal.h"
 
 #include "timing.h"
+#include <sys/time.h>
 
 #if HAVE_SYS_PARAM_H
 #include <sys/param.h>
@@ -33,11 +34,6 @@
 /* Prefer gettimeofday to ftime to times.  */
 #  undef HAVE_TIMES
 
-
-#ifdef HAVE_GETTIMEOFDAY
-/* collides with Solaris 2.5 prototype? */
-/* int gettimeofday (struct timeval *tv, struct timezone *tz); */
-#endif
 
 double 
 timing (int reset, time_t *nowp)
