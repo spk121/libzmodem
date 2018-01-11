@@ -1,7 +1,6 @@
 SUBDIRS = lib intl src po man testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs README.isdn4linux \
-	README.gettext rpmrc buildrpm systype.in fastcheck.sh README.tests \
-	beos-runpiped.c fastcheck.beos
+	README.gettext rpmrc buildrpm systype.in fastcheck.sh README.tests
 noinst_SCRIPTS=systype
 PR=@PACKAGE@-@VERSION@
 CLEAN_FILES=fastcheck.done
@@ -17,17 +16,7 @@ oldcheck-local:
 	QUIET=-q $(srcdir)/check.lrzsz $(srcdir) `pwd`	
 
 fastcheck: 
-	if [ x`uname -s` = xBeOS ] ; then make fastcheck-beos ; else \
-		$(srcdir)/fastcheck.sh $(srcdir) `pwd` ; fi
-
-fastcheck-beos: beos-runpiped
-	$(srcdir)/fastcheck.beos $(srcdir) `pwd`
-
-beos-runpiped: beos-runpiped.c
-	$(CC) -o $@ $<
-
-success: fastcheck
-	sh systype | mail uwe-generic-counter@ohse.de
+	$(srcdir)/fastcheck.sh $(srcdir) `pwd`
 
 vcheck:
 	$(srcdir)/check.lrzsz $(srcdir) `pwd`
