@@ -1,5 +1,5 @@
 dnl AC_REPLACE_GNU_GETOPT
-AC_DEFUN(AC_REPLACE_GNU_GETOPT,
+AC_DEFUN([AC_REPLACE_GNU_GETOPT],
 [AC_CHECK_FUNC(getopt_long, , [LIBOBJS="$LIBOBJS getopt1.o getopt.o"])
 AC_SUBST(LIBOBJS)dnl
 ])
@@ -10,7 +10,7 @@ AC_CHECK_HEADERS(termios.h sys/termios.h termio.h sys/termio.h sgtty.h)dnl
 ])
 
 dnl LRZSZ_TYPE_SPEED_T
-AC_DEFUN(LRZSZ_TYPE_SPEED_T,[
+AC_DEFUN([LRZSZ_TYPE_SPEED_T],[
 AC_REQUIRE([AC_HEADER_STDC])dnl
 AC_REQUIRE([LRZSZ_HEADERS_TERM_IO])dnl
 AC_MSG_CHECKING(for speed_t)
@@ -48,7 +48,7 @@ if test $ac_cv_type_speed_t = no; then
 fi
 ])
 
-AC_DEFUN(lrzsz_HEADER_SYS_SELECT,
+AC_DEFUN([lrzsz_HEADER_SYS_SELECT],
 [AC_CACHE_CHECK([whether sys/time.h and sys/select.h may both be included],
   lrzsz_cv_header_sys_select,
 [AC_TRY_COMPILE([#include <sys/types.h>
