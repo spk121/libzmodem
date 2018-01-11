@@ -44,22 +44,6 @@ AC_PROG_RANLIB
 AC_C_CONST
 AC_C_INLINE
 
-if test `hostname` = tirka.ohse.de -a "$cross_compiling" = no ; then
-    test $prefix = NONE && prefix=/usr
-	if test -z "$CFLAGS" ; then 
-	    case "$CC" in 
-		*gcc*)
-			CFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes"
-			# -Wnested_externs entfernt wegen dcgettext()
-			CFLAGS="$CFLAGS -Wpointer-arith -Wcast-qual -Wcast-align"
-			CFLAGS="$CFLAGS -Winline -Wwrite-strings -Wshadow -Wmissing-braces"
-			CFLAGS="$CFLAGS -Wcomments -fforce-mem -fforce-addr -O2 -m486 -pipe"
-			CFLAGS="$CFLAGS -malign-loops=2 -malign-jumps=2 -malign-functions=2 -g3"
-			;;
-		esac
-	fi
-fi
-
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(sys/times.h)
