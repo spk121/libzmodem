@@ -59,11 +59,6 @@
 
 #include <limits.h>
 
-/* Don't include sys/param.h if it already has been.  */
-#if defined(HAVE_SYS_PARAM_H) && !defined(PATH_MAX) && !defined(MAXPATHLEN)
-# include <sys/param.h>
-#endif
-
 #if !defined(LONG_MAX) && defined(HAVE_LIMITS_H)
 # include <limits.h>
 #endif

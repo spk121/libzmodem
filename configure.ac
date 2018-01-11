@@ -43,8 +43,6 @@ AC_PROG_RANLIB
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(sys/times.h)
-AC_CHECK_HEADERS(sys/param.h)
 AC_CHECK_HEADERS(arpa/inet.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.

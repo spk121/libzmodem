@@ -26,11 +26,6 @@
 #include "timing.h"
 #include <sys/time.h>
 
-#if HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif
-
-
 /* Prefer gettimeofday to ftime to times.  */
 #  undef HAVE_TIMES
 
