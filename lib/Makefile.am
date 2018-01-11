@@ -1,7 +1,7 @@
 noinst_LIBRARIES=libzmodem.a
 AM_CFLAGS=@CFLAGS@
 
-EXTRA_DIST = alloca.c ansi2knr.1 ansi2knr.c \
+EXTRA_DIST = ansi2knr.1 ansi2knr.c \
 	getopt.c getopt1.c mktime.c \
 	strdup.c strpbrk.c strtol.c strtoul.c stpcpy.c \
 	strftime.c vasprintf.c

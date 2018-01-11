@@ -27,25 +27,6 @@
 #include "config.h"
 #include <sys/types.h>
 
-#ifdef __GNUC__
-# define alloca __builtin_alloca
-# define HAVE_ALLOCA 1
-#else
-# if defined HAVE_ALLOCA_H || defined _LIBC
-#  include <alloca.h>
-# else
-#  ifdef _AIX
-#pragma alloca
-#  else
-#   ifndef alloca
-#    ifndef __GLIBC__
-char *alloca ();
-#    endif
-#   endif
-#  endif
-# endif
-#endif
-
 #ifndef __P
 #if defined (__GNUC__) || (defined (__STDC__) && __STDC__)
 #define __P(args) args

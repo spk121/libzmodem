@@ -912,8 +912,7 @@ wcsend (int argc, char *argp[])
 		saybibi ();
 	else if (protocol != ZM_XMODEM) {
 		struct zm_fileinfo zi;
-		char *pa;
-		pa=alloca(PATH_MAX+1);
+		char pa[PATH_MAX+1];
 		*pa='\0';
 		zi.fname = pa;
 		zi.modtime = 0;
@@ -931,7 +930,7 @@ static int
 wcs(const char *oname, const char *remotename)
 {
 	struct stat f;
-	char *name;
+	char name[PATH_MAX+1];
 	struct zm_fileinfo zi;
 #ifdef HAVE_MMAP
 	int dont_mmap_this=0;
@@ -953,7 +952,6 @@ wcs(const char *oname, const char *remotename)
 	
 	if (0==strcmp(oname,"-")) {
 		char *p=getenv("ONAME");
-		name=alloca(PATH_MAX+1);
 		if (p) {
 			strcpy(name, p);
 		} else {
@@ -969,7 +967,6 @@ wcs(const char *oname, const char *remotename)
 		++errcnt;
 		return OK;	/* pass over it, there may be others */
 	} else {
-		name=alloca(PATH_MAX+1);
 		strcpy(name, oname);
 	}
 #ifdef HAVE_MMAP
@@ -1080,10 +1077,8 @@ static int
 wctxpn(struct zm_fileinfo *zi)
 {
 	register char *p, *q;
-	char *name2;
+	char name2[PATH_MAX+1];
 	struct stat f;
-
-	name2=alloca(PATH_MAX+1);
 
 	if (protocol==ZM_XMODEM) {
 		if (Verbose && *zi->fname && fstat(fileno(input_f), &f)!= -1) {
