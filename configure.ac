@@ -74,7 +74,6 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 AC_TYPE_MODE_T
 AC_TYPE_OFF_T
-dnl LRZSZ_TYPE_SPEED_T
 AC_STRUCT_TM
 
 dnl Checks for library functions.
@@ -85,11 +84,7 @@ AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 
 AC_REPLACE_GNU_GETOPT
 
-
 dnl special tests
-
-
-dnl
 AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
 AC_SUBST(LIBS)
