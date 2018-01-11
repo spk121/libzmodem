@@ -88,9 +88,7 @@ int tcp_flag=0;
 char *tcp_server_address=NULL;
 
 char tcp_buf[256]="";
-#ifdef O_SYNC
 static int o_sync = 0;
-#endif
 static int rzfiles __P ((struct zm_fileinfo *));
 static int tryz __P ((void));
 static void checkpath __P ((const char *name));
@@ -372,11 +370,7 @@ main(int argc, char *argv[])
 				STRTOL_FATAL_ERROR (optarg, _("startup delay"), s_err);
 			break;
 		case 5:
-#ifdef O_SYNC
 			o_sync=1;
-#else
-			error(0,0, _("O_SYNC not supported by the kernel"));
-#endif
 			break;
 		case 6:
 			tcp_flag=2;
@@ -1232,7 +1226,6 @@ buffer_it:
 	if (Topipe == 0) {
 		static char *s=NULL;
 		static size_t last_length=0;
-#ifdef O_SYNC
 		if (o_sync) {
 			int oldflags;
 			oldflags = fcntl (fileno(fout), F_GETFD, 0);
@@ -1241,7 +1234,6 @@ buffer_it:
 				fcntl (fileno(fout), F_SETFD, oldflags); /* errors don't matter */
 			}
 		}
-#endif
 
 		if (buffersize==-1 && s) {
 			if (zi->bytes_total>last_length) {
