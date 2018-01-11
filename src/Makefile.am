@@ -2,15 +2,13 @@ bin_PROGRAMS=lrz lsz
 lrz_SOURCES=lrz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c canit.c
 lsz_SOURCES=lsz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c canit.c
 noinst_HEADERS = timing.h zglobal.h zmodem.h
-datadir = $(prefix)/@DATADIRNAME@
+datadir = $(prefix)/share
 localedir = $(datadir)/locale
-CFLAGS=@CFLAGS@
 DISTCLEAN_FILES=lrzszbug
 
-LDADD = ../lib/libzmodem.a @INTLLIBS@
-AUTOMAKE_OPTIONS=ansi2knr
+LDADD = ../lib/libzmodem.a @LIBINTL@
 EXTRA_DIST = ansi2knr.1 ansi2knr.c lrzszbug.in
-INCLUDES = -I.. -I$(srcdir) -I$(top_srcdir)/src -I../intl -I$(top_srcdir)/lib
+AM_CPPFLAGS = -I.. -I$(srcdir) -I$(top_srcdir)/src -I$(top_srcdir)/lib
 #DEFS = -DLOCALEDIR=\"$(localedir)\" -DOS=\"@host_os@\" -DCPU=\"@host_cpu@\"
 DEFS =  @DEFS@ -DLOCALEDIR=\"$(localedir)\"
 

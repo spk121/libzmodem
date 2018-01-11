@@ -1,4 +1,4 @@
-SUBDIRS = lib intl src po man testsuite
+SUBDIRS = lib src man po testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
 	README.gettext fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
@@ -63,3 +63,5 @@ cvs-dist:
 	cvs tag `echo "Release-$(VERSION)" | sed 's/\./-/g'`
 	$(MAKE) dist
 
+
+ACLOCAL_AMFLAGS = -I m4

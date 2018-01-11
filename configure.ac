@@ -1,13 +1,16 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([lrzsz], [0.12.21-mlg], [mike@lonelycactus.com])
-AM_INIT_AUTOMAKE(-Wall foreign)
-AC_PROG_CC
+AC_PREREQ(2.69)
+dnl AC_CONFIG_SRCDIR([src/lrz.c])
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
+AM_INIT_AUTOMAKE([-Wall foreign])
+
 AC_USE_SYSTEM_EXTENSIONS
 AM_PROG_AR
 
 dnl AC_C_CROSS is in AC_PROG_CC since 2.12
-AC_PREREQ(2.12)
 
 ALL_LINGUAS="de"
 
@@ -18,9 +21,11 @@ AC_ARG_ENABLE(pubdir,
 	  else 
 	    AC_DEFINE([PUBDIR],"$enableval", [A public writeable directory])
 	  fi])
+
 dnl Checks for programs.
 dnl AC_PROG_INSTALL  included in AM_INIT_AUTOMAKE
 dnl AC_PROG_MAKE_SET included in AM_INIT_AUTOMAKE
+AC_PROG_CC
 AC_PROG_RANLIB
 
 dnl Checks for header files.
@@ -33,14 +38,15 @@ AC_REPLACE_FUNCS(strtoul strtol)
 dnl special tests
 
 dnl AM_GNU_GETTEXT([no-libtool])
+AM_GNU_GETTEXT([external],[],[])
+AM_GNU_GETTEXT_VERSION([0.19.8])
 
 dnl AC_DEFINE_UNQUOTED(LOCALEDIR,"$prefix/$DATADIRNAME")
-dnl AC_LINK_FILES($nls_cv_header_libgt, $nls_cv_header_intl)
 
 
-AC_CONFIG_FILES([Makefile intl/Makefile lib/Makefile testsuite/Makefile \
+AC_CONFIG_FILES([Makefile lib/Makefile testsuite/Makefile \
 man/Makefile po/Makefile.in src/Makefile \
 src/lrzszbug],
-[sed -e "/POTFILES =/r po/POTFILES" po/Makefile.in > po/Makefile; 
+[
 test -z "$CONFIG_HEADERS" || echo timestamp > stamp-h])
 AC_OUTPUT

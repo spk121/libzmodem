@@ -35,32 +35,17 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <termios.h>
-
-/* Take care of NLS matters.  */
-#if HAVE_LOCALE_H
-# include <locale.h>
-#endif
-#if !HAVE_SETLOCALE
-# define setlocale(Category, Locale) /* empty */
-#endif
+#include <locale.h>
+#include <unistd.h>
+#include <limits.h>
 
 #if ENABLE_NLS
-# include <libintl.h>
+#include "gettext.h"
 # define _(Text) gettext (Text)
 #else
 # define bindtextdomain(Domain, Directory) /* empty */
 # define textdomain(Domain) /* empty */
 # define _(Text) Text
-#endif
-
-#if defined HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-
-#include <limits.h>
-
-#if !defined(LONG_MAX) && defined(HAVE_LIMITS_H)
-# include <limits.h>
 #endif
 
 #ifdef __GNUC__
