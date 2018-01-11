@@ -26,20 +26,11 @@
 
 #include "config.h"
 #include <sys/types.h>
-
 #include <stdarg.h>
-
-//#  include <sys/time.h>
-#  include <time.h>
-#ifdef SYS_TIME_WITHOUT_SYS_SELECT
-#  undef HAVE_SYS_SELECT_H
-#endif
-
-
+#include <sys/time.h>
+#include <time.h>
 #include <sys/select.h>
-
 #include <string.h>
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
