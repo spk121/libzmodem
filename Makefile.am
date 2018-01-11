@@ -1,7 +1,6 @@
 SUBDIRS = lib intl src po man testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
-	README.gettext rpmrc buildrpm systype.in fastcheck.sh README.tests
-noinst_SCRIPTS=systype
+	README.gettext rpmrc buildrpm fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
 CLEAN_FILES=fastcheck.done
 

@@ -65,5 +65,9 @@ or
 	sh systype | mail uwe-generic-counter@ohse.de
 "sh systype" alone shows what data this script sends.
 
+  [Note from Mike Gran: I (mike) removed the systype script,
+  which could be approimated by calling 'uname -a'.]
+
+
 Uwe Ohse
 
