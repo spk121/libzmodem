@@ -583,11 +583,7 @@ main(int argc, char **argv)
 
 	if (tcp_flag==2) {
 		char buf[256];
-#ifdef MAXHOSTNAMELEN
-		char hn[MAXHOSTNAMELEN];
-#else
 		char hn[256];
-#endif
 		char *p,*q;
 		int d;
 
