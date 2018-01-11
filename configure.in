@@ -143,19 +143,6 @@ esac
 ])
 
 dnl
-AC_MSG_CHECKING([for timezone variable])
-AC_CACHE_VAL(libquark_cv_var_timezone,[
-AC_TRY_LINK([#include <time.h>],[return(int)(timezone/2);],
-	[libquark_cv_var_timezone=yes],
-	[libquark_cv_var_timezone=no])
-])
-if test $libquark_cv_var_timezone = yes ; then
-	AC_MSG_RESULT(yes)
-	AC_DEFINE(HAVE_TIMEZONE_VAR)
-else
-	AC_MSG_RESULT(no)
-fi
-
 AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
 AC_SUBST(LIBS)

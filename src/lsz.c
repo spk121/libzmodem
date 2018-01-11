@@ -853,14 +853,9 @@ wcsend (int argc, char *argp[])
 			vstring ("\r\n");
 			vstringf (_("Answering TIMESYNC at %s"),buf);
 		}
-#if defined(HAVE_TIMEZONE_VAR)
 		sprintf(buf+strlen(buf),"%ld\r\n", timezone / 60);
 		if (Verbose)
 			vstringf (" (%s %ld)\r\n", _ ("timezone"), timezone / 60);
-#else
-		if (Verbose)
-			vstringf (" (%s)\r\n", _ ("timezone unknown"));
-#endif
 		send_pseudo("/$time$.t",buf);
 	}
 	Totsecs = 0;
