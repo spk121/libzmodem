@@ -68,7 +68,7 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(sys/times.h)
 AC_CHECK_HEADERS(sys/param.h)
-AC_CHECK_HEADERS(strings.h arpa/inet.h)
+AC_CHECK_HEADERS(arpa/inet.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
@@ -78,7 +78,7 @@ dnl LRZSZ_TYPE_SPEED_T
 AC_STRUCT_TM
 
 dnl Checks for library functions.
-AC_CHECK_FUNCS(strchr memcpy vprintf)
+AC_CHECK_FUNCS(vprintf)
 AC_CHECK_FUNCS(times)
 AC_REPLACE_FUNCS(mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
