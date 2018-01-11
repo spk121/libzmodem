@@ -60,10 +60,6 @@ if test `hostname` = tirka.ohse.de -a "$cross_compiling" = no ; then
 	fi
 fi
 
-dnl Checks for libraries.
-dnl slowlartis needs this
-AC_CHECK_LIB(nsl,gethostbyname,,,)
-
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(sys/times.h)
