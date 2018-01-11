@@ -27,9 +27,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
-#endif
 #include <errno.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -140,6 +138,7 @@ tcp_connect (char *buf)
 #ifndef INADDR_NONE
 #define INADDR_NONE (-1)
 #endif
+
 	if (s_in.sin_addr.s_addr== (unsigned long) INADDR_NONE) {
 		struct hostent *h=gethostbyname(buf+1);
 		if (!h)
