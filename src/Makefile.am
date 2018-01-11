@@ -7,7 +7,7 @@ localedir = $(datadir)/locale
 DISTCLEAN_FILES=lrzszbug
 
 LDADD = ../lib/libzmodem.a @LIBINTL@
-EXTRA_DIST = ansi2knr.1 ansi2knr.c lrzszbug.in
+EXTRA_DIST = lrzszbug.in
 AM_CPPFLAGS = -I.. -I$(srcdir) -I$(top_srcdir)/src -I$(top_srcdir)/lib
 #DEFS = -DLOCALEDIR=\"$(localedir)\" -DOS=\"@host_os@\" -DCPU=\"@host_cpu@\"
 DEFS =  @DEFS@ -DLOCALEDIR=\"$(localedir)\"

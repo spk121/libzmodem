@@ -1,6 +1,6 @@
 noinst_LIBRARIES=libzmodem.a
 
-EXTRA_DIST = ansi2knr.1 ansi2knr.c \
+EXTRA_DIST = \
 	getopt.c getopt1.c \
 	strtol.c strtoul.c
 
