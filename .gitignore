@@ -10,16 +10,18 @@ Makefile.in
 
 # http://www.gnu.org/software/autoconf
 
-/autom4te.cache
-/autoscan.log
-/autoscan-*.log
+/.deps
 /aclocal.m4
+/autom4te.cache
+/autoscan-*.log
+/autoscan.log
 /compile
-/config.guess
 /config.cache
+/config.guess
+/config.h
+/config.h.in
 /config.log
 /config.status
-/config.h.in
 /config.sub
 /configure
 /configure.scan
@@ -27,7 +29,6 @@ Makefile.in
 /install-sh
 /missing
 /stamp-h1
-/.deps
 
 # https://www.gnu.org/software/libtool/
 
