@@ -42,7 +42,6 @@ dnl AC_PROG_MAKE_SET included in AM_INIT_AUTOMAKE
 AC_PROG_RANLIB
 
 dnl Checks for header files.
-AC_HEADER_STDC
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 
