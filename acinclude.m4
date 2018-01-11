@@ -4,11 +4,6 @@ AC_DEFUN([AC_REPLACE_GNU_GETOPT],
 AC_SUBST(LIBOBJS)dnl
 ])
 
-dnl for ease of use
-AC_DEFUN([LRZSZ_HEADERS_TERM_IO],[
-AC_CHECK_HEADERS(termios.h sys/termios.h termio.h sys/termio.h sgtty.h)dnl
-])
-
 dnl LRZSZ_TYPE_SPEED_T
 AC_DEFUN([LRZSZ_TYPE_SPEED_T],[
 AC_REQUIRE([AC_HEADER_STDC])dnl
@@ -20,27 +15,7 @@ AC_CACHE_VAL(ac_cv_type_speed_t,
 #include <stdlib.h>
 #include <stddef.h>
 #endif
-#ifdef HAVE_TERMIOS_H
 #include <termios.h>
-#else
-#if defined(HAVE_SYS_TERMIOS_H)
-#include <sys/termios.h>
-#else
-#if defined(HAVE_TERMIO_H)
-#include <termio.h>
-#else
-#if defined(HAVE_SYS_TERMIO_H)
-#include <sys/termio.h>
-#else
-#if defined(HAVE_SGTTY_H)
-#include <sgtty.h>
-#else
-#error neither termio.h nor sgtty.h found. Cannot continue. */
-#endif
-#endif
-#endif
-#endif
-#endif
 ], ac_cv_type_speed_t=yes, ac_cv_type_speed_t=no)])dnl
 AC_MSG_RESULT($ac_cv_type_speed_t)
 if test $ac_cv_type_speed_t = no; then

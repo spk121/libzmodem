@@ -67,8 +67,6 @@ AC_CHECK_LIB(nsl,gethostbyname,,,)
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(sys/times.h)
-LRZSZ_HEADERS_TERM_IO
-AC_CHECK_HEADERS(termios.h sys/termios.h termio.h sys/termio.h sgtty.h)
 AC_CHECK_HEADERS(sys/param.h)
 AC_CHECK_HEADERS(strings.h arpa/inet.h)
 
@@ -76,7 +74,7 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 AC_TYPE_MODE_T
 AC_TYPE_OFF_T
-LRZSZ_TYPE_SPEED_T
+dnl LRZSZ_TYPE_SPEED_T
 AC_STRUCT_TM
 
 dnl Checks for library functions.

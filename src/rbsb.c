@@ -60,12 +60,8 @@ static struct {
 	{2400,	B2400},
 	{4800,	B4800},
 	{9600,	B9600},
-#ifdef B19200
     {19200,  B19200},
-#endif
-#ifdef B38400
     {38400,  B38400},
-#endif
 #ifdef B57600
     {57600,  B57600},
 #endif
@@ -156,17 +152,7 @@ rdchk(int fd)
 }
 
 
-#ifdef USE_TERMIOS
 struct termios oldtty, tty;
-#else
-#  if defined(USE_TERMIO)
-struct termio oldtty, tty;
-#  else
-struct sgttyb oldtty, tty;
-struct tchars oldtch, tch;
-#  endif
-#endif
-
 
 /*
  * mode(n)
@@ -184,7 +170,6 @@ io_mode(int fd, int n)
 
 	switch(n) {
 
-#ifdef USE_TERMIOS
 	case 2:		/* Un-raw mode used by sz, sb when -g detected */
 		if(!did0) {
 			did0 = TRUE;
@@ -254,130 +239,6 @@ io_mode(int fd, int n)
 		tcflow (fd,TCOON); /* restart output */
 
 		return OK;
-#endif
-
-#ifdef USE_TERMIO
-	case 2:		/* Un-raw mode used by sz, sb when -g detected */
-		if(!did0)
-			(void) ioctl(fd, TCGETA, &oldtty);
-		tty = oldtty;
-
-		tty.c_iflag = BRKINT|IXON;
-
-		tty.c_oflag = 0;	/* Transparent output */
-
-		tty.c_cflag &= ~PARENB;	/* Disable parity */
-		tty.c_cflag |= CS8;	/* Set character size = 8 */
-		if (Twostop)
-			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
-
-
-		tty.c_lflag = protocol==ZM_ZMODEM ? 0 : ISIG;
-		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? -1 : 030;	/* Interrupt char */
-		tty.c_cc[VQUIT] = -1;			/* Quit char */
-		tty.c_cc[VMIN] = 1;
-		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
-
-		(void) ioctl(fd, TCSETAW, &tty);
-		did0 = TRUE;
-		return OK;
-	case 1:
-	case 3:
-		if(!did0)
-			(void) ioctl(fd, TCGETA, &oldtty);
-		tty = oldtty;
-
-		tty.c_iflag = n==3 ? (IGNBRK|IXOFF) : IGNBRK;
-
-		 /* No echo, crlf mapping, delays, no erase/kill */
-		tty.c_lflag &= ~(ECHO | ICANON | ISIG);
-
-		tty.c_oflag = 0;	/* Transparent output */
-
-		tty.c_cflag &= ~PARENB;	/* Same baud rate, disable parity */
-		tty.c_cflag |= CS8;	/* Set character size = 8 */
-		if (Twostop)
-			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
-		tty.c_cc[VMIN] = 1; /* This many chars satisfies reads */
-		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
-		(void) ioctl(fd, TCSETAW, &tty);
-		did0 = TRUE;
-		Baudrate = getspeed(tty.c_cflag & CBAUD);
-		return OK;
-	case 0:
-		if(!did0)
-			return ERROR;
-		(void) ioctl(fd, TCSBRK, 1);	/* Wait for output to drain */
-		(void) ioctl(fd, TCFLSH, 0);	/* Flush input queue */
-		(void) ioctl(fd, TCSETAW, &oldtty);	/* Restore modes */
-		(void) ioctl(fd, TCXONC,1);	/* Restart output */
-		return OK;
-#endif
-
-
-#ifdef USE_SGTTY
-	/*
-	 *  NOTE: this should transmit all 8 bits and at the same time
-	 *   respond to XOFF/XON flow control.  If no FIONREAD or other
-	 *   READCHECK alternative, also must respond to INTRRUPT char
-	 *   This doesn't work with V7.  It should work with LLITOUT,
-	 *   but LLITOUT was broken on the machine I tried it on.
-	 */
-	case 2:		/* Un-raw mode used by sz, sb when -g detected */
-		if(!did0) {
-			ioctl(fd, TIOCEXCL, 0);
-			ioctl(fd, TIOCGETP, &oldtty);
-			ioctl(fd, TIOCGETC, &oldtch);
-#ifdef LLITOUT
-			ioctl(fd, TIOCLGET, &Locmode);
-#endif
-		}
-		tty = oldtty;
-		tch = oldtch;
-		tch.t_intrc = Zmodem ? -1:030;	/* Interrupt char */
-		tty.sg_flags |= (ODDP|EVENP|CBREAK);
-		tty.sg_flags &= ~(ALLDELAY|CRMOD|ECHO|LCASE);
-		ioctl(fd, TIOCSETP, &tty);
-		ioctl(fd, TIOCSETC, &tch);
-#ifdef LLITOUT
-		ioctl(fd, TIOCLBIS, &Locbit);
-#else
-		bibi(99);	/* un-raw doesn't work w/o lit out */
-#endif
-		did0 = TRUE;
-		return OK;
-	case 1:
-	case 3:
-		if(!did0) {
-			ioctl(fd, TIOCEXCL, 0);
-			ioctl(fd, TIOCGETP, &oldtty);
-			ioctl(fd, TIOCGETC, &oldtch);
-#ifdef LLITOUT
-			ioctl(fd, TIOCLGET, &Locmode);
-#endif
-		}
-		tty = oldtty;
-		tty.sg_flags |= RAW;
-		tty.sg_flags &= ~ECHO;
-		ioctl(fd, TIOCSETP, &tty);
-		did0 = TRUE;
-		Baudrate = getspeed(tty.sg_ospeed);
-		return OK;
-	case 0:
-		if(!did0)
-			return ERROR;
-		ioctl(fd, TIOCSETP, &oldtty);
-		ioctl(fd, TIOCSETC, &oldtch);
-		ioctl(fd, TIOCNXCL, 0);
-#ifdef LLITOUT
-		ioctl(fd, TIOCLSET, &Locmode);
-#endif
-#ifdef TIOCFLUSH
-		{ int x=1; ioctl(fd,TIOCFLUSH,&x); }
-#endif
-#endif
-
-		return OK;
 	default:
 		return ERROR;
 	}
@@ -386,20 +247,7 @@ io_mode(int fd, int n)
 void
 sendbrk(int fd)
 {
-#ifdef USE_TERMIOS
 	tcsendbreak(fd,0);
-#endif
-#ifdef USE_TERMIO
-	ioctl(fd, TCSBRK, 0);
-#endif
-#ifdef USE_SGTTY
-#ifdef TIOCSBRK
-	sleep(1);
-	ioctl(fd, TIOCSBRK, 0);
-	sleep(1);
-	ioctl(fd, TIOCCBRK, 0);
-#endif
-#endif
 }
 
 void
