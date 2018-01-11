@@ -44,10 +44,6 @@
 
 #define MAX_BLOCK 8192
 
-#ifndef HOWMANY
-#define HOWMANY MAX_BLOCK
-#endif
-
 unsigned Baudrate = 2400;
 
 FILE *fout;
@@ -58,7 +54,7 @@ int Crcflg;
 int Firstsec;
 int errors;
 int Restricted=1;	/* restricted; no /.. or ../ in filenames */
-int Readnum = HOWMANY;	/* Number of bytes to ask for in read() from modem */
+int Readnum = MAX_BLOCK; /* Number of bytes to ask for in read() from modem */
 int skip_if_not_found;
 
 char *Pathname;
@@ -527,7 +523,7 @@ main(int argc, char *argv[])
 	}
 
 	io_mode(0,1);
-	readline_setup(0, HOWMANY, MAX_BLOCK*2);
+	readline_setup(0, MAX_BLOCK, MAX_BLOCK*2);
 	if (signal(SIGINT, bibi) == SIG_IGN) 
 		signal(SIGINT, SIG_IGN);
 	else
