@@ -82,8 +82,6 @@ AC_CHECK_FUNCS(times)
 AC_REPLACE_FUNCS(mktime strdup strtoul strtol strpbrk)
 AC_REPLACE_FUNCS(stpcpy strftime vasprintf)
 
-AC_REPLACE_GNU_GETOPT
-
 dnl special tests
 AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
