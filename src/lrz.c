@@ -1145,15 +1145,6 @@ procheader(char *name, struct zm_fileinfo *zi)
 				exit(1);
 			}
 		}
-#ifdef OMEN
-		/* looks like a security hole -- uwe */
-		if (name_static[0] == '!' || name_static[0] == '|') {
-			if ( !(fout = popen(name_static+1, "w"))) {
-				return ERROR;
-			}
-			Topipe = -1;  return(OK);
-		}
-#endif
 		if (Thisbinary && zconv==ZCRESUM) {
 			struct stat st;
 			fout = fopen(name_static, "r+");
