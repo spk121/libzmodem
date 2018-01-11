@@ -1,3 +1,24 @@
+Hi.  This is Mike Gran's fork of jnavila's fork of Uwe Ohse's fork of
+Chuck Forsberg's rzsz.
+
+Mike Gran's fork focusses on removing old and non-Linux code and also
+making it into a library that I can link into the BBS I wrote.
+
+Mike Gran's fork lives at https://github.com/spk121/lrzsz
+
+If, for some reason, you want to contact Mike, try
+<mike@lonelycactus.com>.
+
+jnavila's fork fixed up some problems with Hyperterm.
+
+It lives at https://github.com/jnavila/lrzsz
+
+---------------------------------------
+
+uwe's original README begins below.  Beyond here, the "me" is uwe.
+
+----------------------------------------
+
 lrzsz is a X/Y/ZModem package built from the public-domain version of
 Chuck Forsberg´s rzsz package. This package contains NO code from later
 releases of rzsz which would preclude it from being released under the
@@ -29,11 +50,20 @@ Please read:
 - README.systems for a list of systems lrzsz has been compiled
   and passed a simple self test under.
 
+  [Note from Mike Gran: I pulled out lots of code, so README.systems
+  is invalid.]
+
+
 In case you want to report a successful build:
 	make success
+
+  [Note from Mike Gran: I (mike) removed the 'make success' target,
+  because I don't think it works anymore.]
+
 or
 	make fastcheck && \
 	sh systype | mail uwe-generic-counter@ohse.de
 "sh systype" alone shows what data this script sends.
 
 Uwe Ohse
+
