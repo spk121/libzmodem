@@ -48,11 +48,6 @@
 /* Define if you need to in order for stat and other things to work.  */
 #undef _POSIX_SOURCE
 
-/* Define if the setvbuf function takes the buffering type as its second
-   argument and the buffer pointer as the third, as on System V
-   before release 3.  */
-#undef SETVBUF_REVERSED
-
 /* Define to `unsigned' if <sys/types.h> doesn't define.  */
 #undef size_t
 

@@ -634,11 +634,7 @@ main(int argc, char **argv)
 			zperr(_("out of memory"));
 			exit(1);
 		}
-#ifdef SETVBUF_REVERSED
-		setvbuf(stdout,_IOFBF,s,max_blklen+1024);
-#else
 		setvbuf(stdout,s,_IOFBF,max_blklen+1024);
-#endif
 	}
 	blklen=start_blklen;
 
@@ -1010,11 +1006,7 @@ wcs(const char *oname, const char *remotename)
 			}
 		}
 		if (s) {
-#ifdef SETVBUF_REVERSED
-			setvbuf(input_f,_IOFBF,s,last_length);
-#else
 			setvbuf(input_f,s,_IOFBF,last_length);
-#endif
 		}
 	}
 	vpos = 0;
