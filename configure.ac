@@ -97,50 +97,6 @@ AC_DEFINE(HAVE_STRERROR)
 
 dnl special tests
 
-dnl this is taken from taylor uucp.
-dnl Check for the SCO buggy ftime; the code can cope with the bug,
-dnl though it would prefer not to, so if we're cross-configuring we
-dnl accept that ftime exists.
-AC_CHECK_FUNC(ftime,
-[AC_MSG_CHECKING(that ftime works correctly)
-AC_CACHE_VAL(lrzsz_cv_sys_ftime_ok,
-[AC_TRY_RUN([
-#include <sys/types.h>
-#include <sys/timeb.h>
-#include <stdio.h>
-main ()
-{
-  struct timeb s, slast;
-  int c = 0;
-  ftime (&slast);
-  while (c < 10)
-    {
-      ftime (&s);
-      if (s.time < slast.time
-      || (s.time == slast.time && s.millitm < slast.millitm)) {
-      fprintf(stderr,"s: %ld, %ld, slast: %ld, %ld\n",
-      	s.time,s.millitm, slast.time,slast.millitm);
-    exit (1);
-	}
-      if (s.time != slast.time)
-    ++c;
-      slast.time = s.time;
-      slast.millitm = s.millitm;
-    }
-  exit (0);
-}
-],
-lrzsz_cv_sys_ftime_ok=yes,
-lrzsz_cv_sys_ftime_ok=no,
-lrzsz_cv_sys_ftime_ok=runtime)])
-case $lrzsz_cv_sys_ftime_ok in
-yes) AC_DEFINE(HAVE_FTIME) AC_MSG_RESULT(yes) ;;
-no)  AC_MSG_RESULT(no)
-	AC_MSG_WARN(ftime seems to be buggy) ;;
-runtime) AC_DEFINE(HAVE_FTIME)
-	AC_MSG_RESULT(will check at run time) ;;
-esac
-])
 
 dnl
 AC_SUBST(CFLAGS)

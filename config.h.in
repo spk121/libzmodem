@@ -41,9 +41,6 @@
 /* Define if your <sys/time.h> declares struct tm.  */
 #undef TM_IN_SYS_TIME
 
-/* define this if you have a reliable ftime function */
-#undef HAVE_FTIME
-
 /* Define to 1 if NLS is requested.  */
 #undef ENABLE_NLS
 
