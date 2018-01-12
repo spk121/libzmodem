@@ -54,12 +54,25 @@ zpfatal(const char *fmt, ...)
 	fprintf(stderr,": %s\n",strerror(err));
 }
 
-void 
+void
 zpdebug(const char *format, ...)
 {
 	va_list ap;
 
-	if (Verbose < 3)
+	if (Verbose <= 2)
+		return;
+	va_start(ap, format);
+	vfprintf(stderr,format, ap);
+	va_end(ap);
+	putc('\n',stderr);
+}
+
+void
+zpinfo(const char *format, ...)
+{
+	va_list ap;
+
+	if (Verbose <= 3)
 		return;
 	va_start(ap, format);
 	vfprintf(stderr,format, ap);
@@ -69,7 +82,7 @@ zpdebug(const char *format, ...)
 
 #ifndef vstringf
 /* if using gcc this function is not needed */
-void 
+void
 vstringf(const char *format, ...)
 {
 	va_list ap;

@@ -185,19 +185,7 @@ extern unsigned Baudrate;
 void zperr (const char *fmt, ...);
 void zpfatal (const char *fmt, ...);
 void zpdebug (const char *format, ...);
-#define vchar(x) putc(x,stderr)
-#define vstring(x) fputs(x,stderr)
-
-#ifdef __GNUC__
-#if __GNUC__ > 1
-#define vstringf(format,args...) fprintf(stderr,format, ##args)
-#endif
-#endif
-#ifndef vstringf
-void vstringf (const char *format, ...);
-#endif
-#define VPRINTF(level,format_args) do {if ((Verbose)>=(level)) \
-	vstringf format_args ; } while(0)
+void zpinfo (const char *format, ...);
 
 /* rbsb.c */
 int from_cu (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);

@@ -165,7 +165,6 @@ zgethex(void)
 	register int c;
 
 	c = zgeth1();
-	VPRINTF(9,("zgethex: %02X", c));
 	return c;
 }
 
@@ -241,7 +240,7 @@ again2:
 			return (c ^ 0100);
 		break;
 	}
-	VPRINTF(2,(_("Bad escape sequence %x"), c));
+	zpdebug(_("Bad escape sequence %x"), c);
 	return ERROR;
 }
 
@@ -329,7 +328,7 @@ zsbhdr(int type, char *hdr)
 	register int n;
 	register unsigned short crc;
 
-	VPRINTF(3,("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr)));
+	zpdebug("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr));
 	if (type == ZDATA)
 		for (n = Znulls; --n >=0; )
 			xsendline(0);
@@ -385,7 +384,7 @@ zshhdr(int type, char *hdr)
 	char s[30];
 	size_t len;
 
-	VPRINTF(3,("zshhdr: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], rclhdr(hdr)));
+	zpdebug("zshhdr: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], rclhdr(hdr));
 	s[0]=ZPAD;
 	s[1]=ZPAD;
 	s[2]=ZDLE;
@@ -428,8 +427,8 @@ zsdata(const char *buf, size_t length, int frameend)
 {
 	register unsigned short crc;
 
-	VPRINTF(3,("zsdata: %lu %s", (unsigned long) length, 
-		Zendnames[(frameend-ZCRCE)&3]));
+	zpdebug("zsdata: %lu %s", (unsigned long) length, 
+		Zendnames[(frameend-ZCRCE)&3]);
 	crc = 0;
 	do {
 		zsendline(*buf); crc = updcrc((0377 & *buf), crc);
@@ -451,7 +450,7 @@ zsda32(const char *buf, size_t length, int frameend)
 	int c;
 	unsigned long crc;
 	int i;
-	VPRINTF(3,("zsdat32: %d %s", length, Zendnames[(frameend-ZCRCE)&3]));
+	zpdebug("zsdat32: %d %s", length, Zendnames[(frameend-ZCRCE)&3]);
 
 	crc = 0xFFFFFFFFL;
 	zsendline_s(buf,length);
@@ -558,8 +557,8 @@ crcfoo:
 					}
 					*bytes_received = length - (end - buf);
 					COUNT_BLK(*bytes_received);
-					VPRINTF(3,("zrdata: %lu  %s", (unsigned long) (*bytes_received), 
-							Zendnames[(d-GOTCRCE)&3]));
+					zpdebug("zrdata: %lu  %s", (unsigned long) (*bytes_received), 
+						Zendnames[(d-GOTCRCE)&3]);
 					return d;
 				}
 			case GOTCAN:
@@ -618,8 +617,8 @@ crcfoo:
 				}
 				*bytes_received = length - (end - buf);
 				COUNT_BLK(*bytes_received);
-				VPRINTF(3,("zrdat32: %lu %s", (unsigned long) *bytes_received, 
-					Zendnames[(d-GOTCRCE)&3]));
+				zpdebug("zrdat32: %lu %s", (unsigned long) *bytes_received, 
+					Zendnames[(d-GOTCRCE)&3]);
 				return d;
 			case GOTCAN:
 				zperr(_("Sender Canceled"));
@@ -695,10 +694,10 @@ agn2:
 			zperr(_("Garbage count exceeded"));
 			return(ERROR);
 		}
-		if (eflag && ((c &= 0177) & 0140) && Verbose)
-			vchar(c);
-		else if (eflag > 1 && Verbose)
-			vchar(c);
+		if (eflag && ((c &= 0177) & 0140))
+			zperr("%c", c);
+		else if (eflag > 1)
+			zperr("%c", c);
 		goto startover;
 	case ZPAD|0200:		/* This is what we want. */
 	case ZPAD:		/* This is what we want. */
@@ -757,9 +756,9 @@ fifi:
 	/* **** FALL THRU TO **** */
 	default:
 		if (c >= -3 && c <= FRTYPES)
-			VPRINTF(3,("zgethdr: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos));
+			zpdebug("zgethdr: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos);
 		else
-			VPRINTF(3,("zgethdr: %d %lx", c, (unsigned long) rxpos));
+			zpdebug("zgethdr: %d %lx", c, (unsigned long) rxpos);
 	}
 	if (Rxpos)
 		*Rxpos=rxpos;
@@ -888,13 +887,13 @@ zputhex(int c, char *pos)
 {
 	static char	digits[]	= "0123456789abcdef";
 
-	VPRINTF(9,("zputhex: %02X", c));
+	zpdebug("zputhex: %02X", c);
 	pos[0]=digits[(c&0xF0)>>4];
 	pos[1]=digits[c&0x0F];
 }
 
 void
-zsendline_init(void)
+zsendline_init(int my_turbo_escape, int my_zctlesc)
 {
 	int i;
 	for (i=0;i<256;i++) {	
