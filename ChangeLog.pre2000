@@ -1,3 +1,11 @@
+2018-01-11  gettextize  <bug-gnu-gettext@gnu.org>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): New variable.
+	(EXTRA_DIST): Add m4/ChangeLog.
+	* configure.ac (AC_OUTPUT): Remove command that created po/Makefile.
+	(AC_LINK_FILES): Remove invocation.
+	(AM_GNU_GETTEXT_VERSION): Bump to 0.19.8.
+
 1998-12-29	Uwe Ohse  <uwe@ohse.de>
 
 	* src/lrz.c: removed stpcpy call.
