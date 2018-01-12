@@ -1,0 +1,640 @@
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Changes to pass distcheck
+    
+    * ABOUT-NLS: update
+    * Makefile.am (EXTRA_DIST): remove README.gettext
+    * configure.ac (AC_CONFIG_SRCDIR): new
+      (LOCALEDIR): remove
+      (DEJAGNU): new
+    * make/Makefile.in: update
+    * po/Makefile.in.in: update
+    * po/de.gmo: update
+    * po/de.po: fix
+    * po/lrzsz.pot: update
+    * src/Makefile.am (noinst_HEADERS): add gettext.h
+    * testsuite/Makefile.am: stub out all tests, for now
+    * testsuite/Makefile.in: update
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove the pre-89 C tools
+    
+    * lib/Makefile.am (EXTRA_DIST): remove ansi2knr.1 ansi2knr.c
+    * lib/ansi2knr.1: removed
+    * lib/ansi2knr.c:removed
+    * src/Makefile.am (EXTRA_DIST): remove ansi2knr.1 ansi2knr.c
+    * src/ansi2knr.1: removed
+    * src/ansi2knr.c: removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    remove alloca from convenience library
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    update AUTHORS
+    
+    * AUTHORS: update
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove obsolete README.gettext, config.rpath, and acconfig.h
+    
+    * README.gettext: removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Modernize gettext infrastructure
+    
+    * Makefile.am (SUBDIRS): remove intl
+    * intl/ChangeLog: removed
+    * intl/Makefile.in: removed
+    * intl/VERSION: removed
+    * intl/bindtextdom.c: removed
+    * intl/cat-compat.c: removed
+    * intl/dcgettext.c: removed
+    * intl/dcgettext.c: removed
+    * intl/explodename.c: removed
+    * intl/finddomain.c: removed
+    * intl/gettext.c: removed
+    * intl/gettext.h: removed
+    * intl/gettextP.h: removed
+    * intl/hash-string.h: removed
+    * intl/l10nflist.c: removed
+    * intl/libgettext.h: removed
+    * intl/linux-msg.sed: removed
+    * intl/loadinfo.h: removed
+    * intl/loadmsgcat.c: removed
+    * intl/localealias.c: removed
+    * intl/po2tbl.sed.in: removed
+    * intl/textdomain.c: removed
+    * intl/xopen-msg.sed: removed
+    * src/Makefile.am (datadir): prefer 'share' to @DATADIRNAME@
+      (LDADD): add @LIBINTL@
+      (INCLUDES): rename to AM_CPPFLAGS
+      (AM_CPPFLAGS): remove -I ../intl
+    * src/gettext.h: new file
+    * src/zglobal.h: modify header infrastructure to use gettext.h
+    * po/Makevars: new file
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove all references to README_ALPHA
+    
+    * configure.ac (README_ALPHA): removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Don't create overwrite PACKET and VERSION  in autoconf
+    
+    * configure.ac (PACKAGE_VERSION, PACKAGE, VERSION): prefer standard defines
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    AC_HEADER_STDC seldom provides useful info
+    
+    * configure.ac (AC_HEADER_STDC): remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Don't AC_SUBST CFLAGS, LDFLAGS, LIBS
+    
+    * configure.ac (AC_SUBST): don't re-subst CFLAGS, LDFLAGS, LIBS
+    * lib/Makefile.am: keep AM_CFLAGS independent of CFLAGS
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    presume vasprintf, strftime, mktime, strdup, strpbrk, stpcpy exist
+    
+    * configure.ac (AC_REPLACE_FUNCS): remove function checks
+    * lib/Makefile.am: remove mktime.c strdup.c, strpbrk.c stpcpy.c strtime.c vasprintf.c
+    * src/lrz.c: comment
+    * lib/mktime.c: removed
+    * lib/stpcpy.c: removed
+    * lib/strdup.c: removed
+    * lib/strftime.c: removed
+    * lib/strpbrk.c: removed
+    * lib/vasprintf: removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    presume times unused
+    
+    * configure.ac (AC_CHECK_FUNCS): remove times
+    * src/timing.c: useless undef
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Assume vprintf exists in stdio.h
+    
+    * configure.ac (AC_CHECK_FUNCS): remove vprintf test
+    * lib/error.c: modified
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    assume inet_addr is defined in arpa/inet.h
+    
+    * configure.ac (AC_CHECK_HEADERS): remove arpa/inet.h
+    * src/tcp.h: assume HAVE_ARPA_INET_H is always true
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume MAXPATHLEN exists in sys/param.h, but that PATH_MAX in limits.h is preferred
+    
+    * configure.ac (AC_CHECK_HEADERS): remove sys/times.h and sys/param.h
+    * timing.c: remove  sys/param.h
+    * src/zglobal.h: remove sys/param.h
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume compiler has common types
+    
+    * configure.ac (AC_PROG_GCC_TRADITIONAL, AC_C_CONST, AC_C_INLINE): remove
+      (AC_TYPE_SIZE_T, AC_TYPE_MODE_T, AC_TYPE_OFF_T, AC_STRUCT_TM): remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove specific tirke.ohse.de build flags
+    
+    * configure.ac: modified
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume gethostbyname is in netdb.h
+    
+    * configure.ac (AC_CHECK_LIB): nsl gethostbyname removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove debian build scripts
+    
+    * Makefile.am (dist-hook): remove debian functionality
+    * configure.ac (AC_CONFIG_FILES): remove debian/rules
+    * debian/changelog: remove
+    * debian/control: remove
+    * debian/copyright: remove
+    * debian/rules.in: remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove all RPM build functionalilty
+    
+    * Makefile.am (EXTRA_DIST): remove rpmrc, buildrpm
+    * Specfile.in: remove
+    * buildrpm: remove
+    * configure.ac (AC_CONFIG_FILES): remove Specfile
+    * rpmrc: remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    presume getopt_long exists in getopt.h
+    
+    * acinclude.m4: remove
+    * configure.ac (AC_REPLACE_GNU_GETOPT): remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume that sys/time.h and sys/select.h don't conflict
+    
+    * acinclude.m4 (lrzsz_HEADER_SYS_SELECT): remove
+    * src/zglobal.h: presume SYS_TIME_WITHOUT_SYS_SELECT is false
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    assume speed_t is an unsigned int defined in termios.h
+    
+    * acinclude.m4 (LRZSZ_TYPE_SPEED_T): remove
+    * configure.ac (LRZSZ_TYPE_SPEED_T): remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove unused systype script
+    
+    * Makefile.am (EXTRA_DIST): remove systype.in
+      (noinst_SCRIPTS): remove systype
+    * README: mention systype removal
+    * configure.ac (AC_CONFIG_FILES): remove systype.in
+    * systype.in: removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    More autoconf files that shouldn't be checked in
+    
+    * .gitignore: update
+    * config.h.in: remove
+    * install-sh: remove
+    * mkinstalldirs: remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    assume memcpy, memmove, strchr, strrchr available in string.h
+    
+    * src/zglobal.h: prefer string.h declarations
+    * configure.ac (AC_CHECK_HEADERS): remove strings.h
+      (AC_CHECK_FUNCS): remove strchr, memcpy
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume B19200 and B38400 are always available in termios.h
+    
+    * acinclude.m4 (LRZSZ_HEADERS_TERM_IO): remove
+    * configure.ac (LRZSZ_HEADERS_TERM_IO): remove
+      (AC_CHECK_HEADERS): remove check for termios.h termio. sgtty.h, etc
+    * src/rbsb.c: Assume B19200, B38400 always valid
+      Assume using termios.h
+    * src/zglobal.h: assume using termios.h
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume SAVE_OOSB is desired
+    
+    * src/lrz (SAVE_OOSB): resume true
+      (rzfile): use OOSB functionality
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Update README
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove old README.isdn4linux
+    
+    * README.isdn4linux: removed
+    * Makefile.am (EXTRA_DIST): remove README.isdn4linux
+    * Specfile.in: remove README.isdn4linux
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove some autotools files from the repo
+    
+    * .gitignore: new file
+    * Makefile.in: removed
+    * aclocal.m4: removed
+    * config.guess: removed
+    * config.sub: removed
+    * configure: removed
+    * missing: removed
+    * src/Makefile.in: removed
+    * lib/Makefile.in: removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Remove BeOS specific code and mailbomb to ohse.de
+    
+    * Makefile.am (fastcheck-beos, beos-runpiped): removed
+      (fastcheck): remove beos code
+      (success): remove mailbomb
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    assume valid sys/time.h header
+    
+    * src/timing.c: add sys/tim.h
+      (HAVE_GETTIMEOFDAY): removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    begin modernizing configure.ac
+    
+    * configure.ac (AC_INIT): use new style
+      (AM_INIT_AUTOMAKE): use new style
+      (AC_USE_SYSTEM_EXTENSIONS, AM_PROG_AR): added
+      (AC_ISC_POSIX, AC_AIX, AC_MINIX, AC_C_PROTOTYPES): removed
+      (AC_OUTPUT): split into AC_CONFIG_FILES and AC_OUTPUT
+      (AC_STRUCT_ST_RDEV): removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    assume ftime will not be used
+    
+    * config.h.in (HAVE_FTIME): removed
+    * configure.ac (AC_CHECK_FUNC): remove ftime check
+    * src/timing.c (timing): use gettimeofday
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    rename configure.ac from configure.in
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Add better m4 quoting to acinclude.m4
+    
+    * acinclude.m4: requote AC_REPLACE_GNU_GETOPT, lrzsz_HEADER_SYS_SELECT, LRZSZ_TYPE_SPEED_T)
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    update config.guess, config.sub, config.rpath
+    
+    * config.guess: updated
+    * config.rpath: new file
+    * config.sub: updated
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    assume FIONREAD is present in sys/ioctl.h
+    
+    * config.h.in (HAVE_SYS_IOCTL_H): removed
+    * configure.in (AC_CHECK_HEADERS): sys/ioctl.h removed
+    * src/lsz.c (READCHECK): assume it is always true
+      (READCHECK_READS): assume it is always false
+    * src/rbsb.c (rdchk)[READCHECK_FIONREAD]: always include rdchk defined here
+    * src/zglobal.h (FIONREAD): removed, assumed true
+      (READCHECK_FIONREAD): removed, presumed true
+      (READCHECK_READS): removed presumed false
+      (READCHECK_GETFL): removed presumed false
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Presume rdchk does not exist
+    
+    * config.h.in (HAVE_RDCHK): remove
+    * configure.in (AC_CHECK_FUNCS): remove rdchk
+    * src/zglobal.h: assume HAVE_RDCHK is always false
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Assume timezone is a long int found in time.h
+    
+    * config.h.in (HAVE_TIMEZONE_VAR): remove
+    * configure.in: HAVE_TIMEZONE_VAR check removed
+    * src/lsz.c (wcsend): assume HAVE_TIMEZONE_VAR always true
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume PATH_MAX exists in limits.h
+    
+    * config.h.in (HAVE_LIMITS_H): remove
+    * configure.in (AC_CHECK_HEADERS): remove limits.h
+    * src/zglobal.h: simplify macros for limits.h and PATH_MAX
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume complete S_IS* family of macros exists from sys/stat.h
+    
+    * src/lrz.c (closeit): assume S_ISREG exists
+    * src/lsz.c (wcs, getzrxinit): assume S_ISREG S_ISCHR exists
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume select is defined in sys/select.h
+    
+    * config.h.in (HAVE_SELECT, HAVE_SYS_SELECT_H): remove
+    * configure.in (AC_CHECK_HEADERS): remove sys/select.h
+      (lrzsz_HEADER_SYS_SELECT): remove
+      (AC_CHECK_FUNCS): remove select
+    * src/lsz.c: assume HAVE_SELECT is always true
+    * src/zglobal.h: always define sys/select.h
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    assume mmap is defined in sys/mman.h
+    
+    * config.h.in (HAVE_MMAP, HAVE_SYS_MMAN_H): removed
+    * configure.in (AC_CHECK_HEADERS): remove sys/mman.h check
+      (AC_FUNC_MMAP): remove
+    * src/lsz.c: assume HAVE_SYS_MMAN_H and HAVE_MMAP always true
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume R_OK is defined in unistd.h
+    
+    * src/lsz.c (R_OK): prefer unistd.h definition of R_OK
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Remove '#if 0' blocks
+    
+    * src/lsz.c: remove #if 0 blocks
+    * src/zmodem.h: remove #if 0 blocks
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume variadic functions follow ISO C
+    
+    * src/zglobal.h: use stdarg.h
+    * src/zperr.c: use stdarg.h and va_start
+      (WAYTOGO, VA_START): removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume at least C89 declarations
+    
+    * src/zglobal.h (__P): remove macro
+    * src/lrz.c: remove all uses of __P
+    * src/lsz.c: remove all uses of __P
+    * src/zm.c: remove all uses of __P
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume alloca is not available
+    
+    * src/zglobal.h (alloca, HAVE_ALLOCA) remove
+    * src/lsz.c (wcsend, wcs): convert alloca to malloc
+    * src/lrz.c (procheader): convert alloca to malloc
+    * config.h.in (C_ALLOCA, CRAY_STACKSEG_END, HAVE_ALLOCA, HAVE_ALLOCA_H): remove
+      (STACK_DIRECTION): remove
+    * lib/alloca.c: remove
+    * lib/Makefile.am (EXTRA_DIST): remove alloca.c
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume S_ISDIR ans S_ISBLK are macros defined in sys/stat.h
+    
+    * src/lsz.c (wcs, countem): assume S_ISDIR is always defined
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume setvbuf has POSIX ordering
+    
+    * config.h.in (SETVBUF_REVERSED): remove
+    * configure.in (AC_FUNC_SETVBUF_REVERSED): remove
+    * src/lrz.c: assume SETVBUF_REVERSED always false
+    * src/lsz.c: assume SETVBUF_REVERSED always false
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    disable mkdir functionality
+    
+    * lib/mkdir.c: removed
+    * src/lrz.c (procheader): remove mkdir
+    * lib/Makefile.am: remove mkdir.c
+    * configure.in: remove mkdir and ENABLE_MKDIR
+    * config.h.in: remove HAVE_MKDIR and ENABLE_MKDIR
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Remove extraneous OMEN block
+    
+    * src/lrz.c (procheader): remove OMEN block
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    presume MAXHOSTNAMELEN does not exist
+    
+    * src/lrz.c (main): remove MAXHOSTNAMELEN
+    * src/lsz.c (main): remove MAXHOSTNAMELEN
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    presume siginterrupt exists in signal.h
+    
+    * src/lrz.c (main): remove HAVE_SIGINTERRUPT
+    * src/lsz.c (main): remove HAVE_SIGINTERRUPT
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume gettimeofday is in sys/time.h, and that settimeofday doesn't exist
+    
+    * configure.in (AC_CHECK_HEADERS): remove sys/time.h
+      (AC_CHECK_FUNCS): remove gettimeofday settimeofday
+    * src/lrz.c (main): remove settimeofday
+    * src/timing.c: remove settimeofday
+    * src/zglobal.h: presume existense of sys/time.h
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume O_SYNC is defined in fcntl.h
+    
+    * src/lrz (procheader, main): assume kernel support of O_SYNC
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Remove syslog support
+    
+    * INSTALL: remove mention of syslog
+    * configure.in: remove ENABLE_SYSLOG
+    * src/lsyslog.c: removed
+    * src/lrz.c (DO_SYSLOG_FNAME, enable_syslog, DO_SYSLOG): removed
+      (long_options): remove syslog option
+      (main, usage, wcreceive) remove syslog support
+    * src/lsz.c (DO_SYSLOG, ENABLE_SYSLOG): removed
+      (enable_syslog): removed
+      (long_options): remove syslog option
+      (main, wcsend, wcs, wctxpn, zsendfdata): remove syslog support
+    * src/rbsb.c (rdchk): remove syslog support
+    * src/zglobal.h: remove openlog and setlog
+    * src/zm.c (printout_blocksizes): removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Always have TIMESYNC protocol enabled
+    
+    * configure.in (ENABLE_TIMESYNC): remove
+    * config.h.in (ENABLE_TIMESYNC): remove
+    * src/lrz.c (main, procheader, tryz): assume ENABLE_TIMESYNC is always true
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Remove HOWMANY define, which is always MAX_BLOCK
+    
+    * src/lrz (HOWMANY): replaced with MAX_BLOCK
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume F_GETFD, F_SETFD are constants defined in fcntl.h
+    
+    * config.h.in (HAVE_FCNTL_H): remove
+    * configure.in (AC_CHECK_HEADERS): remove fcntl.h check
+    * src/lrz.c: add fcntl.h, and remove checks for F_GETFD and F_SETFD
+      (main, procheader): assume existence of F_GETFD and F_SETFD
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume NFGVMIN is always defined, e.g. large blocks are okay
+    
+    * src/Makefile.am: (NFGVMIN) remove hard-coded define
+    * src/lrz.c (NFGVMIN): remove assuming it was defined
+      (wcrxpn, get2): remove assuming it was defined
+    * src/rbsb.c (NFGVMIN): remove assuming it was defined
+      (io_mode): remove NFGVMIN assuming it was true
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume SEGMENTS #define is always undefined
+    
+    - src/lrz.c (secbuf): size if 1 MAX_BLOCK
+      (tryz, rzfile, nxthdr): remove unused segments functionality
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume strstr is a function declared in string.h
+    
+    - config.h.in (HAVE_STRSTR): remove
+    - lib/Makefile.am (EXTRA_DIST): remove strstr.c
+    - lib/strstr.c: remove
+    - src/lrz.c: prefer string.h to manual declaration
+    - src/lsz.c: prefer string.h to manual declaration
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume strerror is defined in string.h
+    
+    - config.h.in (HAVE_STRERROR) remove
+    - configure.in (AC_REPLACE_FUNCS): remove strerror
+    - src/lsz.c: prefer string.h over manual strerror declaration
+    - src/lrz.c: prefer string.h over manual strerror declaration
+    - lib/strerror.c: remove
+    - lib/Makefile.am (EXTRA_DIST): remove strerror.c
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume time() is a function declared in time.t
+    
+    - configure.in (AC_HEADER_TIME): remove
+    - src/lrz.c: prefer time.h over manual header declaration
+    - src/lsz.c: prefer time.h over manual header declaration
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    remove utime checks from configure.in
+    
+    - configure.in: remove check for utime.h and function utime
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume errno is a macro from errno.h
+    
+    - acinclude.m4 (LRZSZ_ERRNO_DECL): remove
+    - configure.in (LRZSZ_ERRNO_DECL): remove
+    - config.h.in (HAVE_ERRNO_DECLARATION): remove
+    - lib/strtol.c: remove ifndef errno check
+    - lib/xstrtol.c: remove ifndef errno check
+    - intl/degettext.c: remove ifndef errno check
+    - src/lrz.c (HAVE_ERRNO_DECLARATION): remove
+    - src/lsz.c (HAVE_ERRNO_DECLARATION):remove
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume utime, utime.h and utimbuf are always available
+    
+    - configure.in (HAVE_STRUCT_UTIMBUF): removed
+    - config.h.in (HAVE_STRUCT_UTIMBUF, HAVE_UTIME, HAVE_UTIME_H): removed
+    - src/lrz.c (HAVE_UTIME_H, HAVE_STRUCT_UTIMBUF): removed
+
+Mike Gran <spk121@yahoo.com>	2018-01-10
+
+    Assume all signals return void
+    
+    - configure.in (AC_TYPE_SIGNAL): remove
+    - src/lrz.c (bibi): return void
+    - src/lsz.c (bibi): return void
+      (onintr): return void
+    - src/tcp.c (tcp_alarm_handler): return void
+    - src/zglobal.h: declare bibi to return void
+    - src/zreadline.c (zreadline_alarm_handler): return void
+
+Jean-Noel Avila <jean-noel.avila@scantech.fr>	2013-03-01
+
+    Add a hyperterm mode for sending
+    
+    Hyperterm (windows default terminal application prior to Vista) does not
+    send mtime, mode or remaining files. Some embedded applications rely on
+    this behavior and using a proper Ymodem protocol upsets them.
+    
+    This is a quick hack to make lsz mimic hyperterm behavior on YMODEM sends
+    and make the other party happy.
+
+Jean-Noel Avila <jean-noel.avila@scantech.fr>	2013-02-22
+
+    initial commit

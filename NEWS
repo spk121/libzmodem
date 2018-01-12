@@ -1,3 +1,17 @@
+Version 0.12.21-mlg - Jan 2018, Michael L. Gran
+
+* assume a modern C environment
+
+* remove BeOS compatibility
+
+* remove all RPM and Debian build functionality
+
+* disable broken dejagnu test framework
+
+* remove in-tree gettext and replacd with library gettext
+
+* disable any K&R compatibility
+
 Version 0.12.20 - December 1998, Uwe Ohse
 
 * works on BeOS and stone-aged SCO (sco-3.2v4.2)
