@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([lrzsz], [0.12.21-mlg], [mike@lonelycactus.com])
 AC_PREREQ(2.69)
-dnl AC_CONFIG_SRCDIR([src/lrz.c])
+AC_CONFIG_SRCDIR([src/lrz.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -41,12 +41,13 @@ dnl AM_GNU_GETTEXT([no-libtool])
 AM_GNU_GETTEXT([external],[],[])
 AM_GNU_GETTEXT_VERSION([0.19.8])
 
-dnl AC_DEFINE_UNQUOTED(LOCALEDIR,"$prefix/$DATADIRNAME")
-
+if test x"$DEJAGNU" = x
+then
+  DEJAGNU="\$(top_srcdir)/testsuite/global-conf.exp"
+fi
+AC_SUBST(DEJAGNU)
 
 AC_CONFIG_FILES([Makefile lib/Makefile testsuite/Makefile \
 man/Makefile po/Makefile.in src/Makefile \
-src/lrzszbug],
-[
-test -z "$CONFIG_HEADERS" || echo timestamp > stamp-h])
+src/lrzszbug]),
 AC_OUTPUT

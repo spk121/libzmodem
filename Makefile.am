@@ -1,6 +1,6 @@
 SUBDIRS = lib src man po testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
-	README.gettext fastcheck.sh README.tests
+	fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
 CLEAN_FILES=fastcheck.done
 
