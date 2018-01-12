@@ -147,7 +147,6 @@ int Beenhereb4;		/* How many times we've been ZRPOS'd same place */
 int no_timeout=FALSE;
 size_t max_blklen=1024;
 size_t start_blklen=0;
-int zmodem_requested;
 time_t stop_time=0;
 int tcp_flag=0;
 char *tcp_server_address=0;
@@ -275,6 +274,8 @@ main(int argc, char **argv)
 	int c;
 	const char *Cmdstr=NULL;		/* Pointer to the command string */
 	unsigned int startup_delay=0;
+
+	reset_zmodem_requested();
 
 	if (((cp = getenv("ZNULLS")) != NULL) && *cp)
 		Znulls = atoi(cp);
@@ -842,7 +843,7 @@ wcsend (int argc, char *argp[])
 		zperr (_ ("Can't open any requested files."));
 		return ERROR;
 	}
-	if (zmodem_requested)
+	if (get_zmodem_requested())
 		saybibi ();
 	else if (protocol != ZM_XMODEM) {
 		struct zm_fileinfo zi;
@@ -967,7 +968,7 @@ wcs(const char *oname, const char *remotename)
 		error(0,0, _("skipped: %s"),name);
 		return OK;
 	}
-	if (!zmodem_requested && wctx(&zi)==ERROR)
+	if (!get_zmodem_requested() && wctx(&zi)==ERROR)
 	{
 		return ERROR;
 	}
@@ -1008,7 +1009,7 @@ wctxpn(struct zm_fileinfo *zi)
 		zpdebug(_("Give your local XMODEM receive command now."));
 		return OK;
 	}
-	if (!zmodem_requested)
+	if (!get_zmodem_requested())
 		if (getnak()) {
 			zpdebug("getnak failed");
 			return ERROR;
@@ -1064,7 +1065,7 @@ wctxpn(struct zm_fileinfo *zi)
 		txbuf[127] = (f.st_size + 127) >>7;
 		txbuf[126] = (f.st_size + 127) >>15;
 	}
-	if (zmodem_requested)
+	if (get_zmodem_requested())
 		return zsendfile(zi,txbuf, 1+strlen(p)+(p-txbuf));
 	if (wcputsec(txbuf, 0, 128)==ERROR) {
 		zpdebug("wcputsec failed");

@@ -103,7 +103,9 @@ static char zsendline_tab[256];
 static int zrdat32 (char *buf, int length, size_t *);
 static void zsbh32 (char *hdr, int type);
 
-extern int zmodem_requested;
+#if 1
+static bool zmodem_requested = false;
+#endif
 
 #define sendline(c) putchar((c) & 0377)
 #define xsendline(c) putchar(c)
@@ -794,7 +796,7 @@ zrbhdr(char *hdr)
 		return ERROR;
 	}
 	protocol = ZM_ZMODEM;
-	zmodem_requested=TRUE;
+	zmodem_requested = true;
 	return Rxtype;
 }
 
@@ -835,7 +837,7 @@ zrbhdr32(char *hdr)
 		return ERROR;
 	}
 	protocol = ZM_ZMODEM;
-	zmodem_requested=TRUE;
+	zmodem_requested = true;
 	return Rxtype;
 }
 
@@ -877,7 +879,7 @@ zrhhdr(char *hdr)
 		break;
 	}
 	protocol = ZM_ZMODEM;
-	zmodem_requested=TRUE;
+	zmodem_requested = true;
 	return Rxtype;
 }
 
@@ -959,6 +961,16 @@ rclhdr(char *hdr)
 	l = (l << 8) | (hdr[ZP1] & 0377);
 	l = (l << 8) | (hdr[ZP0] & 0377);
 	return l;
+}
+
+void reset_zmodem_requested()
+{
+	zmode_requested = false;
+}
+
+bool get_zmodem_requested()
+{
+	return zmodem_requested;
 }
 
 /* End of zm.c */

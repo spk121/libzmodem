@@ -76,7 +76,6 @@ int junk_path=FALSE;
 int no_timeout=FALSE;
 enum zm_type_enum protocol;
 int	under_rsh=FALSE;
-int zmodem_requested=FALSE;
 
 char secbuf[MAX_BLOCK + 1];
 
@@ -133,7 +132,7 @@ time_t stop_time;
 void
 bibi(int n)
 {
-	if (zmodem_requested)
+	if (get_zmodem_requested())
 		zmputs(Attn);
 	canit(STDOUT_FILENO);
 	io_mode(0,0);
@@ -201,6 +200,7 @@ main(int argc, char *argv[])
 	int c;
 	unsigned int startup_delay=0;
 
+	reset_zmodem_requested();
 	Rxtimeout = 100;
 	setbuf(stderr, NULL);
 	if ((cp=getenv("SHELL")) && (strstr(cp, "rsh") || strstr(cp, "rksh")
@@ -466,7 +466,7 @@ main(int argc, char *argv[])
 		canit(STDOUT_FILENO);
 	}
 	io_mode(0,0);
-	if (exitcode && !zmodem_requested)	/* bellow again with all thy might. */
+	if (exitcode && !get_zmodem_requested())	/* bellow again with all thy might. */
 		canit(STDOUT_FILENO);
 	if (exitcode)
 		zpdebug(_("Transfer incomplete"));
@@ -1076,7 +1076,7 @@ procheader(char *name, struct zm_fileinfo *zi)
 	}
 
 
-	if (!zmodem_requested && MakeLCPathname && !IsAnyLower(name_static)
+	if (!get_zmodem_requested() && MakeLCPathname && !IsAnyLower(name_static)
 	    && !(zi->mode&UNIXFILE))
 		uncaps(name_static);
 	if (Topipe > 0) {
@@ -1348,7 +1348,7 @@ tryz(void)
 	if (protocol!=ZM_ZMODEM)		/* Check for "rb" program name */
 		return 0;
 
-	for (n=zmodem_requested?15:5;
+	for (n= (get_zmodem_requested() ? 15 : 5);
 	     (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {
 		/* Set buffer length (0) and capability flags */
 		stohdr(0L);

@@ -205,6 +205,8 @@ extern long cr3tab[];
 
 /* zm.c */
 #include "zmodem.h"
+void reset_zmodem_requested();
+bool get_zmodem_requested();
 extern unsigned int Rxtimeout;        /* Tenths of seconds to wait for something */
 extern int bytes_per_error;  /* generate one error around every x bytes */
 
