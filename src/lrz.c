@@ -410,7 +410,7 @@ main(int argc, char *argv[])
 			Verbose = 2;
 	}
 
-	vfile("%s %s\n", program_name, VERSION);
+	zpdebug("%s %s\n", program_name, VERSION);
 
 	if (tcp_flag==2) {
 		char buf[256];
@@ -1622,13 +1622,13 @@ nxthdr:
 				if (akt->pos==zi->bytes_received) {
 					putsec(zi, akt->data, akt->len);
 					zi->bytes_received += akt->len;
-					vfile("using saved out-of-sync-paket %lx, len %ld",
+					zpdebug("using saved out-of-sync-paket %lx, len %ld",
 						  akt->pos,akt->len);
 					goto nxthdr;
 				}
 				next=akt->next;
 				if (akt->pos<zi->bytes_received) {
-					vfile("removing unneeded saved out-of-sync-paket %lx, len %ld",
+					zpdebug("removing unneeded saved out-of-sync-paket %lx, len %ld",
 						  akt->pos,akt->len);
 					if (last)
 						last->next=akt->next;
@@ -1644,12 +1644,12 @@ nxthdr:
 		c = zgethdr(Rxhdr, 0, NULL);
 		switch (c) {
 		default:
-			vfile("rzfile: zgethdr returned %d", c);
+			zpdebug("rzfile: zgethdr returned %d", c);
 			return ERROR;
 		case ZNAK:
 		case TIMEOUT:
 			if ( --n < 0) {
-				vfile("rzfile: zgethdr returned %d", c);
+				zpdebug("rzfile: zgethdr returned %d", c);
 				return ERROR;
 			}
 		case ZFILE:
@@ -1666,28 +1666,28 @@ nxthdr:
 			}
 			if (closeit(zi)) {
 				tryzhdrtype = ZFERR;
-				vfile("rzfile: closeit returned <> 0");
+				zpdebug("rzfile: closeit returned <> 0");
 				return ERROR;
 			}
-			vfile("rzfile: normal EOF");
+			zpdebug("rzfile: normal EOF");
 			return c;
 		case ERROR:	/* Too much garbage in header search error */
 			if ( --n < 0) {
-				vfile("rzfile: zgethdr returned %d", c);
+				zpdebug("rzfile: zgethdr returned %d", c);
 				return ERROR;
 			}
 			zmputs(Attn);
 			continue;
 		case ZSKIP:
 			closeit(zi);
-			vfile("rzfile: Sender SKIPPED file");
+			zpdebug("rzfile: Sender SKIPPED file");
 			return c;
 		case ZDATA:
 			if (rclhdr(Rxhdr) != (long) zi->bytes_received) {
 				oosb_t *neu;
 				size_t pos=rclhdr(Rxhdr);
 				if ( --n < 0) {
-					vfile("rzfile: out of sync");
+					zpdebug("rzfile: out of sync");
 					return ERROR;
 				}
 				switch (c = zrdata(secbuf, MAX_BLOCK,&bytes_in_block))
@@ -1701,7 +1701,7 @@ nxthdr:
 						if (neu)
 							neu->data=malloc(bytes_in_block);
 						if (neu && neu->data) {
-							vfile("saving out-of-sync-block %lx, len %lu",pos,
+							zpdebug("saving out-of-sync-block %lx, len %lu",pos,
 								  (unsigned long) bytes_in_block);
 							memcpy(neu->data,secbuf,bytes_in_block);
 							neu->pos=pos;
@@ -1736,7 +1736,7 @@ moredata:
 						if (last_bps<min_bps) {
 							if (now-low_bps>=min_bps_time) {
 								/* too bad */
-								vfile(_("rzfile: bps rate %ld below min %ld"), 
+								zpdebug(_("rzfile: bps rate %ld below min %ld"), 
 									  last_bps, min_bps);
 								return ERROR;
 							}
@@ -1749,7 +1749,7 @@ moredata:
 				}
 				if (stop_time && now>=stop_time) {
 					/* too bad */
-					vfile(_("rzfile: reached stop time"));
+					zpdebug(_("rzfile: reached stop time"));
 					return ERROR;
 				}
 				
@@ -1765,18 +1765,18 @@ moredata:
 			switch (c = zrdata(secbuf, MAX_BLOCK,&bytes_in_block))
 			{
 			case ZCAN:
-				vfile("rzfile: zrdata returned %d", c);
+				zpdebug("rzfile: zrdata returned %d", c);
 				return ERROR;
 			case ERROR:	/* CRC error */
 				if ( --n < 0) {
-					vfile("rzfile: zgethdr returned %d", c);
+					zpdebug("rzfile: zgethdr returned %d", c);
 					return ERROR;
 				}
 				zmputs(Attn);
 				continue;
 			case TIMEOUT:
 				if ( --n < 0) {
-					vfile("rzfile: zgethdr returned %d", c);
+					zpdebug("rzfile: zgethdr returned %d", c);
 					return ERROR;
 				}
 				continue;
@@ -1895,7 +1895,7 @@ ackbibi(void)
 {
 	int n;
 
-	vfile("ackbibi:");
+	zpdebug("ackbibi:");
 	Readnum = 1;
 	stohdr(0L);
 	for (n=3; --n>=0; ) {
@@ -1904,7 +1904,7 @@ ackbibi(void)
 		switch (READLINE_PF(100)) {
 		case 'O':
 			READLINE_PF(1);	/* Discard 2nd 'O' */
-			vfile("ackbibi complete");
+			zpdebug("ackbibi complete");
 			return;
 		case RCDO:
 			return;

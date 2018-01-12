@@ -148,7 +148,7 @@ io_mode(int fd, int n)
 {
 	static int did0 = FALSE;
 
-	vfile("mode:%d", n);
+	zpdebug("mode:%d", n);
 
 	switch(n) {
 
