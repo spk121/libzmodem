@@ -25,7 +25,7 @@
 
 /*
  *  Rev 05-05-1988
- *  ============== (not quite, but originated there :-). -- uwe 
+ *  ============== (not quite, but originated there :-). -- uwe
  */
 #include "zglobal.h"
 
@@ -40,14 +40,7 @@ long Locbit = LLITOUT;	/* Bit SUPPOSED to disable output translations */
 #endif
 
 #include <sys/ioctl.h>
-
-#ifdef MAJOR_IN_MKDEV
-#include <sys/mkdev.h>
-#else
-# ifdef MAJOR_IN_SYSMACROS
-# include <sys/sysmacros.h>
-# endif
-#endif
+#include <sys/sysmacros.h>
 
 static struct {
 	unsigned baudr;
@@ -60,19 +53,19 @@ static struct {
 	{2400,	B2400},
 	{4800,	B4800},
 	{9600,	B9600},
-    {19200,  B19200},
-    {38400,  B38400},
+	{19200,  B19200},
+	{38400,  B38400},
 #ifdef B57600
-    {57600,  B57600},
+	{57600,  B57600},
 #endif
 #ifdef B115200
-    {115200,  B115200},
+	{115200,  B115200},
 #endif
 #ifdef B230400
-    {230400,  B230400},
+	{230400,  B230400},
 #endif
 #ifdef B460800
-    {460800,  B460800},
+	{460800,  B460800},
 #endif
 #ifdef EXTA
 	{19200,	EXTA},
@@ -100,37 +93,26 @@ getspeed(speed_t code)
  *  different line
  */
 int Fromcu;		/* Were called from cu or yam */
-int 
+int
 from_cu(void)
 {
-#ifdef HAVE_ST_RDEV
 	struct stat a, b;
-#if defined(makedev)
 	dev_t help=makedev(0,0);
-#else
-	int help=0;
-#endif
 
 	/* in case fstat fails */
 	a.st_rdev=b.st_rdev=a.st_dev=b.st_dev=help;
 
 	fstat(1, &a); fstat(2, &b);
 
-#if defined(major) && defined(minor)
-	if (major(a.st_rdev) != major(b.st_rdev) 
+	if (major(a.st_rdev) != major(b.st_rdev)
 		|| minor(a.st_rdev) != minor(b.st_rdev))
 		Fromcu=1;
-	else if (major(a.st_dev) != major(b.st_dev) 
+	else if (major(a.st_dev) != major(b.st_dev)
 		|| minor(a.st_dev) != minor(b.st_dev))
 		Fromcu=1;
 	else
 		Fromcu=0;
-#else
-	Fromcu = (a.st_rdev != b.st_rdev) || (a.st_dev != b.st_dev);
-#endif
-#else
-	Fromcu = 1; /* a bad guess .. */
-#endif
+
 	return Fromcu;
 }
 
@@ -142,7 +124,7 @@ int Twostop;		/* Use two stop bits */
 /*
  *  Return non 0 if something to read from io descriptor f
  */
-int 
+int
 rdchk(int fd)
 {
 	static long lf;
@@ -158,10 +140,10 @@ struct termios oldtty, tty;
  * mode(n)
  *  3: save old tty stat, set raw mode with flow control
  *  2: set XON/XOFF for sb/sz with ZMODEM or YMODEM-g
- *  1: save old tty stat, set raw mode 
+ *  1: save old tty stat, set raw mode
  *  0: restore original tty mode
  */
-int 
+int
 io_mode(int fd, int n)
 {
 	static int did0 = FALSE;
@@ -222,7 +204,7 @@ io_mode(int fd, int n)
 		tty.c_cflag &= ~(PARENB);	/* Same baud rate, disable parity */
 		/* Set character size = 8 */
 		tty.c_cflag &= ~(CSIZE);
-		tty.c_cflag |= CS8;	
+		tty.c_cflag |= CS8;
 		if (Twostop)
 			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
 		tty.c_cc[VMIN] = 1; /* This many chars satisfies reads */
