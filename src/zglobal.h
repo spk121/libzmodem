@@ -223,7 +223,7 @@ extern int Znulls;     /* Number of nulls to send at beginning of ZDATA hdr */
 extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
 
 extern void zsendline (int c);
-extern void zsendline_init (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+void zsendline_init(int my_turbo_escape, int my_zctlesc);
 void zsbhdr (int type, char *hdr);
 void zshhdr (int type, char *hdr);
 void zsdata (const char *buf, size_t length, int frameend);

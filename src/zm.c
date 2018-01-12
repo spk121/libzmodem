@@ -911,22 +911,22 @@ zsendline_init(int my_turbo_escape, int my_zctlesc)
 				break;
 			case 020: /* ^P */
 			case 0220:
-				if (turbo_escape)
+				if (my_turbo_escape)
 					zsendline_tab[i]=0;
 				else
 					zsendline_tab[i]=1;
 				break;
 			case 015:
 			case 0215:
-				if (Zctlesc)
+				if (my_zctlesc)
 					zsendline_tab[i]=1;
-				else if (!turbo_escape)
+				else if (!my_turbo_escape)
 					zsendline_tab[i]=2;
 				else 
 					zsendline_tab[i]=0;
 				break;
 			default:
-				if (Zctlesc)
+				if (my_zctlesc)
 					zsendline_tab[i]=1;
 				else
 					zsendline_tab[i]=0;

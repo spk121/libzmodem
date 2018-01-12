@@ -527,7 +527,7 @@ main(int argc, char **argv)
 		error(1,0,
 		      _("this program was never intended to be used setuid\n"));
 	}
-	zsendline_init();
+	zsendline_init(turbo_escape, Zctlesc);
 
 	if (start_blklen==0) {
 		if (protocol == ZM_ZMODEM) {
@@ -1440,7 +1440,7 @@ getzrxinit(void)
 				Zctlesc |= Rxflags & TESCCTL;
 				/* update table - was initialised to not escape */
 				if (Zctlesc && !old)
-					zsendline_init();
+					zsendline_init(turbo_escape, Zctlesc);
 			}
 			Rxbuflen = (0377 & Rxhdr[ZP0])+((0377 & Rxhdr[ZP1])<<8);
 			if ( !(Rxflags & CANFDX))

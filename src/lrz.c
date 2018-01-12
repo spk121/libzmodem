@@ -390,7 +390,7 @@ main(int argc, char *argv[])
 		      _("this program was never intended to be used setuid\n"));
 	}
 	/* initialize zsendline tab */
-	zsendline_init();
+	zsendline_init(0, _zctlesc);
 	siginterrupt(SIGALRM,1);
 	if (startup_delay)
 		sleep(startup_delay);
