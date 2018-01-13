@@ -41,7 +41,7 @@
 #include "timing.h"
 #include "long-options.h"
 #include "xstrtoul.h"
-#include "error.h"
+#include "log.h"
 
 #define MAX_BLOCK 8192
 
@@ -137,7 +137,8 @@ bibi(int n)
 		zmputs(Attn);
 	canit(STDOUT_FILENO);
 	io_mode(0,0);
-	error(128+n,0,_("caught signal %d; exiting"), n);
+	log_fatal(_("caught signal %s; exiting"), n);
+	exit(128+n);
 }
 
 static struct option const long_options[] =
@@ -317,8 +318,7 @@ main(int argc, char *argv[])
 			timesync_flag++;
 			if (timesync_flag==2) {
 				if (getuid()!=0)
-					error(0,0,
-				_("not running as root (this is good!), can not set time\n"));
+					log_error(_("not running as root (this is good!), can not set time"));
 			}
 			break;
 		case 't':
@@ -341,8 +341,8 @@ main(int argc, char *argv[])
 			if (!under_rsh)
 				Restricted=0;
 			else  {
-				error(1,0,
-	_("security violation: can't do that under restricted shell\n"));
+				log_fatal(_("security violation: can't do that under restricted shell"));
+				exit(1);
 			}
 			break;
 		case 'v':
@@ -376,8 +376,10 @@ main(int argc, char *argv[])
 		case 7:
 			tcp_flag=3;
 			tcp_server_address=(char *)strdup(optarg);
-			if (!tcp_server_address)
-				error(1,0,_("out of memory"));
+			if (!tcp_server_address) {
+				log_fatal(_("out of memory"));
+				exit(1);
+			}
 			break;
 		default:
 			usage(2,NULL);
@@ -386,8 +388,8 @@ main(int argc, char *argv[])
 	}
 
 	if (getuid()!=geteuid()) {
-		error(1,0,
-		_("this program was never intended to be used setuid\n"));
+		log_fatal(_("this program was never intended to be used setuid"));
+		exit(1);
 	}
 	/* initialize zsendline tab */
 	zsendline_init();
@@ -425,7 +427,8 @@ main(int argc, char *argv[])
 		q=strchr(p,'>');
 		*q=0;
 		if (gethostname(hn,sizeof(hn))==-1) {
-			error(1,0, _("hostname too long\n"));
+			log_fatal(_("hostname too long"));
+			exit(1);
 		}
 		fprintf(stdout,"connect with lrz --tcp-client \"%s:%s\"\n",hn,p);
 		fflush(stdout);
@@ -439,8 +442,10 @@ main(int argc, char *argv[])
 		char buf[256];
 		char *p;
 		p=strchr(tcp_server_address,':');
-		if (!p)
-			error(1,0, _("illegal server address\n"));
+		if (!p) {
+			log_fatal(_("illegal server address"));
+			exit(1);
+		}
 		*p++=0;
 		sprintf(buf,"[%s] <%s>\n",tcp_server_address,p);
 
@@ -624,8 +629,10 @@ wcreceive(int argc, char **argp)
 			free(Pathname);
 		errno=0;
 		Pathname=malloc(PATH_MAX+1);
-		if (!Pathname)
-			error(1,0,_("out of memory"));
+		if (!Pathname) {
+			log_fatal(_("out of memory"));
+			exit(1);
+		}
 
 		strcpy(Pathname, *argp);
 		checkpath(Pathname);
@@ -950,8 +957,10 @@ procheader(char *name, struct zm_fileinfo *zi)
 		}
 	}
 	name_static=malloc(strlen(name)+1);
-	if (!name_static)
-		error(1,0,_("out of memory"));
+	if (!name_static) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 	strcpy(name_static,name);
 	zi->fname=name_static;
 
@@ -1067,8 +1076,10 @@ procheader(char *name, struct zm_fileinfo *zi)
 			}
 			free(name_static);
 			name_static=malloc(strlen(tmpname)+1);
-			if (!name_static)
-				error(1,0,_("out of memory"));
+			if (!name_static) {
+				log_fatal(_("out of memory"));
+				exit(1);
+			}
 			strcpy(name_static,tmpname);
 			free(tmpname);
 			zi->fname=name_static;
@@ -1098,7 +1109,8 @@ procheader(char *name, struct zm_fileinfo *zi)
 	if (in_tcpsync) {
 		fout=tmpfile();
 		if (!fout) {
-			error(1,errno,_("cannot tmpfile() for tcp protocol synchronization"));
+			log_fatal(_("cannot tmpfile() for tcp protocol synchronization: %s"), strerror(errno));
+			exit(1);
 		}
 		zi->bytes_received=0;
 		return OK;
@@ -1112,8 +1124,10 @@ procheader(char *name, struct zm_fileinfo *zi)
 		if (Pathname)
 			free(Pathname);
 		Pathname=malloc((PATH_MAX)*2);
-		if (!Pathname)
-			error(1,0,_("out of memory"));
+		if (!Pathname) {
+			log_fatal(_("out of memory"));
+			exit(1);
+		}
 		sprintf(Pathname, "%s %s", program_name+2, name_static);
 		if (Verbose) {
 			vstringf("%s: %s %s\n",
@@ -1129,8 +1143,10 @@ procheader(char *name, struct zm_fileinfo *zi)
 		if (Pathname)
 			free(Pathname);
 		Pathname=malloc((PATH_MAX)*2);
-		if (!Pathname)
-			error(1,0,_("out of memory"));
+		if (!Pathname) {
+			log_fatal(_("out of memory"));
+			exit(1);
+		}
 		strcpy(Pathname, name_static);
 		if (Verbose) {
 			/* overwrite the "waiting to receive" line */
@@ -1855,7 +1871,8 @@ closeit(struct zm_fileinfo *zi)
 	if (in_tcpsync) {
 		rewind(fout);
 		if (!fgets(tcp_buf,sizeof(tcp_buf),fout)) {
-			error(1,errno,_("fgets for tcp protocol synchronization failed: "));
+			log_fatal(_("fgets for tcp protocol synchronization failed: %s"), strerror(errno));
+			exit(1);
 		}
 		fclose(fout);
 		return OK;

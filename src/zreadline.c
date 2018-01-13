@@ -32,8 +32,7 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include "error.h"
-
+#include "log.h"
 
 /* Ward Christensen / CP/M parameters - Don't change these! */
 #define TIMEOUT (-2)
@@ -124,8 +123,10 @@ readline_setup(int fd, size_t readnum, size_t bufsize)
 	readline_fd=fd;
 	readline_readnum=readnum;
 	readline_buffer=malloc(bufsize > readnum ? bufsize : readnum);
-	if (!readline_buffer)
-		error(1,0,_("out of memory"));
+	if (!readline_buffer) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 }
 
 void

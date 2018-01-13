@@ -35,7 +35,7 @@
 
 #include "zglobal.h"
 #include <stdlib.h>
-#include "error.h"
+#include "log.h"
 
 static void
 tcp_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
@@ -57,27 +57,32 @@ tcp_server (char *buf)
 	int on=1;
 	size_t len;
 
-	if ((sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-		error(1,errno,"socket");
+	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+		log_fatal("socket: %s", strerror(errno));
+		exit(1);
 	}
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0) {
-		error(1,errno,"setsockopt (reuse address)");
+		log_fatal("setsockopt (reuse address): %s", strerror(errno));
+		exit(1);
 	}
 	memset (&s, 0, sizeof (s));
 	s.sin_family = AF_INET;
 	s.sin_port=0; /* let system fill it in */
 	s.sin_addr.s_addr=htonl(INADDR_ANY);
 	if (bind(sock, (struct sockaddr *)&s, sizeof (s)) < 0) {
-		error(1,errno,"bind");
+		log_fatal("bind: %s", strerror(errno));
+		exit(1);
 	}
 	len=sizeof(t);
 	if (getsockname (sock, (struct sockaddr *) &t, &len)) {
-		error(1,errno,"getsockname");
+		log_fatal("getsockname: %s", strerror(errno));
+		exit(1);
 	}
 	sprintf(buf,"[%s] <%d>\n",inet_ntoa(t.sin_addr),ntohs(t.sin_port));
 
 	if (listen(sock, 1) < 0) {
-		error(1,errno,"listen");
+		log_fatal("listen: %s", strerror(errno));
+		exit(1);
 	}
 	getsockname (sock, (struct sockaddr *) &t, &len);
 
@@ -104,7 +109,8 @@ retry:
 			if (++num<=5)
 				goto retry;
 		}
-		error(1,errno,"accept");
+		log_fatal("accept: %s", strerror(errno));
+		exit(1);
 	}
 	alarm(0);
 	return so;
@@ -127,11 +133,13 @@ tcp_connect (char *buf)
 
 	/* i _really_ distrust scanf & co. Or maybe i distrust bad input */
 	if (*buf!='[') {
-		error(1,0,_("tcp_connect: illegal format1\n"));
+		log_fatal(_("tcp_connect: illegal format1"));
+		exit(1);
 	}
 	p=strchr(buf+1,']');
 	if (!p) {
-		error(1,0,_("tcp_connect: illegal format2\n"));
+		log_fatal(_("tcp_connect: illegal format2"));
+		exit(1);
 	}
 	*p++=0;
 	s_in.sin_addr.s_addr=inet_addr(buf+1);
@@ -141,28 +149,35 @@ tcp_connect (char *buf)
 
 	if (s_in.sin_addr.s_addr== (unsigned long) INADDR_NONE) {
 		struct hostent *h=gethostbyname(buf+1);
-		if (!h)
-			error(1,0,_("tcp_connect: illegal format3\n"));
+		if (!h) {
+			log_fatal(_("tcp_connect: illegal format3"));
+			exit(1);
+		}
 		memcpy(& s_in.sin_addr.s_addr,h->h_addr,h->h_length);
 	}
 	while (isspace((unsigned char)(*p)))
 		p++;
 	if (*p!='<') {
-		error(1,0,_("tcp_connect: illegal format4\n"));
+		log_fatal(_("tcp_connect: illegal format4"));
+		exit(1);
 	}
 	q=strchr(p+1,'>');
-	if (!q)
-		error(1,0,_("tcp_connect: illegal format5\n"));
+	if (!q) {
+		log_fatal(_("tcp_connect: illegal format5"));
+		exit(1);
+	}
 	s_in.sin_port = htons(strtol(p+1,NULL,10));
 
 	if ((sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-		error(1,errno,"socket");
+		log_fatal("socket: %s", strerror(errno));
+		exit(1);
 	}
 
 	signal(SIGALRM, tcp_alarm_handler);
 	alarm(30);
 	if (connect (sock, (struct sockaddr *) &s_in, sizeof (s_in)) < 0) {
-		error(1,errno,"connect");
+		log_fatal("connect: %s", strerror(errno));
+		exit(1);
 	}
 	alarm(0);
 	return (sock);

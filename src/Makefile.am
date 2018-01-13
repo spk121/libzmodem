@@ -1,7 +1,7 @@
 bin_PROGRAMS=lrz lsz
-lrz_SOURCES=lrz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c canit.c
-lsz_SOURCES=lsz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c canit.c
-noinst_HEADERS = timing.h zglobal.h zmodem.h gettext.h
+lrz_SOURCES=lrz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c canit.c log.c
+lsz_SOURCES=lsz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c canit.c log.c
+noinst_HEADERS = timing.h zglobal.h zmodem.h gettext.h log.h
 datadir = $(prefix)/share
 localedir = $(datadir)/locale
 DISTCLEAN_FILES=lrzszbug
