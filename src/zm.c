@@ -327,12 +327,11 @@ zsendline_s(const char *s, size_t count)
 void 
 zsbhdr(int type, char *hdr)
 {
-	register int n;
 	register unsigned short crc;
 
 	zpdebug("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr));
 	if (type == ZDATA)
-		for (n = Znulls; --n >=0; )
+		for (int n = 0; n < Znulls; n ++)
 			xsendline(0);
 
 	xsendline(ZPAD); xsendline(ZDLE);
@@ -343,9 +342,9 @@ zsbhdr(int type, char *hdr)
 	else {
 		xsendline(ZBIN); zsendline(type); crc = updcrc(type, 0);
 
-		for (n=4; --n >= 0; ++hdr) {
-			zsendline(*hdr);
-			crc = updcrc((0377& *hdr), crc);
+		for (int n = 0; n < 4; n ++) {
+			zsendline(hdr[n]);
+			crc = updcrc((0377 & hdr[n]), crc);
 		}
 		crc = updcrc(0,updcrc(0,crc));
 		zsendline(crc>>8);
@@ -360,18 +359,17 @@ zsbhdr(int type, char *hdr)
 static void
 zsbh32(char *hdr, int type)
 {
-	register int n;
 	register unsigned long crc;
 
 	xsendline(ZBIN32);  zsendline(type);
 	crc = 0xFFFFFFFFL; crc = UPDC32(type, crc);
 
-	for (n=4; --n >= 0; ++hdr) {
-		crc = UPDC32((0377 & *hdr), crc);
-		zsendline(*hdr);
+	for (int n = 0; n < 4; n++) {
+		crc = UPDC32((0377 & hdr[n]), crc);
+		zsendline(hdr[n]);
 	}
 	crc = ~crc;
-	for (n=4; --n >= 0;) {
+	for (int n = 0; n < 4; n++) {
 		zsendline((int)crc);
 		crc >>= 8;
 	}
@@ -381,7 +379,6 @@ zsbh32(char *hdr, int type)
 void 
 zshhdr(int type, char *hdr)
 {
-	register int n;
 	register unsigned short crc;
 	char s[30];
 	size_t len;
@@ -396,10 +393,10 @@ zshhdr(int type, char *hdr)
 	Crc32t = 0;
 
 	crc = updcrc((type & 0x7f), 0);
-	for (n=4; --n >= 0; ++hdr) {
-		zputhex(*hdr,s+len); 
+	for (int n = 0; n < 4; n++) {
+		zputhex(hdr[n], s+len);
 		len += 2;
-		crc = updcrc((0377 & *hdr), crc);
+		crc = updcrc((0377 & hdr[n]), crc);
 	}
 	crc = updcrc(0,updcrc(0,crc));
 	zputhex(crc>>8,s+len); 
@@ -432,15 +429,17 @@ zsdata(const char *buf, size_t length, int frameend)
 	zpdebug("zsdata: %lu %s", (unsigned long) length, 
 		Zendnames[(frameend-ZCRCE)&3]);
 	crc = 0;
-	do {
-		zsendline(*buf); crc = updcrc((0377 & *buf), crc);
-		buf++;
-	} while (--length>0);
-	xsendline(ZDLE); xsendline(frameend);
+	for (size_t i = 0; i < length; i++) {
+		zsendline(buf[i]);
+		crc = updcrc((0377 & buf[i]), crc);
+	}
+	xsendline(ZDLE);
+	xsendline(frameend);
 	crc = updcrc(frameend, crc);
 
 	crc = updcrc(0,updcrc(0,crc));
-	zsendline(crc>>8); zsendline(crc);
+	zsendline(crc>>8);
+	zsendline(crc);
 	if (frameend == ZCRCW) {
 		xsendline(XON);  flushmo();
 	}
@@ -456,16 +455,15 @@ zsda32(const char *buf, size_t length, int frameend)
 
 	crc = 0xFFFFFFFFL;
 	zsendline_s(buf,length);
-	for (; length; length--) {
-		c = *buf & 0377;
+	for (size_t i = 0; i < length; i++) {
+		c = buf[i] & 0377;
 		crc = UPDC32(c, crc);
-		buf++;
 	}
 	xsendline(ZDLE); xsendline(frameend);
 	crc = UPDC32(frameend, crc);
 
 	crc = ~crc;
-	for (i=4; --i >= 0;) {
+	for (int i = 0; i < 4; i ++) {
 		c=(int) crc;
 		if (c & 0140)
 			xsendline(lastsent = c);
@@ -502,8 +500,7 @@ struct debug_blocksize blocksizes[]={
 static inline void
 count_blk(int size)
 {
-	int i;
-	for (i=0;blocksizes[i].size;i++) {
+	for (int i=0; blocksizes[i].size; i++) {
 		if (blocksizes[i].size==size) {
 			blocksizes[i].count++;
 			return;
@@ -527,15 +524,14 @@ zrdata(char *buf, int length, size_t *bytes_received)
 {
 	register int c;
 	register unsigned short crc;
-	register char *end;
 	register int d;
 
 	*bytes_received=0;
 	if (Rxframeind == ZBIN32)
 		return zrdat32(buf, length, bytes_received);
 
-	crc = 0;  end = buf + length;
-	while (buf <= end) {
+	crc = 0;
+	for (int i = 0; i < length + 1; i ++) {
 		if ((c = zdlread()) & ~0377) {
 crcfoo:
 			switch (c) {
@@ -557,7 +553,7 @@ crcfoo:
 						zperr(badcrc);
 						return ERROR;
 					}
-					*bytes_received = length - (end - buf);
+					*bytes_received = i;
 					COUNT_BLK(*bytes_received);
 					zpdebug("zrdata: %lu  %s", (unsigned long) (*bytes_received), 
 						Zendnames[(d-GOTCRCE)&3]);
@@ -574,7 +570,7 @@ crcfoo:
 				return c;
 			}
 		}
-		*buf++ = c;
+		buf[i] = c;
 		crc = updcrc(c, crc);
 	}
 	zperr(_("Data subpacket too long"));
@@ -586,11 +582,10 @@ zrdat32(char *buf, int length, size_t *bytes_received)
 {
 	register int c;
 	register unsigned long crc;
-	register char *end;
 	register int d;
 
-	crc = 0xFFFFFFFFL;  end = buf + length;
-	while (buf <= end) {
+	crc = 0xFFFFFFFFL;
+	for (int i = 0; i < length + 1; i ++) {
 		if ((c = zdlread()) & ~0377) {
 crcfoo:
 			switch (c) {
@@ -617,7 +612,7 @@ crcfoo:
 					zperr(badcrc);
 					return ERROR;
 				}
-				*bytes_received = length - (end - buf);
+				*bytes_received = i;
 				COUNT_BLK(*bytes_received);
 				zpdebug("zrdat32: %lu %s", (unsigned long) *bytes_received, 
 					Zendnames[(d-GOTCRCE)&3]);
@@ -633,7 +628,7 @@ crcfoo:
 				return c;
 			}
 		}
-		*buf++ = c;
+		buf[i] = c;
 		crc = UPDC32(c, crc);
 	}
 	zperr(_("Data subpacket too long"));
@@ -771,7 +766,7 @@ fifi:
 static int 
 zrbhdr(char *hdr)
 {
-	register int c, n;
+	register int c;
 	register unsigned short crc;
 
 	if ((c = zdlread()) & ~0377)
@@ -779,11 +774,11 @@ zrbhdr(char *hdr)
 	Rxtype = c;
 	crc = updcrc(c, 0);
 
-	for (n=4; --n >= 0; ++hdr) {
+	for (int n = 0; n < 4; n++) {
 		if ((c = zdlread()) & ~0377)
 			return c;
 		crc = updcrc(c, crc);
-		*hdr = c;
+		hdr[n] = c;
 	}
 	if ((c = zdlread()) & ~0377)
 		return c;
@@ -804,7 +799,7 @@ zrbhdr(char *hdr)
 static int
 zrbhdr32(char *hdr)
 {
-	register int c, n;
+	register int c;
 	register unsigned long crc;
 
 	if ((c = zdlread()) & ~0377)
@@ -815,16 +810,16 @@ zrbhdr32(char *hdr)
 	VPRINTF(3,("zrbhdr32 c=%X  crc=%lX", c, crc)i);
 #endif
 
-	for (n=4; --n >= 0; ++hdr) {
+	for (int n = 0; n < 4; n++) {
 		if ((c = zdlread()) & ~0377)
 			return c;
 		crc = UPDC32(c, crc);
-		*hdr = c;
+		hdr[n] = c;
 #ifdef DEBUGZ
 		VPRINTF(3,("zrbhdr32 c=%X  crc=%lX", c, crc));
 #endif
 	}
-	for (n=4; --n >= 0;) {
+	for (int n = 0; n < 4; n ++) {
 		if ((c = zdlread()) & ~0377)
 			return c;
 		crc = UPDC32(c, crc);
@@ -848,18 +843,17 @@ zrhhdr(char *hdr)
 {
 	register int c;
 	register unsigned short crc;
-	register int n;
 
 	if ((c = zgethex()) < 0)
 		return c;
 	Rxtype = c;
 	crc = updcrc(c, 0);
 
-	for (n=4; --n >= 0; ++hdr) {
+	for (int n = 0; n < 4; n ++) {
 		if ((c = zgethex()) < 0)
 			return c;
 		crc = updcrc(c, crc);
-		*hdr = c;
+		hdr[n] = c;
 	}
 	if ((c = zgethex()) < 0)
 		return c;
@@ -897,8 +891,7 @@ zputhex(int c, char *pos)
 void
 zsendline_init(int my_turbo_escape, int my_zctlesc)
 {
-	int i;
-	for (i=0;i<256;i++) {	
+	for (int i=0; i<256; i++) {
 		if (i & 0140)
 			zsendline_tab[i]=0;
 		else {
