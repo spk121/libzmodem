@@ -47,7 +47,7 @@ void *mm_addr=NULL;
 #include "timing.h"
 #include "long-options.h"
 #include "xstrtoul.h"
-#include "error.h"
+#include "log.h"
 
 unsigned Baudrate=2400;	/* Default, should be set by first mode() call */
 unsigned Txwindow;	/* Control the size of the transmitted window */
@@ -178,9 +178,9 @@ bibi (int n)
 	fflush (stdout);
 	io_mode (io_mode_fd,0);
 	if (n == 99)
-		error (0, 0, _ ("io_mode(,2) in rbsb.c not implemented\n"));
+		log_fatal(_("io_mode(,2) in rbsb.c not implemented"));
 	else
-		error (0, 0, _ ("caught signal %d; exiting"), n);
+		log_fatal(_("caught signal %d; exiting"), n);
 	if (n == SIGQUIT)
 		abort ();
 	exit (128 + n);
@@ -469,9 +469,10 @@ main(int argc, char **argv)
 		case 'U':
 			if (!under_rsh)
 				Restricted=0;
-			else
-				error(1,0,
-		_("security violation: can't do that under restricted shell\n"));
+			else {
+				log_fatal(_("security violation: can't do that under restricted shell"));
+				exit(1);
+			}
 			break;
 		case 'v': ++Verbose; break;
 		case 'w':
@@ -513,7 +514,8 @@ main(int argc, char **argv)
 			tcp_flag=3;
 			tcp_server_address=(char *)strdup(optarg);
 			if (!tcp_server_address) {
-				error(1,0,_("out of memory"));
+				log_fatal(_("out of memory"));
+				exit(1);
 			}
 			break;
 		case 8: no_unixmode=1; break;
@@ -524,8 +526,8 @@ main(int argc, char **argv)
 	}
 
 	if (getuid()!=geteuid()) {
-		error(1,0,
-		_("this program was never intended to be used setuid\n"));
+		log_fatal(_("this program was never intended to be used setuid"));
+		exit(1);
 	}
 	zsendline_init();
 
@@ -578,7 +580,8 @@ main(int argc, char **argv)
 		q=strchr(p,'>');
 		*q=0;
 		if (gethostname(hn,sizeof(hn))==-1) {
-			error(1,0, _("hostname too long\n"));
+			log_fatal(_("hostname too long"));
+			exit(1);
 		}
 		fprintf(stdout,"connect with lrz --tcp-client \"%s:%s\"\n",hn,p);
 		fflush(stdout);
@@ -592,8 +595,10 @@ main(int argc, char **argv)
 		char buf[256];
 		char *p;
 		p=strchr(tcp_server_address,':');
-		if (!p)
-			error(1,0, _("illegal server address\n"));
+		if (!p) {
+			log_fatal(_("illegal server address"));
+			exit(1);
+		}
 		*p++=0;
 		sprintf(buf,"[%s] <%s>\n",tcp_server_address,p);
 
@@ -743,8 +748,10 @@ send_pseudo(const char *name, const char *data)
 	if (!p)
 		p = "/tmp";
 	tmp=malloc(PATH_MAX+1);
-	if (!tmp)
-		error(1,0,_("out of memory"));
+	if (!tmp) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 
 	plen=strlen(p);
 	memcpy(tmp,p,plen);
@@ -825,7 +832,8 @@ wcsend (int argc, char *argp[])
 		/* tell receiver to receive via tcp */
 		d=tcp_server(buf);
 		if (send_pseudo("/$tcp$.t",buf)) {
-			error(1,0,_("tcp protocol init failed\n"));
+			log_fatal(_("tcp protocol init failed"));
+			exit(1);
 		}
 		/* ok, now that this file is sent we can switch to tcp */
 
@@ -897,8 +905,8 @@ wcs(const char *oname, const char *remotename)
 		) {
 			canit(STDOUT_FILENO);
 			vchar('\r');
-			error(1,0,
-				_("security violation: not allowed to upload from %s"),oname);
+			log_fatal(_("security violation: not allowed to upload from %s"),oname);
+			exit(1);
 		}
 	}
 
@@ -913,7 +921,7 @@ wcs(const char *oname, const char *remotename)
 		dont_mmap_this=1;
 	} else if ((input_f=fopen(oname, "r"))==NULL) {
 		int e=errno;
-		error(0,e, _("cannot open %s"),oname);
+		log_error(_("cannot open %s: %s"), oname, strerror(e));
 		++errcnt;
 		return OK;	/* pass over it, there may be others */
 	} else {
@@ -956,7 +964,7 @@ wcs(const char *oname, const char *remotename)
 	/* Check for directory or block special files */
 	fstat(fileno(input_f), &f);
 	if (S_ISDIR(f.st_mode) || S_ISBLK(f.st_mode)) {
-		error(0,0, _("is not a file: %s"),name);
+		log_error(_("is not a file: %s"), name);
 		fclose(input_f);
 		return OK;
 	}
@@ -985,7 +993,7 @@ wcs(const char *oname, const char *remotename)
 	case ERROR:
 		return ERROR;
 	case ZSKIP:
-		error(0,0, _("skipped: %s"),name);
+		log_error(_("skipped: %s"), name);
 		return OK;
 	}
 	if (!zmodem_requested && wctx(&zi)==ERROR)
