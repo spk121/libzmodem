@@ -105,9 +105,6 @@ static void zsbh32 (char *hdr, int type);
 
 extern int zmodem_requested;
 
-#define sendline(c) putchar((c) & 0377)
-#define xsendline(c) putchar(c)
-
 /*
  * Read a character from the modem line with timeout.
  *  Eat parity, XON and XOFF characters.
@@ -251,34 +248,34 @@ again2:
  * Send character c with ZMODEM escape sequence encoding.
  *  Escape XON, XOFF. Escape CR following @ (Telenet net escape)
  */
-inline void 
+inline void
 zsendline(int c)
 {
 
 	switch(zsendline_tab[(unsigned) (c&=0377)])
 	{
-	case 0: 
-		xsendline(lastsent = c); 
+	case 0:
+		putchar(lastsent = c);
 		break;
 	case 1:
-		xsendline(ZDLE);
+		putchar(ZDLE);
 		c ^= 0100;
-		xsendline(lastsent = c);
+		putchar(lastsent = c);
 		break;
 	case 2:
 		if ((lastsent & 0177) != '@') {
-			xsendline(lastsent = c);
+			putchar(lastsent = c);
 		} else {
-			xsendline(ZDLE);
+			putchar(ZDLE);
 			c ^= 0100;
-			xsendline(lastsent = c);
+			putchar(lastsent = c);
 		}
 		break;
 	}
 }
 
-static inline void 
-zsendline_s(const char *s, size_t count) 
+static inline void
+zsendline_s(const char *s, size_t count)
 {
 	const char *end=s+count;
 	while(s!=end) {
@@ -286,7 +283,7 @@ zsendline_s(const char *s, size_t count)
 		const char *t=s;
 		while (t!=end) {
 			last_esc=zsendline_tab[(unsigned) ((*t) & 0377)];
-			if (last_esc) 
+			if (last_esc)
 				break;
 			t++;
 		}
@@ -298,21 +295,21 @@ zsendline_s(const char *s, size_t count)
 		if (last_esc) {
 			int c=*s;
 			switch(last_esc) {
-			case 0: 
-				xsendline(lastsent = c); 
+			case 0:
+				putchar(lastsent = c);
 				break;
 			case 1:
-				xsendline(ZDLE);
+				putchar(ZDLE);
 				c ^= 0100;
-				xsendline(lastsent = c);
+				putchar(lastsent = c);
 				break;
 			case 2:
 				if ((lastsent & 0177) != '@') {
-					xsendline(lastsent = c);
+					putchar(lastsent = c);
 				} else {
-					xsendline(ZDLE);
+					putchar(ZDLE);
 					c ^= 0100;
-					xsendline(lastsent = c);
+					putchar(lastsent = c);
 				}
 				break;
 			}
@@ -323,7 +320,7 @@ zsendline_s(const char *s, size_t count)
 
 
 /* Send ZMODEM binary header hdr of type type */
-void 
+void
 zsbhdr(int type, char *hdr)
 {
 	register unsigned short crc;
@@ -331,15 +328,18 @@ zsbhdr(int type, char *hdr)
 	VPRINTF(3,("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr)));
 	if (type == ZDATA)
 		for (int n = 0; n < Znulls; n ++)
-			xsendline(0);
+			putchar(0);
 
-	xsendline(ZPAD); xsendline(ZDLE);
+	putchar(ZPAD);
+	putchar(ZDLE);
 
 	Crc32t=Txfcs32;
 	if (Crc32t)
 		zsbh32(hdr, type);
 	else {
-		xsendline(ZBIN); zsendline(type); crc = updcrc(type, 0);
+		putchar(ZBIN);
+		zsendline(type);
+		crc = updcrc(type, 0);
 
 		for (int n = 0; n < 4; n ++) {
 			zsendline(hdr[n]);
@@ -350,7 +350,7 @@ zsbhdr(int type, char *hdr)
 		zsendline(crc);
 	}
 	if (type != ZDATA)
-		flushmo();
+		fflush(stdout);
 }
 
 
@@ -360,7 +360,8 @@ zsbh32(char *hdr, int type)
 {
 	register unsigned long crc;
 
-	xsendline(ZBIN32);  zsendline(type);
+	putchar(ZBIN32);
+	zsendline(type);
 	crc = 0xFFFFFFFFL; crc = UPDC32(type, crc);
 
 	for (int n = 0; n < 4; n++) {
@@ -375,7 +376,7 @@ zsbh32(char *hdr, int type)
 }
 
 /* Send ZMODEM HEX header hdr of type type */
-void 
+void
 zshhdr(int type, char *hdr)
 {
 	register unsigned short crc;
@@ -398,7 +399,7 @@ zshhdr(int type, char *hdr)
 		crc = updcrc((0377 & hdr[n]), crc);
 	}
 	crc = updcrc(0,updcrc(0,crc));
-	zputhex(crc>>8,s+len); 
+	zputhex(crc>>8,s+len);
 	zputhex(crc,s+len+2);
 	len+=4;
 
@@ -412,7 +413,7 @@ zshhdr(int type, char *hdr)
 	{
 		s[len++]=021;
 	}
-	flushmo();
+	fflush(stdout);
 	write(1,s,len);
 }
 
@@ -420,27 +421,28 @@ zshhdr(int type, char *hdr)
  * Send binary array buf of length length, with ending ZDLE sequence frameend
  */
 static const char *Zendnames[] = { "ZCRCE", "ZCRCG", "ZCRCQ", "ZCRCW"};
-void 
+void
 zsdata(const char *buf, size_t length, int frameend)
 {
 	register unsigned short crc;
 
-	VPRINTF(3,("zsdata: %lu %s", (unsigned long) length, 
+	VPRINTF(3,("zsdata: %lu %s", (unsigned long) length,
 		Zendnames[(frameend-ZCRCE)&3]));
 	crc = 0;
 	for (size_t i = 0; i < length; i++) {
 		zsendline(buf[i]);
 		crc = updcrc((0377 & buf[i]), crc);
 	}
-	xsendline(ZDLE);
-	xsendline(frameend);
+	putchar(ZDLE);
+	putchar(frameend);
 	crc = updcrc(frameend, crc);
 
 	crc = updcrc(0,updcrc(0,crc));
 	zsendline(crc>>8);
 	zsendline(crc);
 	if (frameend == ZCRCW) {
-		xsendline(XON);  flushmo();
+		putchar(XON);
+		fflush(stdout);
 	}
 }
 
@@ -457,20 +459,22 @@ zsda32(const char *buf, size_t length, int frameend)
 		c = buf[i] & 0377;
 		crc = UPDC32(c, crc);
 	}
-	xsendline(ZDLE); xsendline(frameend);
+	putchar(ZDLE);
+	putchar(frameend);
 	crc = UPDC32(frameend, crc);
 
 	crc = ~crc;
 	for (int i = 0; i < 4; i ++) {
 		c=(int) crc;
 		if (c & 0140)
-			xsendline(lastsent = c);
+			putchar(lastsent = c);
 		else
 			zsendline(c);
 		crc >>= 8;
 	}
 	if (frameend == ZCRCW) {
-		xsendline(XON);  flushmo();
+		putchar(XON);
+		fflush(stdout);
 	}
 }
 
@@ -537,7 +541,7 @@ crcfoo:
 			case GOTCRCG:
 			case GOTCRCQ:
 			case GOTCRCW:
-				{ 
+				{
 					d = c;
 					c &= 0377;
 					crc = updcrc(c, crc);
@@ -553,7 +557,7 @@ crcfoo:
 					}
 					*bytes_received = i;
 					COUNT_BLK(*bytes_received);
-					VPRINTF(3,("zrdata: %lu  %s", (unsigned long) (*bytes_received), 
+					VPRINTF(3,("zrdata: %lu  %s", (unsigned long) (*bytes_received),
 							Zendnames[(d-GOTCRCE)&3]));
 					return d;
 				}
@@ -612,7 +616,7 @@ crcfoo:
 				}
 				*bytes_received = i;
 				COUNT_BLK(*bytes_received);
-				VPRINTF(3,("zrdat32: %lu %s", (unsigned long) *bytes_received, 
+				VPRINTF(3,("zrdat32: %lu %s", (unsigned long) *bytes_received,
 					Zendnames[(d-GOTCRCE)&3]));
 				return d;
 			case GOTCAN:
@@ -761,7 +765,7 @@ fifi:
 }
 
 /* Receive a binary style header (type and position) */
-static int 
+static int
 zrbhdr(char *hdr)
 {
 	register int c;
@@ -785,7 +789,7 @@ zrbhdr(char *hdr)
 		return c;
 	crc = updcrc(c, crc);
 	if (crc & 0xFFFF) {
-		zperr(badcrc); 
+		zperr(badcrc);
 		return ERROR;
 	}
 	protocol = ZM_ZMODEM;
@@ -836,7 +840,7 @@ zrbhdr32(char *hdr)
 
 
 /* Receive a hex style header (type and position) */
-static int 
+static int
 zrhhdr(char *hdr)
 {
 	register int c;
@@ -876,7 +880,7 @@ zrhhdr(char *hdr)
 }
 
 /* Write a byte as two hex digits */
-static void 
+static void
 zputhex(int c, char *pos)
 {
 	static char	digits[]	= "0123456789abcdef";
@@ -915,7 +919,7 @@ zsendline_init(void)
 					zsendline_tab[i]=1;
 				else if (!turbo_escape)
 					zsendline_tab[i]=2;
-				else 
+				else
 					zsendline_tab[i]=0;
 				break;
 			default:
@@ -931,7 +935,7 @@ zsendline_init(void)
 
 
 /* Store pos in Txhdr */
-void 
+void
 stohdr(size_t pos)
 {
 	long lpos=(long) pos;

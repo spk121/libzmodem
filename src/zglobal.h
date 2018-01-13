@@ -161,9 +161,6 @@ extern int under_rsh;
 
 void bibi (int n);
 
-#define sendline(c) putchar((c) & 0377)
-#define xsendline(c) putchar(c)
-
 /* zreadline.c */
 extern char *readline_ptr; /* pointer for removing chars from linbuf */
 extern int readline_left; /* number of buffered chars left to read */
@@ -172,7 +169,7 @@ extern int readline_left; /* number of buffered chars left to read */
 
 int readline_internal (unsigned int timeout);
 void readline_purge (void);
-void readline_setup (int fd, size_t readnum, 
+void readline_setup (int fd, size_t readnum,
 	size_t buffer_size) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 
 
@@ -204,7 +201,6 @@ int from_cu (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int rdchk (int fd);
 int io_mode (int fd, int n) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 void sendbrk (int fd);
-#define flushmo() fflush(stdout)
 void purgeline (int fd);
 void canit (int fd);
 
