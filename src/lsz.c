@@ -1160,8 +1160,8 @@ wctx(struct zm_fileinfo *zi)
 	attempts=0;
 	do {
 		purgeline(io_mode_fd);
-		sendline(EOT);
-		flushmo();
+		putchar(EOT);
+		fflush(stdout);
 		++attempts;
 	} while ((firstch=(READLINE_PF(Rxtimeout)) != ACK) && attempts < RETRYMAX);
 	if (attempts == RETRYMAX) {
@@ -1190,24 +1190,25 @@ wcputsec(char *buf, int sectnum, size_t cseclen)
 	}
 	for (attempts=0; attempts <= RETRYMAX; attempts++) {
 		Lastrx= firstch;
-		sendline(cseclen==1024?STX:SOH);
-		sendline(sectnum);
-		sendline(-sectnum -1);
+		putchar(cseclen==1024?STX:SOH);
+		putchar(sectnum & 0xFF);
+		/* FIXME: clarify the following line - mlg */
+		putchar((-sectnum -1) & 0xFF);
 		oldcrc=checksum=0;
 		for (wcj=cseclen,cp=buf; --wcj>=0; ) {
-			sendline(*cp);
+			putchar(*cp);
 			oldcrc=updcrc((0377& *cp), oldcrc);
 			checksum += *cp++;
 		}
 		if (Crcflg) {
 			oldcrc=updcrc(0,updcrc(0,oldcrc));
-			sendline((int)oldcrc>>8);
-			sendline((int)oldcrc);
+			putchar(((int)oldcrc>>8) & 0xFF);
+			putchar(((int)oldcrc) & 0xFF);
 		}
 		else
-			sendline(checksum);
+			putchar(checksum & 0xFF);
 
-		flushmo();
+		fflush(stdout);
 		if (Optiong) {
 			firstsec = FALSE; return OK;
 		}
@@ -2069,9 +2070,9 @@ saybibi(void)
 		zshhdr(ZFIN, Txhdr);	/*  to make debugging easier */
 		switch (zgethdr(Rxhdr, 0,NULL)) {
 		case ZFIN:
-			sendline('O');
-			sendline('O');
-			flushmo();
+			putchar('O');
+			putchar('O');
+			fflush(stdout);
 		case ZCAN:
 		case TIMEOUT:
 			return;

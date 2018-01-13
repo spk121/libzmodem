@@ -665,22 +665,22 @@ wcrxpn(struct zm_fileinfo *zi, char *rpn)
 et_tu:
 	Firstsec=TRUE;
 	zi->eof_seen=FALSE;
-	sendline(Crcflg?WANTCRC:NAK);
-	flushmo();
+	putchar(Crcflg?WANTCRC:NAK);
+	fflush(stdout);
 	purgeline(0); /* Do read next time ... */
 	while ((c = wcgetsec(&Blklen, rpn, 100)) != 0) {
 		if (c == WCEOT) {
 			zperr( _("Pathname fetch returned EOT"));
-			sendline(ACK);
-			flushmo();
+			putchar(ACK);
+			fflush(stdout);
 			purgeline(0);	/* Do read next time ... */
 			READLINE_PF(1);
 			goto et_tu;
 		}
 		return ERROR;
 	}
-	sendline(ACK);
-	flushmo();
+	putchar(ACK);
+	fflush(stdout);
 	return OK;
 }
 
@@ -700,8 +700,8 @@ wcrx(struct zm_fileinfo *zi)
 	sendchar=Crcflg?WANTCRC:NAK;
 
 	for (;;) {
-		sendline(sendchar);	/* send it now, we're ready! */
-		flushmo();
+		putchar(sendchar);	/* send it now, we're ready! */
+		fflush(stdout);
 		purgeline(0);	/* Do read next time ... */
 		sectcurr=wcgetsec(&Blklen, secbuf,
 				  (unsigned int) ((sectnum&0177) ? 50 : 130));
@@ -723,8 +723,8 @@ wcrx(struct zm_fileinfo *zi)
 		else if (sectcurr==WCEOT) {
 			if (closeit(zi))
 				return ERROR;
-			sendline(ACK);
-			flushmo();
+			putchar(ACK);
+			fflush(stdout);
 			purgeline(0);	/* Do read next time ... */
 			return OK;
 		}
@@ -824,13 +824,13 @@ wcgetsec(size_t *Blklen, char *rxbuf, unsigned int maxtime)
 				;
 		}
 		if (Firstsec) {
-			sendline(Crcflg?WANTCRC:NAK);
-			flushmo();
+			putchar(Crcflg?WANTCRC:NAK);
+			fflush(stdout);
 			purgeline(0);	/* Do read next time ... */
 		} else {
 			maxtime=40;
-			sendline(NAK);
-			flushmo();
+			putchar(NAK);
+			fflush(stdout);
 			purgeline(0);	/* Do read next time ... */
 		}
 	}
