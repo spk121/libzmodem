@@ -9,6 +9,7 @@ DISTCLEAN_FILES=lrzszbug
 LDADD = ../lib/libzmodem.a @LIBINTL@
 EXTRA_DIST = lrzszbug.in
 AM_CPPFLAGS = -I$(srcdir) -I$(top_srcdir)/src -I$(top_srcdir)/lib
+AM_CFLAGS = -Wall -Wextra -Wconversion
 #DEFS = -DLOCALEDIR=\"$(localedir)\" -DOS=\"@host_os@\" -DCPU=\"@host_cpu@\"
 DEFS =  @DEFS@ -DLOCALEDIR=\"$(localedir)\"
 
