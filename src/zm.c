@@ -450,8 +450,7 @@ zsda32(const char *buf, size_t length, int frameend)
 {
 	int c;
 	unsigned long crc;
-	int i;
-	zpdebug("zsdat32: %d %s", length, Zendnames[(frameend-ZCRCE)&3]);
+	zpdebug("zsdat32: %zu %s", length, Zendnames[(frameend-ZCRCE)&3]);
 
 	crc = 0xFFFFFFFFL;
 	zsendline_s(buf,length);
