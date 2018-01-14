@@ -83,8 +83,8 @@ static int wcsend (int argc, char *argp[]);
 static int wcputsec (char *buf, int sectnum, size_t cseclen);
 static void usage1 (int exitcode);
 
-#define ZSDATA(x,y,z) \
-	do { if (Crc32t) {zsda32(x,y,z); } else {zsdata(x,y,z);}} while(0)
+#define ZM_SEND_DATA(x,y,z) \
+	do { if (Crc32t) {zm_send_data32(x,y,z); } else {zm_send_data(x,y,z);}} while(0)
 #define DATAADR (mm_addr ? ((char *)mm_addr)+zi->bytes_sent : txbuf)
 
 int Filesleft;
@@ -564,7 +564,7 @@ main(int argc, char **argv)
 
 	if (Fromcu && !Quiet) {
 		if (Verbose == LOG_FATAL)
-			Verbose = LOG_DEBUG;
+			Verbose = LOG_INFO;
 		log_set_level(Verbose);
 	}
 	log_debug("%s %s", program_name, VERSION);
@@ -682,10 +682,10 @@ main(int argc, char **argv)
 			}
 
 			purgeline(io_mode_fd);
-			stohdr(0L);
+			zm_store_header(0L);
 			if (command_mode)
 				Txhdr[ZF0] = ZCOMMAND;
-			zshhdr(ZRQINIT, Txhdr);
+			zm_send_hex_header(ZRQINIT, Txhdr);
 			zrqinits_sent++;
 			if (Rxflags2 != ZF1_TIMESYNC)
 				/* disable timesync if there are any flags we don't know.
@@ -1108,8 +1108,8 @@ getnak(void)
 				/* if we already sent a ZRQINIT we are using zmodem
 				 * protocol and may send further ZRQINITs
 				 */
-				stohdr(0L);
-				zshhdr(ZRQINIT, Txhdr);
+				zm_store_header(0L);
+				zm_send_hex_header(ZRQINIT, Txhdr);
 				zrqinits_sent++;
 			}
 			continue;
@@ -1421,15 +1421,15 @@ getzrxinit(void)
 		 */
 		if (zrqinits_sent<4 && n!=10 && !dont_send_zrqinit) {
 			zrqinits_sent++;
-			stohdr(0L);
-			zshhdr(ZRQINIT, Txhdr);
+			zm_store_header(0L);
+			zm_send_hex_header(ZRQINIT, Txhdr);
 		}
 		dont_send_zrqinit=0;
 
-		switch (zgethdr(Rxhdr, 1,&rxpos)) {
+		switch (zm_get_header(Rxhdr, 1,&rxpos)) {
 		case ZCHALLENGE:	/* Echo receiver's challenge numbr */
-			stohdr(rxpos);
-			zshhdr(ZACK, Txhdr);
+			zm_store_header(rxpos);
+			zm_send_hex_header(ZACK, Txhdr);
 			continue;
 		case ZCOMMAND:		/* They didn't see our ZRQINIT */
 			/* ??? Since when does a receiver send ZCOMMAND?  -- uwe */
@@ -1501,7 +1501,7 @@ getzrxinit(void)
 			if (Rxhdr[ZF0] == ZCOMMAND)
 				continue;
 		default:
-			zshhdr(ZNAK, Txhdr);
+			zm_send_hex_header(ZNAK, Txhdr);
 			continue;
 		}
 	}
@@ -1518,14 +1518,14 @@ sendzsinit(void)
 		return OK;
 	errors = 0;
 	for (;;) {
-		stohdr(0L);
+		zm_store_header(0L);
 		if (Zctlesc) {
-			Txhdr[ZF0] |= TESCCTL; zshhdr(ZSINIT, Txhdr);
+			Txhdr[ZF0] |= TESCCTL; zm_send_hex_header(ZSINIT, Txhdr);
 		}
 		else
-			zsbhdr(ZSINIT, Txhdr);
-		ZSDATA(Myattn, 1+strlen(Myattn), ZCRCW);
-		c = zgethdr(Rxhdr, 1,NULL);
+			zm_send_binary_header(ZSINIT, Txhdr);
+		ZM_SEND_DATA(Myattn, 1+strlen(Myattn), ZCRCW);
+		c = zm_get_header(Rxhdr, 1,NULL);
 		switch (c) {
 		case ZCAN:
 			return ERROR;
@@ -1558,10 +1558,10 @@ zsendfile(struct zm_fileinfo *zi, const char *buf, size_t blen)
 			Txhdr[ZF1] |= ZF1_ZMSKNOLOC;
 		Txhdr[ZF2] = Lztrans;	/* file transport request */
 		Txhdr[ZF3] = 0;
-		zsbhdr(ZFILE, Txhdr);
-		ZSDATA(buf, blen, ZCRCW);
+		zm_send_binary_header(ZFILE, Txhdr);
+		ZM_SEND_DATA(buf, blen, ZCRCW);
 again:
-		c = zgethdr(Rxhdr, 1, &rxpos);
+		c = zm_get_header(Rxhdr, 1, &rxpos);
 		switch (c) {
 		case ZRINIT:
 			while ((c = READLINE_PF(50)) > 0)
@@ -1624,8 +1624,8 @@ again:
 				clearerr(input_f);	/* Clear EOF */
 				fseek(input_f, 0L, 0);
 			}
-			stohdr(crc);
-			zsbhdr(ZCRC, Txhdr);
+			zm_store_header(crc);
+			zm_send_binary_header(ZCRC, Txhdr);
 			goto again;
 		case ZSKIP:
 			if (input_f)
@@ -1741,8 +1741,8 @@ zsendfdata (struct zm_fileinfo *zi)
 
 	newcnt = Rxbuflen;
 	Txwcnt = 0;
-	stohdr (zi->bytes_sent);
-	zsbhdr (ZDATA, Txhdr);
+	zm_store_header (zi->bytes_sent);
+	zm_send_binary_header (ZDATA, Txhdr);
 
 	do {
 		size_t n;
@@ -1817,7 +1817,7 @@ zsendfdata (struct zm_fileinfo *zi)
 			last_txpos = zi->bytes_sent;
 		} else 
 			not_printed++;
-		ZSDATA (DATAADR, n, e);
+		ZM_SEND_DATA (DATAADR, n, e);
 		bytcnt = zi->bytes_sent += n;
 		if (e == ZCRCW)
 			goto waitack;
@@ -1837,7 +1837,7 @@ zsendfdata (struct zm_fileinfo *zi)
 				if (c == ZACK)
 					break;
 				/* zcrce - dinna wanna starta ping-pong game */
-				ZSDATA (txbuf, 0, ZCRCE);
+				ZM_SEND_DATA (txbuf, 0, ZCRCE);
 				goto gotack;
 			case XOFF:			/* Wait a while for an XON */
 			case XOFF | 0200:
@@ -1853,10 +1853,10 @@ zsendfdata (struct zm_fileinfo *zi)
 					(long) zi->bytes_sent, (long) Lrxpos,
 					Txwindow);
 				if (e != ZCRCQ)
-					ZSDATA (txbuf, 0, e = ZCRCQ);
+					ZM_SEND_DATA (txbuf, 0, e = ZCRCQ);
 				c = getinsync (zi, 1);
 				if (c != ZACK) {
-					ZSDATA (txbuf, 0, ZCRCE);
+					ZM_SEND_DATA (txbuf, 0, ZCRCE);
 					goto gotack;
 				}
 			}
@@ -1869,8 +1869,8 @@ zsendfdata (struct zm_fileinfo *zi)
 		signal (SIGINT, SIG_IGN);
 
 	for (;;) {
-		stohdr (zi->bytes_sent);
-		zsbhdr (ZEOF, Txhdr);
+		zm_store_header (zi->bytes_sent);
+		zm_send_binary_header (ZEOF, Txhdr);
 		switch (getinsync (zi, 0)) {
 		case ZACK:
 			continue;
@@ -2014,7 +2014,7 @@ getinsync(struct zm_fileinfo *zi, int flag)
 	size_t rxpos;
 
 	for (;;) {
-		c = zgethdr(Rxhdr, 0, &rxpos);
+		c = zm_get_header(Rxhdr, 0, &rxpos);
 		switch (c) {
 		case ZCAN:
 		case ZABORT:
@@ -2055,7 +2055,7 @@ getinsync(struct zm_fileinfo *zi, int flag)
 		case ERROR:
 		default:
 			error_count++;
-			zsbhdr(ZNAK, Txhdr);
+			zm_send_binary_header(ZNAK, Txhdr);
 			continue;
 		}
 	}
@@ -2067,9 +2067,9 @@ static void
 saybibi(void)
 {
 	for (;;) {
-		stohdr(0L);		/* CAF Was zsbhdr - minor change */
-		zshhdr(ZFIN, Txhdr);	/*  to make debugging easier */
-		switch (zgethdr(Rxhdr, 0,NULL)) {
+		zm_store_header(0L);		/* CAF Was zm_send_binary_header - minor change */
+		zm_send_hex_header(ZFIN, Txhdr);	/*  to make debugging easier */
+		switch (zm_get_header(Rxhdr, 0,NULL)) {
 		case ZFIN:
 			putchar('O');
 			putchar('O');
@@ -2092,13 +2092,13 @@ zsendcmd(const char *buf, size_t blen)
 	cmdnum = getpid();
 	errors = 0;
 	for (;;) {
-		stohdr((size_t) cmdnum);
+		zm_store_header((size_t) cmdnum);
 		Txhdr[ZF0] = Cmdack1;
-		zsbhdr(ZCOMMAND, Txhdr);
-		ZSDATA(buf, blen, ZCRCW);
+		zm_send_binary_header(ZCOMMAND, Txhdr);
+		ZM_SEND_DATA(buf, blen, ZCRCW);
 listen:
 		Rxtimeout = 100;		/* Ten second wait for resp. */
-		c = zgethdr(Rxhdr, 1, &rxpos);
+		c = zm_get_header(Rxhdr, 1, &rxpos);
 
 		switch (c) {
 		case ZRINIT:

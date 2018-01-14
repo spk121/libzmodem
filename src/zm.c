@@ -2,6 +2,7 @@
   zm.c - zmodem protocol handling lowlevelstuff
   Copyright (C) until 1998 Chuck Forsberg (OMEN Technology Inc)
   Copyright (C) 1996, 1997 Uwe Ohse
+  Copyright (C) 2018 Michael L. Gran
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -19,22 +20,16 @@
   02111-1307, USA.
 
   originally written by Chuck Forsberg
-*/
-/* historical comment: -- uwe
- *   Z M . C
- *    ZMODEM protocol primitives
- *    05-09-88  Chuck Forsberg Omen Technology Inc
- *
- * Entry point Functions:
- *	zsbhdr(type, hdr) send binary header
- *	zshhdr(type, hdr) send hex header
- *	zgethdr(hdr, eflag) receive header - binary or hex
- *	zsdata(buf, len, frameend) send data
- *	zrdata(buf, len, bytes_received) receive data
- *	stohdr(pos) store position data in Txhdr
- *	long rclhdr(hdr) recover position offset from header
- */
 
+  Entry point Functions:
+        zm_send_binary_header(type, hdr) send binary header
+        zm_send_hex_header(type, hdr) send hex header
+        zm_get_header(hdr, eflag) receive header - binary or hex
+        zm_send_data(buf, len, frameend) send data
+        zm_receive_data(buf, len, bytes_received) receive data
+        zm_store_header(pos) store position data in Txhdr
+        long zm_reclaim_header(hdr) recover position offset from header
+ */
 
 #include "zglobal.h"
 
@@ -97,12 +92,12 @@ static int zdlread2 (int) LRZSZ_ATTRIB_REGPARM(1);
 static inline int zgeth1 (void);
 static void zputhex (int c, char *pos);
 static inline int zgethex (void);
-static int zrbhdr (char *hdr);
-static int zrbhdr32 (char *hdr);
-static int zrhhdr (char *hdr);
+static int zm_read_binary_header (char *hdr);
+static int zm_read_binary_header32 (char *hdr);
+static int zm_read_hex_header (char *hdr);
 static char zsendline_tab[256];
-static int zrdat32 (char *buf, int length, size_t *);
-static void zsbh32 (char *hdr, int type);
+static int zm_read_data32 (char *buf, int length, size_t *);
+static void zm_send_binary_header32 (char *hdr, int type);
 
 extern int zmodem_requested;
 
@@ -322,11 +317,11 @@ zsendline_s(const char *s, size_t count)
 
 /* Send ZMODEM binary header hdr of type type */
 void
-zsbhdr(int type, char *hdr)
+zm_send_binary_header(int type, char *hdr)
 {
 	register unsigned short crc;
 
-	log_trace("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr));
+	log_trace("zm_send_binary_header: %s %lx", frametypes[type+FTOFFSET], zm_reclaim_header(hdr));
 	if (type == ZDATA)
 		for (int n = 0; n < Znulls; n ++)
 			putchar(0);
@@ -336,7 +331,7 @@ zsbhdr(int type, char *hdr)
 
 	Crc32t=Txfcs32;
 	if (Crc32t)
-		zsbh32(hdr, type);
+		zm_send_binary_header32(hdr, type);
 	else {
 		putchar(ZBIN);
 		zsendline(type);
@@ -357,7 +352,7 @@ zsbhdr(int type, char *hdr)
 
 /* Send ZMODEM binary header hdr of type type */
 static void
-zsbh32(char *hdr, int type)
+zm_send_binary_header32(char *hdr, int type)
 {
 	register unsigned long crc;
 
@@ -378,13 +373,13 @@ zsbh32(char *hdr, int type)
 
 /* Send ZMODEM HEX header hdr of type type */
 void
-zshhdr(int type, char *hdr)
+zm_send_hex_header(int type, char *hdr)
 {
 	register unsigned short crc;
 	char s[30];
 	size_t len;
 
-	log_trace("zshhdr: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], rclhdr(hdr));
+	log_trace("zm_send_hex_header: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], zm_reclaim_header(hdr));
 	s[0]=ZPAD;
 	s[1]=ZPAD;
 	s[2]=ZDLE;
@@ -423,11 +418,11 @@ zshhdr(int type, char *hdr)
  */
 static const char *Zendnames[] = { "ZCRCE", "ZCRCG", "ZCRCQ", "ZCRCW"};
 void
-zsdata(const char *buf, size_t length, int frameend)
+zm_send_data(const char *buf, size_t length, int frameend)
 {
 	register unsigned short crc;
 
-	log_trace("zsdata: %lu %s", (unsigned long) length,
+	log_trace("zm_send_data: %lu %s", (unsigned long) length,
 		Zendnames[(frameend-ZCRCE)&3]);
 	crc = 0;
 	for (size_t i = 0; i < length; i++) {
@@ -448,7 +443,7 @@ zsdata(const char *buf, size_t length, int frameend)
 }
 
 void
-zsda32(const char *buf, size_t length, int frameend)
+zm_send_data32(const char *buf, size_t length, int frameend)
 {
 	int c;
 	unsigned long crc;
@@ -523,7 +518,7 @@ count_blk(int size)
  *  NB: On errors may store length+1 bytes!
  */
 int
-zrdata(char *buf, int length, size_t *bytes_received)
+zm_receive_data(char *buf, int length, size_t *bytes_received)
 {
 	register int c;
 	register unsigned short crc;
@@ -531,7 +526,7 @@ zrdata(char *buf, int length, size_t *bytes_received)
 
 	*bytes_received=0;
 	if (Rxframeind == ZBIN32)
-		return zrdat32(buf, length, bytes_received);
+		return zm_read_data32(buf, length, bytes_received);
 
 	crc = 0;
 	for (int i = 0; i < length + 1; i ++) {
@@ -558,7 +553,7 @@ crcfoo:
 					}
 					*bytes_received = i;
 					COUNT_BLK(*bytes_received);
-					log_trace("zrdata: %lu  %s", (unsigned long) (*bytes_received),
+					log_trace("zm_receive_data: %lu  %s", (unsigned long) (*bytes_received),
 							Zendnames[(d-GOTCRCE)&3]);
 					return d;
 				}
@@ -581,7 +576,7 @@ crcfoo:
 }
 
 static int
-zrdat32(char *buf, int length, size_t *bytes_received)
+zm_read_data32(char *buf, int length, size_t *bytes_received)
 {
 	register int c;
 	register unsigned long crc;
@@ -617,7 +612,7 @@ crcfoo:
 				}
 				*bytes_received = i;
 				COUNT_BLK(*bytes_received);
-				log_trace("zrdat32: %lu %s", (unsigned long) *bytes_received,
+				log_trace("zm_read_data32: %lu %s", (unsigned long) *bytes_received,
 					Zendnames[(d-GOTCRCE)&3]);
 				return d;
 			case GOTCAN:
@@ -649,7 +644,7 @@ crcfoo:
  *   Return ERROR instantly if ZCRCW sequence, for fast error recovery.
  */
 int
-zgethdr(char *hdr, int eflag, size_t *Rxpos)
+zm_get_header(char *hdr, int eflag, size_t *Rxpos)
 {
 	register int c, cancount;
 	unsigned int max_garbage; /* Max bytes before start of frame */
@@ -723,15 +718,15 @@ splat:
 		goto fifi;
 	case ZBIN:
 		Rxframeind = ZBIN;  Crc32 = FALSE;
-		c =  zrbhdr(hdr);
+		c =  zm_read_binary_header(hdr);
 		break;
 	case ZBIN32:
 		Crc32 = Rxframeind = ZBIN32;
-		c =  zrbhdr32(hdr);
+		c =  zm_read_binary_header32(hdr);
 		break;
 	case ZHEX:
 		Rxframeind = ZHEX;  Crc32 = FALSE;
-		c =  zrhhdr(hdr);
+		c =  zm_read_hex_header(hdr);
 		break;
 	case CAN:
 		goto gotcan;
@@ -756,9 +751,9 @@ fifi:
 	/* **** FALL THRU TO **** */
 	default:
 		if (c >= -3 && c <= FRTYPES)
-			log_trace("zgethdr: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos);
+			log_trace("zm_get_header: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos);
 		else
-			log_trace("zgethdr: %d %lx", c, (unsigned long) rxpos);
+			log_trace("zm_get_header: %d %lx", c, (unsigned long) rxpos);
 	}
 	if (Rxpos)
 		*Rxpos=rxpos;
@@ -767,7 +762,7 @@ fifi:
 
 /* Receive a binary style header (type and position) */
 static int
-zrbhdr(char *hdr)
+zm_read_binary_header(char *hdr)
 {
 	register int c;
 	register unsigned short crc;
@@ -800,7 +795,7 @@ zrbhdr(char *hdr)
 
 /* Receive a binary style header (type and position) with 32 bit FCS */
 static int
-zrbhdr32(char *hdr)
+zm_read_binary_header32(char *hdr)
 {
 	register int c;
 	register unsigned long crc;
@@ -810,7 +805,7 @@ zrbhdr32(char *hdr)
 	Rxtype = c;
 	crc = 0xFFFFFFFFL; crc = UPDC32(c, crc);
 #ifdef DEBUGZ
-	log_trace("zrbhdr32 c=%X  crc=%lX", c, crc);
+	log_trace("zm_read_binary_header32 c=%X  crc=%lX", c, crc);
 #endif
 
 	for (int n = 0; n < 4; n++) {
@@ -819,7 +814,7 @@ zrbhdr32(char *hdr)
 		crc = UPDC32(c, crc);
 		hdr[n] = c;
 #ifdef DEBUGZ
-		log_trace("zrbhdr32 c=%X  crc=%lX", c, crc);
+		log_trace("zm_read_binary_header32 c=%X  crc=%lX", c, crc);
 #endif
 	}
 	for (int n = 0; n < 4; n ++) {
@@ -827,7 +822,7 @@ zrbhdr32(char *hdr)
 			return c;
 		crc = UPDC32(c, crc);
 #ifdef DEBUGZ
-		log_trace("zrbhdr32 c=%X  crc=%lX", c, crc);
+		log_trace("zm_read_binary_header32 c=%X  crc=%lX", c, crc);
 #endif
 	}
 	if (crc != 0xDEBB20E3) {
@@ -842,7 +837,7 @@ zrbhdr32(char *hdr)
 
 /* Receive a hex style header (type and position) */
 static int
-zrhhdr(char *hdr)
+zm_read_hex_header(char *hdr)
 {
 	register int c;
 	register unsigned short crc;
@@ -937,7 +932,7 @@ zsendline_init(void)
 
 /* Store pos in Txhdr */
 void
-stohdr(size_t pos)
+zm_store_header(size_t pos)
 {
 	long lpos=(long) pos;
 	Txhdr[ZP0] = lpos;
@@ -948,7 +943,7 @@ stohdr(size_t pos)
 
 /* Recover a long integer from a header */
 long
-rclhdr(char *hdr)
+zm_reclaim_header(char *hdr)
 {
 	long l;
 

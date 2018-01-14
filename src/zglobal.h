@@ -216,14 +216,14 @@ extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
 
 extern void zsendline (int c);
 extern void zsendline_init (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-void zsbhdr (int type, char *hdr);
-void zshhdr (int type, char *hdr);
-void zsdata (const char *buf, size_t length, int frameend);
-void zsda32 (const char *buf, size_t length, int frameend);
-int zrdata (char *buf, int length, size_t *received);
-int zgethdr (char *hdr, int eflag, size_t *);
-void stohdr (size_t pos) LRZSZ_ATTRIB_REGPARM(1);
-long rclhdr (char *hdr) LRZSZ_ATTRIB_REGPARM(1);
+void zm_send_binary_header (int type, char *hdr);
+void zm_send_hex_header (int type, char *hdr);
+void zm_send_data (const char *buf, size_t length, int frameend);
+void zm_send_data32 (const char *buf, size_t length, int frameend);
+int zm_receive_data (char *buf, int length, size_t *received);
+int zm_get_header (char *hdr, int eflag, size_t *);
+void zm_store_header (size_t pos) LRZSZ_ATTRIB_REGPARM(1);
+long zm_reclaim_header (char *hdr) LRZSZ_ATTRIB_REGPARM(1);
 
 int tcp_server (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int tcp_connect (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);

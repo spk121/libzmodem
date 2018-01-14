@@ -411,7 +411,7 @@ main(int argc, char *argv[])
 	}
 	if (Fromcu && !Quiet) {
 		if (Verbose == LOG_ERROR)
-			Verbose = LOG_DEBUG;
+			Verbose = LOG_INFO;
 		log_set_level(Verbose);
 	}
 
@@ -876,11 +876,11 @@ do_crc_check(FILE *f, size_t remote_bytes, size_t check_bytes)
 	fseek(f, 0L, 0);
 
 	while (t1<3) {
-		stohdr(check_bytes);
-		zshhdr(ZCRC, Txhdr);
+		zm_store_header(check_bytes);
+		zm_send_hex_header(ZCRC, Txhdr);
 		while(t2<3) {
 			size_t tmp;
-			c = zgethdr(Rxhdr, 0, &tmp);
+			c = zm_get_header(Rxhdr, 0, &tmp);
 			rcrc=(unsigned long) tmp;
 			switch (c) {
 			default: /* ignore */
@@ -1366,7 +1366,7 @@ tryz(void)
 	for (n=zmodem_requested?15:5;
 		 (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {
 		/* Set buffer length (0) and capability flags */
-		stohdr(0L);
+		zm_store_header(0L);
 #ifdef CANBREAK
 		Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO|CANBRK;
 #else
@@ -1376,7 +1376,7 @@ tryz(void)
 			Txhdr[ZF1] |= ZF1_TIMESYNC;
 		if (Zctlesc)
 			Txhdr[ZF0] |= TESCCTL; /* TESCCTL == ESCCTL */
-		zshhdr(tryzhdrtype, Txhdr);
+		zm_send_hex_header(tryzhdrtype, Txhdr);
 
 		if (tcp_socket==-1 && *tcp_buf) {
 			/* we need to switch to tcp mode */
@@ -1388,7 +1388,7 @@ tryz(void)
 		if (tryzhdrtype == ZSKIP)	/* Don't skip too far */
 			tryzhdrtype = ZRINIT;	/* CAF 8-21-87 */
 again:
-		switch (zgethdr(Rxhdr, 0, NULL)) {
+		switch (zm_get_header(Rxhdr, 0, NULL)) {
 		case ZRQINIT:
 			/* getting one ZRQINIT is totally ok. Normally a ZFILE follows
 			 * (and might be in our buffer, so don't purge it). But if we
@@ -1415,11 +1415,11 @@ again:
 			zmanag = Rxhdr[ZF1];
 			ztrans = Rxhdr[ZF2];
 			tryzhdrtype = ZRINIT;
-			c = zrdata(secbuf, MAX_BLOCK,&bytes_in_block);
+			c = zm_receive_data(secbuf, MAX_BLOCK,&bytes_in_block);
 			io_mode(0,3);
 			if (c == GOTCRCW)
 				return ZFILE;
-			zshhdr(ZNAK, Txhdr);
+			zm_send_hex_header(ZNAK, Txhdr);
 			goto again;
 		case ZSINIT:
 			/* this once was:
@@ -1432,20 +1432,20 @@ again:
 			 * so: sz escapes, but rz doesn't unescape ... not good.
 			 */
 			Zctlesc |= TESCCTL & Rxhdr[ZF0];
-			if (zrdata(Attn, ZATTNLEN,&bytes_in_block) == GOTCRCW) {
-				stohdr(1L);
-				zshhdr(ZACK, Txhdr);
+			if (zm_receive_data(Attn, ZATTNLEN,&bytes_in_block) == GOTCRCW) {
+				zm_store_header(1L);
+				zm_send_hex_header(ZACK, Txhdr);
 				goto again;
 			}
-			zshhdr(ZNAK, Txhdr);
+			zm_send_hex_header(ZNAK, Txhdr);
 			goto again;
 		case ZFREECNT:
-			stohdr(getfree());
-			zshhdr(ZACK, Txhdr);
+			zm_store_header(getfree());
+			zm_send_hex_header(ZACK, Txhdr);
 			goto again;
 		case ZCOMMAND:
 			cmdzack1flg = Rxhdr[ZF0];
-			if (zrdata(secbuf, MAX_BLOCK,&bytes_in_block) == GOTCRCW) {
+			if (zm_receive_data(secbuf, MAX_BLOCK,&bytes_in_block) == GOTCRCW) {
 				log_info("%s: %s", program_name,
 					 _("remote command execution requested"));
 				log_info("%s: %s", program_name, secbuf);
@@ -1453,24 +1453,24 @@ again:
 				{
 					log_info("%s: %s", program_name,
 						 _("not executed"));
-					zshhdr(ZCOMPL, Txhdr);
+					zm_send_hex_header(ZCOMPL, Txhdr);
 					return ZCOMPL;
 				}
 				if (cmdzack1flg & ZCACK1)
-					stohdr(0L);
+					zm_store_header(0L);
 				else
-					stohdr((size_t)sys2(secbuf));
+					zm_store_header((size_t)sys2(secbuf));
 				purgeline(0);	/* dump impatient questions */
 				do {
-					zshhdr(ZCOMPL, Txhdr);
+					zm_send_hex_header(ZCOMPL, Txhdr);
 				}
-				while (++errors<20 && zgethdr(Rxhdr,1, NULL) != ZFIN);
+				while (++errors<20 && zm_get_header(Rxhdr,1, NULL) != ZFIN);
 				ackbibi();
 				if (cmdzack1flg & ZCACK1)
 					exec2(secbuf);
 				return ZCOMPL;
 			}
-			zshhdr(ZNAK, Txhdr);
+			zm_send_hex_header(ZNAK, Txhdr);
 			goto again;
 		case ZCOMPL:
 			goto again;
@@ -1572,8 +1572,8 @@ rzfile(struct zm_fileinfo *zi)
 	}
 
 	for (;;) {
-		stohdr(zi->bytes_received);
-		zshhdr(ZRPOS, Txhdr);
+		zm_store_header(zi->bytes_received);
+		zm_send_hex_header(ZRPOS, Txhdr);
 		goto skip_oosb;
 nxthdr:
 		if (anker) {
@@ -1601,22 +1601,22 @@ nxthdr:
 			}
 		}
 	skip_oosb:
-		c = zgethdr(Rxhdr, 0, NULL);
+		c = zm_get_header(Rxhdr, 0, NULL);
 		switch (c) {
 		default:
-			log_debug("rzfile: zgethdr returned %d", c);
+			log_debug("rzfile: zm_get_header returned %d", c);
 			return ERROR;
 		case ZNAK:
 		case TIMEOUT:
 			if ( --n < 0) {
-				log_debug("rzfile: zgethdr returned %d", c);
+				log_debug("rzfile: zm_get_header returned %d", c);
 				return ERROR;
 			}
 		case ZFILE:
-			zrdata(secbuf, MAX_BLOCK,&bytes_in_block);
+			zm_receive_data(secbuf, MAX_BLOCK,&bytes_in_block);
 			continue;
 		case ZEOF:
-			if (rclhdr(Rxhdr) != (long) zi->bytes_received) {
+			if (zm_reclaim_header(Rxhdr) != (long) zi->bytes_received) {
 				/*
 				 * Ignore eof if it's at wrong place - force
 				 *  a timeout because the eof might have gone
@@ -1633,7 +1633,7 @@ nxthdr:
 			return c;
 		case ERROR:	/* Too much garbage in header search error */
 			if ( --n < 0) {
-				log_debug("rzfile: zgethdr returned %d", c);
+				log_debug("rzfile: zm_get_header returned %d", c);
 				return ERROR;
 			}
 			zmputs(Attn);
@@ -1643,14 +1643,14 @@ nxthdr:
 			log_debug("rzfile: Sender SKIPPED file");
 			return c;
 		case ZDATA:
-			if (rclhdr(Rxhdr) != (long) zi->bytes_received) {
+			if (zm_reclaim_header(Rxhdr) != (long) zi->bytes_received) {
 				oosb_t *neu;
-				size_t pos=rclhdr(Rxhdr);
+				size_t pos=zm_reclaim_header(Rxhdr);
 				if ( --n < 0) {
 					log_debug("rzfile: out of sync");
 					return ERROR;
 				}
-				switch (c = zrdata(secbuf, MAX_BLOCK,&bytes_in_block))
+				switch (c = zm_receive_data(secbuf, MAX_BLOCK,&bytes_in_block))
 				{
 				case GOTCRCW:
 				case GOTCRCG:
@@ -1719,21 +1719,21 @@ moredata:
 				not_printed=0;
 			} else 
 				not_printed++;
-			switch (c = zrdata(secbuf, MAX_BLOCK,&bytes_in_block))
+			switch (c = zm_receive_data(secbuf, MAX_BLOCK,&bytes_in_block))
 			{
 			case ZCAN:
-				log_debug("rzfile: zrdata returned %d", c);
+				log_debug("rzfile: zm_receive_data returned %d", c);
 				return ERROR;
 			case ERROR:	/* CRC error */
 				if ( --n < 0) {
-					log_debug("rzfile: zgethdr returned %d", c);
+					log_debug("rzfile: zm_get_header returned %d", c);
 					return ERROR;
 				}
 				zmputs(Attn);
 				continue;
 			case TIMEOUT:
 				if ( --n < 0) {
-					log_debug("rzfile: zgethdr returned %d", c);
+					log_debug("rzfile: zm_get_header returned %d", c);
 					return ERROR;
 				}
 				continue;
@@ -1741,15 +1741,15 @@ moredata:
 				n = 20;
 				putsec(zi, secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
-				stohdr(zi->bytes_received);
-				zshhdr(ZACK | 0x80, Txhdr);
+				zm_store_header(zi->bytes_received);
+				zm_send_hex_header(ZACK | 0x80, Txhdr);
 				goto nxthdr;
 			case GOTCRCQ:
 				n = 20;
 				putsec(zi, secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
-				stohdr(zi->bytes_received);
-				zshhdr(ZACK, Txhdr);
+				zm_store_header(zi->bytes_received);
+				zm_send_hex_header(ZACK, Txhdr);
 				goto moredata;
 			case GOTCRCG:
 				n = 20;
@@ -1855,10 +1855,10 @@ ackbibi(void)
 
 	log_debug("ackbibi:");
 	Readnum = 1;
-	stohdr(0L);
+	zm_store_header(0L);
 	for (n=3; --n>=0; ) {
 		purgeline(0);
-		zshhdr(ZFIN, Txhdr);
+		zm_send_hex_header(ZFIN, Txhdr);
 		switch (READLINE_PF(100)) {
 		case 'O':
 			READLINE_PF(1);	/* Discard 2nd 'O' */
