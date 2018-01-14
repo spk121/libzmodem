@@ -565,7 +565,7 @@ main(int argc, char **argv)
 		if (Verbose == 0)
 			Verbose = 2;
 	}
-	vfile("%s %s\n", program_name, VERSION);
+	log_debug("%s %s\n", program_name, VERSION);
 
 	if (tcp_flag==2) {
 		char buf[256];
@@ -1039,7 +1039,7 @@ wctxpn(struct zm_fileinfo *zi)
 	}
 	if (!zmodem_requested)
 		if (getnak()) {
-			vfile("getnak failed");
+			log_debug("getnak failed");
 			return ERROR;
 		}
 
@@ -1097,7 +1097,7 @@ wctxpn(struct zm_fileinfo *zi)
 	if (zmodem_requested)
 		return zsendfile(zi,txbuf, 1+strlen(p)+(p-txbuf));
 	if (wcputsec(txbuf, 0, 128)==ERROR) {
-		vfile("wcputsec failed");
+		log_debug("wcputsec failed");
 		return ERROR;
 	}
 	return OK;
@@ -1162,7 +1162,7 @@ wctx(struct zm_fileinfo *zi)
 	register int sectnum, attempts, firstch;
 
 	firstsec=TRUE;  thisblklen = blklen;
-	vfile("wctx:file length=%ld", (long) zi->bytes_total);
+	log_debug("wctx:file length=%ld", (long) zi->bytes_total);
 
 	while ((firstch=READLINE_PF(Rxtimeout))!=NAK && firstch != WANTCRC
 	  && firstch != WANTG && firstch!=TIMEOUT && firstch!=CAN)
@@ -1474,7 +1474,7 @@ getzrxinit(void)
 			Rxbuflen = (0377 & Rxhdr[ZP0])+((0377 & Rxhdr[ZP1])<<8);
 			if ( !(Rxflags & CANFDX))
 				Txwindow = 0;
-			vfile("Rxbuflen=%d Tframlen=%d", Rxbuflen, Tframlen);
+			log_debug("Rxbuflen=%d Tframlen=%d", Rxbuflen, Tframlen);
 			if ( play_with_sigint)
 				signal(SIGINT, SIG_IGN);
 			io_mode(io_mode_fd,2);	/* Set cbreak, XON/XOFF, etc. */
@@ -1483,7 +1483,7 @@ getzrxinit(void)
 				Rxbuflen = Tframlen;
 			if ( !Rxbuflen)
 				Rxbuflen = 1024;
-			vfile("Rxbuflen=%d", Rxbuflen);
+			log_debug("Rxbuflen=%d", Rxbuflen);
 
 			/* If using a pipe for testing set lower buf len */
 			fstat(0, &f);
@@ -1514,8 +1514,8 @@ getzrxinit(void)
 				blklen = Rxbuflen;
 			if (blkopt && blklen > blkopt)
 				blklen = blkopt;
-			vfile("Rxbuflen=%d blklen=%d", Rxbuflen, blklen);
-			vfile("Txwindow = %u Txwspac = %d", Txwindow, Txwspac);
+			log_debug("Rxbuflen=%d blklen=%d", Rxbuflen, blklen);
+			log_debug("Txwindow = %u Txwspac = %d", Txwindow, Txwspac);
 			Rxtimeout=old_timeout;
 			return (sendzsinit());
 		case ZCAN:
@@ -1663,7 +1663,7 @@ again:
 				mm_addr=NULL;
 			}
 
-			vfile("receiver skipped");
+			log_debug("receiver skipped");
 			return c;
 		case ZRPOS:
 			/*
@@ -1673,7 +1673,7 @@ again:
 			if (!mm_addr)
 			if (rxpos && fseek(input_f, (long) rxpos, 0)) {
 				int er=errno;
-				vfile("fseek failed: %s", strerror(er));
+				log_debug("fseek failed: %s", strerror(er));
 				return ERROR;
 			}
 			if (rxpos)
@@ -1891,7 +1891,7 @@ zsendfdata (struct zm_fileinfo *zi)
 		if (Txwindow) {
 			size_t tcount = 0;
 			while ((tcount = zi->bytes_sent - Lrxpos) >= Txwindow) {
-				vfile ("%ld (%ld,%ld) window >= %u", tcount,
+				log_debug ("%ld (%ld,%ld) window >= %u", tcount,
 					(long) zi->bytes_sent, (long) Lrxpos,
 					Txwindow);
 				if (e != ZCRCQ)
@@ -1902,7 +1902,7 @@ zsendfdata (struct zm_fileinfo *zi)
 					goto gotack;
 				}
 			}
-			vfile ("window = %ld", tcount);
+			log_debug ("window = %ld", tcount);
 		}
 	} while (!zi->eof_seen);
 
@@ -2172,9 +2172,9 @@ listen:
 			saybibi();
 			return OK;
 		case ZRQINIT:
-			vfile("******** RZ *******");
+			log_debug("******** RZ *******");
 			system("rz");
-			vfile("******** SZ *******");
+			log_debug("******** SZ *******");
 			goto listen;
 		}
 	}

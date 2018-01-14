@@ -31,6 +31,7 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include "log.h"
 
 #ifdef USE_SGTTY
 #  ifdef LLITOUT
@@ -148,7 +149,7 @@ io_mode(int fd, int n)
 {
 	static int did0 = FALSE;
 
-	vfile("mode:%d", n);
+	log_debug("mode:%d", n);
 
 	switch(n) {
 
