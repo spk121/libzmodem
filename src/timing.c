@@ -60,11 +60,11 @@ timing (int reset, time_t *nowp)
 main()
 {
 	int i;
-	printf("timing %g\n",timing(1));
-	printf("timing %g\n",timing(0));
+	display("timing %g",timing(1));
+	display("timing %g",timing(0));
 	for(i=0;i<20;i++){
-	sleep(1);
-	printf("timing %g\n",timing(0));
+		sleep(1);
+		display("timing %g",timing(0));
 	}
 }
 #endif

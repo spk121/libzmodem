@@ -189,7 +189,7 @@ static struct option const long_options[] =
 static void
 show_version(void)
 {
-	printf ("%s (%s) %s\n", program_name, PACKAGE, VERSION);
+	display ("%s (%s) %s", program_name, PACKAGE, VERSION);
 }
 
 int
@@ -430,7 +430,7 @@ main(int argc, char *argv[])
 			log_fatal(_("hostname too long"));
 			exit(1);
 		}
-		fprintf(stdout,"connect with lrz --tcp-client \"%s:%s\"\n",hn,p);
+		display("connect with lrz --tcp-client \"%s:%s\"",hn,p);
 		fflush(stdout);
 		/* ok, now that this file is sent we can switch to tcp */
 
@@ -449,7 +449,7 @@ main(int argc, char *argv[])
 		*p++=0;
 		sprintf(buf,"[%s] <%s>\n",tcp_server_address,p);
 
-		fprintf(stdout,"connecting to %s\n",buf);
+		display("connecting to %s",buf);
 		fflush(stdout);
 
 		/* we need to switch to tcp mode */
@@ -473,14 +473,10 @@ main(int argc, char *argv[])
 	io_mode(0,0);
 	if (exitcode && !zmodem_requested)	/* bellow again with all thy might. */
 		canit(STDOUT_FILENO);
-	if (Verbose)
-	{
-		fputs("\r\n",stderr);
-		if (exitcode)
-			fputs(_("Transfer incomplete\n"),stderr);
-		else
-			fputs(_("Transfer complete\n"),stderr);
-	}
+	if (exitcode)
+		log_info(_("Transfer incomplete"));
+	else
+		log_info(_("Transfer complete"));
 	exit(exitcode);
 }
 
@@ -493,62 +489,54 @@ usage1(int exitcode)
 static void
 usage(int exitcode, const char *what)
 {
-	FILE *f=stdout;
-
 	if (exitcode)
 	{
 		if (what)
-			fprintf(stderr, "%s: %s\n",program_name,what);
-		fprintf (stderr, _("Try `%s --help' for more information.\n"),
-			program_name);
+			log_info("%s: %s",program_name,what);
+		log_info( _("Try `%s --help' for more information."), program_name);
 		exit(exitcode);
 	}
 
-	fprintf(f, _("%s version %s\n"), program_name,
-		VERSION);
+	display(_("%s version %s\n"), program_name, VERSION);
 
-	fprintf(f,_("Usage: %s [options] [filename.if.xmodem]\n"), program_name);
-	fputs(_("Receive files with ZMODEM/YMODEM/XMODEM protocol\n"),f);
-	fputs(_(
-		"    (X) = option applies to XMODEM only\n"
-		"    (Y) = option applies to YMODEM only\n"
-		"    (Z) = option applies to ZMODEM only\n"
-		),f);
-	fputs(_(
-"  -+, --append                append to existing files\n"
-"  -a, --ascii                 ASCII transfer (change CR/LF to LF)\n"
-"  -b, --binary                binary transfer\n"
-"  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)\n"
-"  -c, --with-crc              Use 16 bit CRC (X)\n"
-"  -C, --allow-remote-commands allow execution of remote commands (Z)\n"
-"  -D, --null                  write all received data to /dev/null\n"
-"      --delay-startup N       sleep N seconds before doing anything\n"
-"  -e, --escape                Escape control characters (Z)\n"
-"  -E, --rename                rename any files already existing\n"
-"      --errors N              generate CRC error every N bytes (debugging)\n"
-"  -h, --help                  Help, print this usage message\n"
-"  -m, --min-bps N             stop transmission if BPS below N\n"
-"  -M, --min-bps-time N          for at least N seconds (default: 120)\n"
-"  -O, --disable-timeouts      disable timeout code, wait forever for data\n"
-"      --o-sync                open output file(s) in synchronous write mode\n"
-"  -p, --protect               protect existing files\n"
-"  -q, --quiet                 quiet, no progress reports\n"
-"  -r, --resume                try to resume interrupted file transfer (Z)\n"
-"  -R, --restricted            restricted, more secure mode\n"
-"  -s, --stop-at {HH:MM|+N}    stop transmission at HH:MM or in N seconds\n"
-"  -S, --timesync              request remote time (twice: set local time)\n"
-"  -t, --timeout N             set timeout to N tenths of a second\n"
-"  -u, --keep-uppercase        keep upper case filenames\n"
-"  -U, --unrestrict            disable restricted mode (if allowed to)\n"
-"  -v, --verbose               be verbose, provide debugging information\n"
-"  -w, --windowsize N          Window is N bytes (Z)\n"
-"  -X  --xmodem                use XMODEM protocol\n"
-"  -y, --overwrite             Yes, clobber existing file if any\n"
-"      --ymodem                use YMODEM protocol\n"
-"  -Z, --zmodem                use ZMODEM protocol\n"
-"\n"
-"short options use the same arguments as the long ones\n"
-	),f);
+	display(_("Usage: %s [options] [filename.if.xmodem]"), program_name);
+	display(_("Receive files with ZMODEM/YMODEM/XMODEM protocol"));
+	display(_("    (X) = option applies to XMODEM only"));
+	display(_("    (Y) = option applies to YMODEM only"));
+	display(_("    (Z) = option applies to ZMODEM only"));
+	display(_("  -+, --append                append to existing files"));
+	display(_("  -a, --ascii                 ASCII transfer (change CR/LF to LF)"));
+	display(_("  -b, --binary                binary transfer"));
+	display(_("  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)"));
+	display(_("  -c, --with-crc              Use 16 bit CRC (X)"));
+	display(_("  -C, --allow-remote-commands allow execution of remote commands (Z)"));
+	display(_("  -D, --null                  write all received data to /dev/null"));
+	display(_("      --delay-startup N       sleep N seconds before doing anything"));
+	display(_("  -e, --escape                Escape control characters (Z)"));
+	display(_("  -E, --rename                rename any files already existing"));
+	display(_("      --errors N              generate CRC error every N bytes (debugging)"));
+	display(_("  -h, --help                  Help, print this usage message"));
+	display(_("  -m, --min-bps N             stop transmission if BPS below N"));
+	display(_("  -M, --min-bps-time N          for at least N seconds (default: 120)"));
+	display(_("  -O, --disable-timeouts      disable timeout code, wait forever for data"));
+	display(_("      --o-sync                open output file(s) in synchronous write mode"));
+	display(_("  -p, --protect               protect existing files"));
+	display(_("  -q, --quiet                 quiet, no progress reports"));
+	display(_("  -r, --resume                try to resume interrupted file transfer (Z)"));
+	display(_("  -R, --restricted            restricted, more secure mode"));
+	display(_("  -s, --stop-at {HH:MM|+N}    stop transmission at HH:MM or in N seconds"));
+	display(_("  -S, --timesync              request remote time (twice: set local time)"));
+	display(_("  -t, --timeout N             set timeout to N tenths of a second"));
+	display(_("  -u, --keep-uppercase        keep upper case filenames"));
+	display(_("  -U, --unrestrict            disable restricted mode (if allowed to)"));
+	display(_("  -v, --verbose               be verbose, provide debugging information"));
+	display(_("  -w, --windowsize N          Window is N bytes (Z)"));
+	display(_("  -X  --xmodem                use XMODEM protocol"));
+	display(_("  -y, --overwrite             Yes, clobber existing file if any"));
+	display(_("      --ymodem                use YMODEM protocol"));
+	display(_("  -Z, --zmodem                use ZMODEM protocol"));
+	display("");
+	display(_("short options use the same arguments as the long ones"));
 	exit(exitcode);
 }
 
@@ -1160,7 +1148,7 @@ procheader(char *name, struct zm_fileinfo *zi)
 			name_static=(char *) strdup("/dev/null");
 			if (!name_static)
 			{
-				fprintf(stderr,"%s: %s\n", program_name, _("out of memory"));
+				log_fatal(_("out of memory"));
 				exit(1);
 			}
 		}
