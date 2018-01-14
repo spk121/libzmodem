@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([lrzsz], [0.12.21-mlg], [mike@lonelycactus.com])
+AC_INIT([libzmodem], [0.12.21-mlg], [mike@lonelycactus.com])
 AC_PREREQ(2.69)
 AC_CONFIG_SRCDIR([src/lrz.c])
 AC_CONFIG_AUX_DIR([build-aux])
