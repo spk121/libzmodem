@@ -68,13 +68,13 @@ readline_internal(unsigned int timeout)
 		else if (n==0)
 			n=1;
 		if (Verbose > 5)
-			vstringf("Calling read: alarm=%d  Readnum=%d ",
+			log_info("Calling read: alarm=%d  Readnum=%d ",
 			  n, readline_readnum);
 		signal(SIGALRM, zreadline_alarm_handler); 
 		alarm(n);
 	}
 	else if (Verbose > 5)
-		vstringf("Calling read: Readnum=%d ",
+		log_info("Calling read: Readnum=%d ",
 		  readline_readnum);
 
 	readline_ptr=readline_buffer;
@@ -94,19 +94,19 @@ readline_internal(unsigned int timeout)
 		}
 	}
 	if (Verbose > 5) {
-		vstringf("Read returned %d bytes\n", readline_left);
+		log_info("Read returned %d bytes\n", readline_left);
 		if (readline_left==-1)
-			vstringf("errno=%d:%s\n", errno,strerror(errno));
+			log_info("errno=%d:%s\n", errno,strerror(errno));
 		if (Verbose > 9 && readline_left>0) {
 			int i,j;
 			j=readline_left > 48 ? 48 : readline_left;
-			vstring("    ");
+			log_info("    ");
 			for (i=0;i<j;i++) {
 				if (i%24==0 && i)
-					vstring("\n    ");
-				vstringf("%02x ", readline_ptr[i] & 0377);
+					log_info("\n    ");
+				log_info("%02x ", readline_ptr[i] & 0377);
 			}
-			vstringf("\n");
+			log_info("\n");
 		}
 	}
 	if (readline_left < 1)

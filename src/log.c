@@ -120,6 +120,7 @@ void log_log(int level, const char *file, int line, const char *fmt, ...) {
     vfprintf(stderr, fmt, args);
     va_end(args);
     fprintf(stderr, "\n");
+    fflush(stderr);
   }
 
   /* Log to file */
@@ -153,6 +154,7 @@ void log_display(const char *file, int line, const char *fmt, ...) {
     vfprintf(stdout, fmt, args);
     va_end(args);
     fprintf(stdout, "\n");
+    fflush(stdout);
   }
 
   /* Log to file */
