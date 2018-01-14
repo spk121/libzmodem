@@ -694,9 +694,9 @@ agn2:
 			log_error(_("Garbage count exceeded"));
 			return(ERROR);
 		}
-		if (eflag && ((c &= 0177) & 0140) && Verbose)
+		if (eflag && ((c &= 0177) & 0140))
 			log_info("%c", c);
-		else if (eflag > 1 && Verbose)
+		else if (eflag > 1)
 			log_info("%c", c);
 		goto startover;
 	case ZPAD|0200:		/* This is what we want. */
