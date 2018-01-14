@@ -687,7 +687,7 @@ et_tu:
 	purgeline(0); /* Do read next time ... */
 	while ((c = wcgetsec(&Blklen, rpn, 100)) != 0) {
 		if (c == WCEOT) {
-			zperr( _("Pathname fetch returned EOT"));
+			log_error( _("Pathname fetch returned EOT"));
 			putchar(ACK);
 			fflush(stdout);
 			purgeline(0);	/* Do read next time ... */
@@ -734,7 +734,7 @@ wcrx(struct zm_fileinfo *zi)
 			sendchar=ACK;
 		}
 		else if (sectcurr==(sectnum&0377)) {
-			zperr( _("Received dup Sector"));
+			log_error( _("Received dup Sector"));
 			sendchar=ACK;
 		}
 		else if (sectcurr==WCEOT) {
@@ -748,7 +748,7 @@ wcrx(struct zm_fileinfo *zi)
 		else if (sectcurr==ERROR)
 			return ERROR;
 		else {
-			zperr( _("Sync Error"));
+			log_error( _("Sync Error"));
 			return ERROR;
 		}
 	}
@@ -796,7 +796,7 @@ get2:
 						goto bilge;
 					oldcrc=updcrc(firstch, oldcrc);
 					if (oldcrc & 0xFFFF)
-						zperr( _("CRC"));
+						log_error( _("CRC"));
 					else {
 						Firstsec=FALSE;
 						return sectcurr;
@@ -807,17 +807,17 @@ get2:
 					return sectcurr;
 				}
 				else
-					zperr( _("Checksum"));
+					log_error( _("Checksum"));
 			}
 			else
-				zperr(_("Sector number garbled"));
+				log_error(_("Sector number garbled"));
 		}
 		/* make sure eot really is eot and not just mixmash */
 		else if (firstch==EOT && READLINE_PF(1)==TIMEOUT)
 			return WCEOT;
 		else if (firstch==CAN) {
 			if (Lastrx==CAN) {
-				zperr( _("Sender Cancelled"));
+				log_error( _("Sender Cancelled"));
 				return ERROR;
 			} else {
 				Lastrx=CAN;
@@ -828,10 +828,10 @@ get2:
 			if (Firstsec)
 				goto humbug;
 bilge:
-			zperr( _("TIMEOUT"));
+			log_error( _("TIMEOUT"));
 		}
 		else
-			zperr( _("Got 0%o sector header"), firstch);
+			log_error( _("Got 0%o sector header"), firstch);
 
 humbug:
 		Lastrx=0;
@@ -1190,7 +1190,7 @@ procheader(char *name, struct zm_fileinfo *zi)
 		fout = fopen(name_static, openmode);
 		if ( !fout)
 		{
-			zpfatal(_("cannot open %s"), name_static);
+			log_error(_("cannot open %s: %s"), name_static, strerror(perror));
 			return ERROR;
 		}
 	}
@@ -1225,7 +1225,7 @@ buffer_it:
 			last_length=(last_length+4095)&0xfffff000;
 			s=malloc(last_length);
 			if (!s) {
-				zpfatal(_("out of memory"));
+				log_fatal(_("out of memory"));
 				exit(1);
 			}
 		}
@@ -1867,7 +1867,7 @@ closeit(struct zm_fileinfo *zi)
 	}
 	ret=fclose(fout);
 	if (ret) {
-		zpfatal(_("file close error"));
+		log_error(_("file close error: %s"), strerror(errno));
 		/* this may be any sort of error, including random data corruption */
 
 		unlink(Pathname);
@@ -1941,7 +1941,7 @@ exec2(const char *s)
 		++s;
 	io_mode(0,0);
 	execl("/bin/sh", "sh", "-c", s);
-	zpfatal("execl");
+	log_fatal("execl: %s", strerror(errno));
 	exit(1);
 }
 
