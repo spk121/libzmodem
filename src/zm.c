@@ -163,7 +163,7 @@ zgethex(void)
 	register int c;
 
 	c = zgeth1();
-	VPRINTF(9,("zgethex: %02X", c));
+	log_trace("zgethex: %02X", c);
 	return c;
 }
 
@@ -239,7 +239,7 @@ again2:
 			return (c ^ 0100);
 		break;
 	}
-	VPRINTF(2,(_("Bad escape sequence %x"), c));
+	log_debug(_("Bad escape sequence %x"), c);
 	return ERROR;
 }
 
@@ -326,7 +326,7 @@ zsbhdr(int type, char *hdr)
 {
 	register unsigned short crc;
 
-	VPRINTF(3,("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr)));
+	log_trace("zsbhdr: %s %lx", frametypes[type+FTOFFSET], rclhdr(hdr));
 	if (type == ZDATA)
 		for (int n = 0; n < Znulls; n ++)
 			putchar(0);
@@ -384,7 +384,7 @@ zshhdr(int type, char *hdr)
 	char s[30];
 	size_t len;
 
-	VPRINTF(3,("zshhdr: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], rclhdr(hdr)));
+	log_trace("zshhdr: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], rclhdr(hdr));
 	s[0]=ZPAD;
 	s[1]=ZPAD;
 	s[2]=ZDLE;
@@ -427,8 +427,8 @@ zsdata(const char *buf, size_t length, int frameend)
 {
 	register unsigned short crc;
 
-	VPRINTF(3,("zsdata: %lu %s", (unsigned long) length,
-		Zendnames[(frameend-ZCRCE)&3]));
+	log_trace("zsdata: %lu %s", (unsigned long) length,
+		Zendnames[(frameend-ZCRCE)&3]);
 	crc = 0;
 	for (size_t i = 0; i < length; i++) {
 		zsendline(buf[i]);
@@ -452,7 +452,7 @@ zsda32(const char *buf, size_t length, int frameend)
 {
 	int c;
 	unsigned long crc;
-	VPRINTF(3,("zsdat32: %zu %s", length, Zendnames[(frameend-ZCRCE)&3]));
+	log_trace("zsdat32: %zu %s", length, Zendnames[(frameend-ZCRCE)&3]);
 
 	crc = 0xFFFFFFFFL;
 	zsendline_s(buf,length);
@@ -558,8 +558,8 @@ crcfoo:
 					}
 					*bytes_received = i;
 					COUNT_BLK(*bytes_received);
-					VPRINTF(3,("zrdata: %lu  %s", (unsigned long) (*bytes_received),
-							Zendnames[(d-GOTCRCE)&3]));
+					log_trace("zrdata: %lu  %s", (unsigned long) (*bytes_received),
+							Zendnames[(d-GOTCRCE)&3]);
 					return d;
 				}
 			case GOTCAN:
@@ -617,8 +617,8 @@ crcfoo:
 				}
 				*bytes_received = i;
 				COUNT_BLK(*bytes_received);
-				VPRINTF(3,("zrdat32: %lu %s", (unsigned long) *bytes_received,
-					Zendnames[(d-GOTCRCE)&3]));
+				log_trace("zrdat32: %lu %s", (unsigned long) *bytes_received,
+					Zendnames[(d-GOTCRCE)&3]);
 				return d;
 			case GOTCAN:
 				log_error(_("Sender Canceled"));
@@ -695,9 +695,9 @@ agn2:
 			return(ERROR);
 		}
 		if (eflag && ((c &= 0177) & 0140) && Verbose)
-			vchar(c);
+			log_info("%c", c);
 		else if (eflag > 1 && Verbose)
-			vchar(c);
+			log_info("%c", c);
 		goto startover;
 	case ZPAD|0200:		/* This is what we want. */
 	case ZPAD:		/* This is what we want. */
@@ -756,9 +756,9 @@ fifi:
 	/* **** FALL THRU TO **** */
 	default:
 		if (c >= -3 && c <= FRTYPES)
-			VPRINTF(3,("zgethdr: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos));
+			log_trace("zgethdr: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos);
 		else
-			VPRINTF(3,("zgethdr: %d %lx", c, (unsigned long) rxpos));
+			log_trace("zgethdr: %d %lx", c, (unsigned long) rxpos);
 	}
 	if (Rxpos)
 		*Rxpos=rxpos;
@@ -810,7 +810,7 @@ zrbhdr32(char *hdr)
 	Rxtype = c;
 	crc = 0xFFFFFFFFL; crc = UPDC32(c, crc);
 #ifdef DEBUGZ
-	VPRINTF(3,("zrbhdr32 c=%X  crc=%lX", c, crc)i);
+	log_trace("zrbhdr32 c=%X  crc=%lX", c, crc);
 #endif
 
 	for (int n = 0; n < 4; n++) {
@@ -819,7 +819,7 @@ zrbhdr32(char *hdr)
 		crc = UPDC32(c, crc);
 		hdr[n] = c;
 #ifdef DEBUGZ
-		VPRINTF(3,("zrbhdr32 c=%X  crc=%lX", c, crc));
+		log_trace("zrbhdr32 c=%X  crc=%lX", c, crc);
 #endif
 	}
 	for (int n = 0; n < 4; n ++) {
@@ -827,7 +827,7 @@ zrbhdr32(char *hdr)
 			return c;
 		crc = UPDC32(c, crc);
 #ifdef DEBUGZ
-		VPRINTF(3,("zrbhdr32 c=%X  crc=%lX", c, crc));
+		log_trace("zrbhdr32 c=%X  crc=%lX", c, crc);
 #endif
 	}
 	if (crc != 0xDEBB20E3) {
@@ -886,7 +886,7 @@ zputhex(int c, char *pos)
 {
 	static char	digits[]	= "0123456789abcdef";
 
-	VPRINTF(9,("zputhex: %02X", c));
+	log_trace("zputhex: %02X", c);
 	pos[0]=digits[(c&0xF0)>>4];
 	pos[1]=digits[c&0x0F];
 }
