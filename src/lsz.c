@@ -259,7 +259,7 @@ static struct option const long_options[] =
 static void
 show_version(void)
 {
-	printf ("%s (%s) %s\n", program_name, PACKAGE, VERSION);
+	display ("%s (%s) %s", program_name, PACKAGE, VERSION);
 }
 
 
@@ -557,7 +557,7 @@ main(int argc, char **argv)
 	if (npats < 1 && !command_mode)
 		usage(2,_("need at least one file to send"));
 	if (command_mode && Restricted) {
-		printf(_("Can't send command in restricted mode\n"));
+		display(_("Can't send command in restricted mode"));
 		exit(1);
 	}
 
@@ -583,7 +583,7 @@ main(int argc, char **argv)
 			log_fatal(_("hostname too long"));
 			exit(1);
 		}
-		fprintf(stdout,"connect with lrz --tcp-client \"%s:%s\"\n",hn,p);
+		display("connect with lrz --tcp-client \"%s:%s\"",hn,p);
 		fflush(stdout);
 		/* ok, now that this file is sent we can switch to tcp */
 
@@ -602,7 +602,7 @@ main(int argc, char **argv)
 		*p++=0;
 		sprintf(buf,"[%s] <%s>\n",tcp_server_address,p);
 
-		fprintf(stdout,"connecting to %s\n",buf);
+		display("connecting to %s",buf);
 		fflush(stdout);
 
 		/* we need to switch to tcp mode */
@@ -652,7 +652,7 @@ main(int argc, char **argv)
 
 	if ( protocol!=ZM_XMODEM) {
 		if (protocol==ZM_ZMODEM) {
-			printf("rz\r");
+			display("rz");
 			fflush(stdout);
 		}
 		countem(npats, patts);
@@ -720,13 +720,10 @@ main(int argc, char **argv)
 		dm=1;
 	else
 		dm=0;
-	if (Verbose)
-	{
-		fputs("\r\n",stderr);
-		if (dm)
-			fputs(_("Transfer incomplete\n"),stderr);
-		else
-			fputs(_("Transfer complete\n"),stderr);
+	if (dm)
+		log_info(_("Transfer incomplete"));
+	else
+		log_info(_("Transfer complete"));
 	}
 	exit(dm);
 	/*NOTREACHED*/
@@ -1355,31 +1352,26 @@ usage1 (int exitcode)
 static void
 usage(int exitcode, const char *what)
 {
-	FILE *f=stdout;
-
 	if (exitcode)
 	{
 		if (what)
-			fprintf(stderr, "%s: %s\n",program_name,what);
-	    fprintf (stderr, _("Try `%s --help' for more information.\n"),
-            program_name);
+			log_info("%s: %s",program_name,what);
+		log_info (_("Try `%s --help' for more information."), program_name);
 		exit(exitcode);
 	}
 
-	fprintf(f, _("%s version %s\n"), program_name,
-		VERSION);
+	display(_("%s version %s"), program_name, VERSION);
 
-	fprintf(f,_("Usage: %s [options] file ...\n"),
-		program_name);
-	fprintf(f,_("   or: %s [options] -{c|i} COMMAND\n"),program_name);
-	fputs(_("Send file(s) with ZMODEM/YMODEM/XMODEM protocol\n"),f);
-	fputs(_(
+	display(_("Usage: %s [options] file ..."), program_name);
+	display(_("   or: %s [options] -{c|i} COMMAND\n"),program_name);
+	display(_("Send file(s) with ZMODEM/YMODEM/XMODEM protocol"));
+	display(_(
 		"    (X) = option applies to XMODEM only\n"
 		"    (Y) = option applies to YMODEM only\n"
 		"    (Z) = option applies to ZMODEM only\n"
-		),f);
+		));
 	/* splitted into two halves for really bad compilers */
-	fputs(_(
+	display(_(
 "  -+, --append                append to existing destination file (Z)\n"
 "  -2, --twostop               use 2 stop bits\n"
 "  -4, --try-4k                go up to 4K blocksize\n"
@@ -1403,8 +1395,8 @@ usage(int exitcode, const char *what)
 "  -l, --framelen N            limit frame length to N bytes (l>=L) (Z)\n"
 "  -m, --min-bps N             stop transmission if BPS below N\n"
 "  -M, --min-bps-time N          for at least N seconds (default: 120)\n"
-		),f);
-	fputs(_(
+		));
+	display(_(
 "  -n, --newer                 send file if source newer (Z)\n"
 "  -N, --newer-or-longer       send file if source newer or longer (Z)\n"
 "  -o, --16-bit-crc            use 16 bit CRC instead of 32 bit CRC (Z)\n"
@@ -1427,7 +1419,7 @@ usage(int exitcode, const char *what)
 "  -Z, --zmodem                use ZMODEM protocol\n"
 "\n"
 "short options use the same arguments as the long ones\n"
-	),f);
+	));
 	exit(exitcode);
 }
 
