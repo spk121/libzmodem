@@ -22,7 +22,7 @@ libraries and to be modified in three ways.
 * all hard exits need to become error codes
 * the operations need to become interruptable and restartable
 
-Mike Gran's fork lives at https://github.com/spk121/lrzsz
+Mike Gran's fork lives at https://github.com/spk121/libzmodem
 
 If, for some reason, you want to contact Mike, try
 <mike@lonelycactus.com>.
