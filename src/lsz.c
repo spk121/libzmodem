@@ -620,7 +620,7 @@ main(int argc, char **argv)
 		char *s=malloc(max_blklen+1024);
 		if (!s)
 		{
-			zperr(_("out of memory"));
+			log_error(_("out of memory"));
 			exit(1);
 		}
 		setvbuf(stdout,s,_IOFBF,max_blklen+1024);
@@ -724,7 +724,6 @@ main(int argc, char **argv)
 		log_info(_("Transfer incomplete"));
 	else
 		log_info(_("Transfer complete"));
-	}
 	exit(dm);
 	/*NOTREACHED*/
 }
@@ -1122,7 +1121,7 @@ getnak(void)
 		case TIMEOUT:
 			/* 30 seconds are enough */
 			if (tries==3) {
-				zperr(_("Timeout on pathname"));
+				log_error(_("Timeout on pathname"));
 				return TRUE;
 			}
 			/* don't send a second ZRQINIT _directly_ after the
@@ -1169,7 +1168,7 @@ wctx(struct zm_fileinfo *zi)
 	  && firstch != WANTG && firstch!=TIMEOUT && firstch!=CAN)
 		;
 	if (firstch==CAN) {
-		zperr(_("Receiver Cancelled"));
+		log_error(_("Receiver Cancelled"));
 		return ERROR;
 	}
 	if (firstch==WANTCRC)
@@ -1195,7 +1194,7 @@ wctx(struct zm_fileinfo *zi)
 		++attempts;
 	} while ((firstch=(READLINE_PF(Rxtimeout)) != ACK) && attempts < RETRYMAX);
 	if (attempts == RETRYMAX) {
-		zperr(_("No ACK on EOT"));
+		log_error(_("No ACK on EOT"));
 		return ERROR;
 	}
 	else
@@ -1251,24 +1250,24 @@ gotnak:
 		case CAN:
 			if(Lastrx == CAN) {
 cancan:
-				zperr(_("Cancelled"));  return ERROR;
+				log_error(_("Cancelled"));  return ERROR;
 			}
 			break;
 		case TIMEOUT:
-			zperr(_("Timeout on sector ACK")); continue;
+			log_error(_("Timeout on sector ACK")); continue;
 		case WANTCRC:
 			if (firstsec)
 				Crcflg = TRUE;
 		case NAK:
-			zperr(_("NAK on sector")); continue;
+			log_error(_("NAK on sector")); continue;
 		case ACK:
 			firstsec=FALSE;
 			Totsecs += (cseclen>>7);
 			return OK;
 		case ERROR:
-			zperr(_("Got burst for sector ACK")); break;
+			log_error(_("Got burst for sector ACK")); break;
 		default:
-			zperr(_("Got %02x for sector ACK"), firstch); break;
+			log_error(_("Got %02x for sector ACK"), firstch); break;
 		}
 		for (;;) {
 			Lastrx = firstch;
@@ -1280,7 +1279,7 @@ cancan:
 				goto cancan;
 		}
 	}
-	zperr(_("Retry Count Exceeded"));
+	log_error(_("Retry Count Exceeded"));
 	return ERROR;
 }
 

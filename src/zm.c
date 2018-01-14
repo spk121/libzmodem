@@ -39,6 +39,7 @@
 #include "zglobal.h"
 
 #include <stdio.h>
+#include "log.h"
 
 unsigned int Rxtimeout = 100;		/* Tenths of seconds to wait for something */
 
@@ -552,7 +553,7 @@ crcfoo:
 						goto crcfoo;
 					crc = updcrc(c, crc);
 					if (crc & 0xFFFF) {
-						zperr(badcrc);
+						log_error(badcrc);
 						return ERROR;
 					}
 					*bytes_received = i;
@@ -562,20 +563,20 @@ crcfoo:
 					return d;
 				}
 			case GOTCAN:
-				zperr(_("Sender Canceled"));
+				log_error(_("Sender Canceled"));
 				return ZCAN;
 			case TIMEOUT:
-				zperr(_("TIMEOUT"));
+				log_error(_("TIMEOUT"));
 				return c;
 			default:
-				zperr(_("Bad data subpacket"));
+				log_error(_("Bad data subpacket"));
 				return c;
 			}
 		}
 		buf[i] = c;
 		crc = updcrc(c, crc);
 	}
-	zperr(_("Data subpacket too long"));
+	log_error(_("Data subpacket too long"));
 	return ERROR;
 }
 
@@ -611,7 +612,7 @@ crcfoo:
 					goto crcfoo;
 				crc = UPDC32(c, crc);
 				if (crc != 0xDEBB20E3) {
-					zperr(badcrc);
+					log_error(badcrc);
 					return ERROR;
 				}
 				*bytes_received = i;
@@ -620,20 +621,20 @@ crcfoo:
 					Zendnames[(d-GOTCRCE)&3]));
 				return d;
 			case GOTCAN:
-				zperr(_("Sender Canceled"));
+				log_error(_("Sender Canceled"));
 				return ZCAN;
 			case TIMEOUT:
-				zperr(_("TIMEOUT"));
+				log_error(_("TIMEOUT"));
 				return c;
 			default:
-				zperr(_("Bad data subpacket"));
+				log_error(_("Bad data subpacket"));
 				return c;
 			}
 		}
 		buf[i] = c;
 		crc = UPDC32(c, crc);
 	}
-	zperr(_("Data subpacket too long"));
+	log_error(_("Data subpacket too long"));
 	return ERROR;
 }
 
@@ -690,7 +691,7 @@ gotcan:
 	default:
 agn2:
 		if ( --max_garbage == 0) {
-			zperr(_("Garbage count exceeded"));
+			log_error(_("Garbage count exceeded"));
 			return(ERROR);
 		}
 		if (eflag && ((c &= 0177) & 0140) && Verbose)
@@ -751,7 +752,7 @@ fifi:
 	case ERROR:
 	case TIMEOUT:
 	case RCDO:
-		zperr(_("Got %s"), frametypes[c+FTOFFSET]);
+		log_error(_("Got %s"), frametypes[c+FTOFFSET]);
 	/* **** FALL THRU TO **** */
 	default:
 		if (c >= -3 && c <= FRTYPES)
@@ -789,7 +790,7 @@ zrbhdr(char *hdr)
 		return c;
 	crc = updcrc(c, crc);
 	if (crc & 0xFFFF) {
-		zperr(badcrc);
+		log_error(badcrc);
 		return ERROR;
 	}
 	protocol = ZM_ZMODEM;
@@ -830,7 +831,7 @@ zrbhdr32(char *hdr)
 #endif
 	}
 	if (crc != 0xDEBB20E3) {
-		zperr(badcrc);
+		log_error(badcrc);
 		return ERROR;
 	}
 	protocol = ZM_ZMODEM;
@@ -864,7 +865,7 @@ zrhhdr(char *hdr)
 		return c;
 	crc = updcrc(c, crc);
 	if (crc & 0xFFFF) {
-		zperr(badcrc); return ERROR;
+		log_error(badcrc); return ERROR;
 	}
 	switch ( c = READLINE_PF(1)) {
 	case 0215:
