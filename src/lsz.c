@@ -108,7 +108,7 @@ long vpos = 0;			/* Number of bytes read from file */
 
 char Lastrx;
 char Crcflg;
-int Verbose=0;
+int Verbose=LOG_ERROR;
 int Restricted=0;	/* restricted; no /.. or ../ in filenames */
 int Quiet=0;		/* overrides logic that would otherwise set verbose */
 int Ascii=0;		/* Add CR's for brain damaged programs */
@@ -419,7 +419,7 @@ main(int argc, char **argv)
 				Lzconv = ZCRESUM;
 			break;
 		case 'R': Restricted = TRUE; break;
-		case 'q': Quiet=TRUE; Verbose=0; break;
+		case 'q': Quiet=TRUE; Verbose=LOG_FATAL; break;
 		case 's':
 			if (isdigit((unsigned char) (*optarg))) {
 				struct tm *tm;
@@ -431,7 +431,7 @@ main(int argc, char **argv)
 				if (hh>23)
 					usage(2,_("hour to large (0..23)"));
 				if (*nex!=':')
-					usage(2, _("unparsable stop time\n"));
+					usage(2, _("unparsable stop time"));
 				nex++;
 				mm = strtoul (optarg, &nex, 10);
 				if (mm>59)
@@ -474,7 +474,7 @@ main(int argc, char **argv)
 				exit(1);
 			}
 			break;
-		case 'v': ++Verbose; break;
+		case 'v': Verbose=LOG_INFO; break;
 		case 'w':
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
 			Txwindow = tmp;
@@ -525,7 +525,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	log_set_level(2);
+	log_set_level(Verbose);
 	if (getuid()!=geteuid()) {
 		log_fatal(_("this program was never intended to be used setuid"));
 		exit(1);
@@ -563,8 +563,9 @@ main(int argc, char **argv)
 	}
 
 	if (Fromcu && !Quiet) {
-		if (Verbose == 0)
-			Verbose = 2;
+		if (Verbose == LOG_FATAL)
+			Verbose = LOG_DEBUG;
+		log_set_level(Verbose);
 	}
 	log_debug("%s %s", program_name, VERSION);
 
@@ -760,7 +761,6 @@ send_pseudo(const char *name, const char *data)
 			free(tmp);
 			log_info (_ ("send_pseudo %s: cannot open tmpfile %s: %s"),
 					 name, tmp, strerror (errno));
-			log_info ("\r\n");
 			return 1;
 		}
 		sprintf(tmp+plen,"%s.%lu.%d",name,(unsigned long) getpid(),lfd);
@@ -773,14 +773,12 @@ send_pseudo(const char *name, const char *data)
 			if (0!=lstat(tmp,&st)) {
 				log_info (_ ("send_pseudo %s: cannot lstat tmpfile %s: %s"),
 						 name, tmp, strerror (errno));
-				log_info ("\r\n");
 				unlink(tmp);
 				close(fd);
 				fd=-1;
 			} else {
 				if (S_ISLNK(st.st_mode)) {
 					log_info (_ ("send_pseudo %s: avoiding symlink trap"),name);
-					log_info ("\r\n");
 					unlink(tmp);
 					close(fd);
 					fd=-1;
@@ -792,20 +790,12 @@ send_pseudo(const char *name, const char *data)
 		|| close(fd)!=0) {
 		log_info (_ ("send_pseudo %s: cannot write to tmpfile %s: %s"),
 				 name, tmp, strerror (errno));
-		log_info ("\r\n");
 		free(tmp);
 		return 1;
 	}
 
 	if (wcs (tmp,name) == ERROR) {
-		if (Verbose)
-			log_info (_ ("send_pseudo %s: failed"),name);
-		else {
-			if (Verbose)
-				log_info (_ ("send_pseudo %s: ok"),name);
-			Filcnt--;
-		}
-		log_info ("\r\n");
+		log_info (_ ("send_pseudo %s: failed"),name);
 		ret=1;
 	}
 	unlink (tmp);
@@ -850,21 +840,15 @@ wcsend (int argc, char *argp[])
 		time_t t = time (NULL);
 		struct tm *tm = localtime (&t);		/* sets timezone */
 		strftime (buf, sizeof (buf) - 1, "%H:%M:%S", tm);
-		if (Verbose) {
-			log_info ("\r\n");
-			log_info (_("Answering TIMESYNC at %s"),buf);
-		}
+		log_info (_("Answering TIMESYNC at %s"),buf);
 		sprintf(buf+strlen(buf),"%ld\r\n", timezone / 60);
-		if (Verbose)
-			log_info (" (%s %ld)\r\n", _ ("timezone"), timezone / 60);
+		log_info (" (%s %ld)\r\n", _ ("timezone"), timezone / 60);
 		send_pseudo("/$time$.t",buf);
 	}
 	Totsecs = 0;
 	if (Filcnt == 0) {			/* bitch if we couldn't open ANY files */
 		canit(STDOUT_FILENO);
-		log_info ("\r\n");
 		log_info (_ ("Can't open any requested files."));
-		log_info ("\r\n");
 		return ERROR;
 	}
 	if (zmodem_requested)
@@ -948,7 +932,7 @@ wcs(const char *oname, const char *remotename)
 			last_length=(last_length+4095)&0xfffff000;
 			s=malloc(last_length);
 			if (!s) {
-				zpfatal(_("out of memory"));
+				log_fatal(_("out of memory"));
 				exit(1);
 			}
 		}
@@ -999,17 +983,13 @@ wcs(const char *oname, const char *remotename)
 	if (Unlinkafter)
 		unlink(oname);
 
-	if (Verbose > 1
-		) {
-		long bps;
-		double d=timing(0,NULL);
-		if (d==0) /* can happen if timing() uses time() */
-			d=0.5;
-		bps=zi.bytes_sent/d;
-		if (Verbose > 1)
-			log_info(_("Bytes Sent:%7ld   BPS:%-8ld                        \n"),
-				(long) zi.bytes_sent,bps);
-	}
+	long bps;
+	double d=timing(0,NULL);
+	if (d==0) /* can happen if timing() uses time() */
+		d=0.5;
+	bps=zi.bytes_sent/d;
+	log_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
+		  (long) zi.bytes_sent,bps);
 	return 0;
 }
 
@@ -1028,12 +1008,11 @@ wctxpn(struct zm_fileinfo *zi)
 	struct stat f;
 
 	if (protocol==ZM_XMODEM) {
-		if (Verbose && *zi->fname && fstat(fileno(input_f), &f)!= -1) {
+		if (*zi->fname && fstat(fileno(input_f), &f)!= -1) {
 			log_info(_("Sending %s, %ld blocks: "),
-			  zi->fname, (long) (f.st_size>>7));
+				 zi->fname, (long) (f.st_size>>7));
 		}
 		log_info(_("Give your local XMODEM receive command now."));
-		log_info("\r\n");
 		return OK;
 	}
 	if (!zmodem_requested)
@@ -1078,8 +1057,7 @@ wctxpn(struct zm_fileinfo *zi)
 				(unsigned int)((no_unixmode) ? 0 : f.st_mode),
 				Filesleft, Totalleft);
 		}
-	if (Verbose)
-		log_info(_("Sending: %s\n"),txbuf);
+	log_info(_("Sending: %s"),txbuf);
 	Totalleft -= f.st_size;
 	if (--Filesleft <= 0)
 		Totalleft = 0;
@@ -1210,13 +1188,11 @@ wcputsec(char *buf, int sectnum, size_t cseclen)
 	int attempts;
 
 	firstch=0;	/* part of logic to detect CAN CAN */
-
-	if (Verbose>1) {
-		if (protocol==ZM_XMODEM) {
-			log_info(_("Xmodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
-		} else {
-			log_info(_("Ymodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
-		}
+	
+	if (protocol==ZM_XMODEM) {
+		log_debug(_("Xmodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
+	} else {
+		log_debug(_("Ymodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
 	}
 	for (attempts=0; attempts <= RETRYMAX; attempts++) {
 		Lastrx= firstch;
@@ -1596,12 +1572,10 @@ again:
 		default:
 			continue;
 		case ZRQINIT:  /* remote site is sender! */
-			if (Verbose)
-				log_info(_("got ZRQINIT"));
+			log_info(_("got ZRQINIT"));
 			return ERROR;
 		case ZCAN:
-			if (Verbose)
-				log_info(_("got ZCAN"));
+			log_info(_("got ZCAN"));
 			return ERROR;
 		case TIMEOUT:
 			return ERROR;
@@ -1776,8 +1750,8 @@ zsendfdata (struct zm_fileinfo *zi)
 		unsigned old = blklen;
 		blklen = calc_blklen (total_sent);
 		total_sent += blklen + OVERHEAD;
-		if (Verbose > 2 && blklen != old)
-			log_info (_("blklen now %d\n"), blklen);
+		if (blklen != old)
+			log_trace (_("blklen now %d\n"), blklen);
 		if (mm_addr) {
 			if (zi->bytes_sent + blklen < mm_size)
 				n = blklen;
@@ -1789,28 +1763,23 @@ zsendfdata (struct zm_fileinfo *zi)
 			n = zfilbuf (zi);
 		if (zi->eof_seen) {
 			e = ZCRCE;
-			if (Verbose>3)
-				log_info("e=ZCRCE/eof seen");
+			log_trace("e=ZCRCE/eof seen");
 		} else if (junkcount > 3) {
 			e = ZCRCW;
-			if (Verbose>3)
-				log_info("e=ZCRCW/junkcount > 3");
+			log_trace("e=ZCRCW/junkcount > 3");
 		} else if (bytcnt == Lastsync) {
 			e = ZCRCW;
-			if (Verbose>3)
-				log_info("e=ZCRCW/bytcnt == Lastsync == %ld",
+			log_trace("e=ZCRCW/bytcnt == Lastsync == %ld",
 					(unsigned long) Lastsync);
 		} else if (Txwindow && (Txwcnt += n) >= Txwspac) {
 			Txwcnt = 0;
 			e = ZCRCQ;
-			if (Verbose>3)
-				log_info("e=ZCRCQ/Window");
+			log_trace("e=ZCRCQ/Window");
 		} else {
 			e = ZCRCG;
-			if (Verbose>3)
-				log_info("e=ZCRCG");
+			log_trace("e=ZCRCG");
 		}
-		if ((Verbose > 1 || min_bps || stop_time)
+		if ((min_bps || stop_time)
 			&& (not_printed > (min_bps ? 3 : 7)
 				|| zi->bytes_sent > last_bps / 2 + last_txpos)) {
 			int minleft = 0;
@@ -1826,11 +1795,8 @@ zsendfdata (struct zm_fileinfo *zi)
 					if (last_bps<min_bps) {
 						if (now-low_bps>=min_bps_time) {
 							/* too bad */
-							if (Verbose) {
-								log_info(_("zsendfdata: bps rate %ld below min %ld"),
-								  last_bps, min_bps);
-								log_info("\r\n");
-							}
+							log_info(_("zsendfdata: bps rate %ld below min %ld"),
+								 last_bps, min_bps);
 							return ERROR;
 						}
 					} else
@@ -1841,20 +1807,15 @@ zsendfdata (struct zm_fileinfo *zi)
 			}
 			if (stop_time && now>=stop_time) {
 				/* too bad */
-				if (Verbose) {
-					log_info(_("zsendfdata: reached stop time"));
-					log_info("\r\n");
-				}
+				log_info(_("zsendfdata: reached stop time"));
 				return ERROR;
 			}
 
-			if (Verbose > 1) {
-				log_info (_("Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d  "),
-					 (long) zi->bytes_sent, (long) zi->bytes_total,
-					last_bps, minleft, secleft);
-			}
+			log_debug (_("Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d  "),
+				  (long) zi->bytes_sent, (long) zi->bytes_total,
+				  last_bps, minleft, secleft);
 			last_txpos = zi->bytes_sent;
-		} else if (Verbose)
+		} else 
 			not_printed++;
 		ZSDATA (DATAADR, n, e);
 		bytcnt = zi->bytes_sent += n;
@@ -1977,9 +1938,8 @@ calc_blklen(long total_sent)
 				last_blklen = 32;
 			else if (last_blklen > 512)
 				last_blklen=512;
-			if (Verbose > 3)
-				log_info(_("calc_blklen: reduced to %d due to error\n"),
-					last_blklen);
+			log_trace(_("calc_blklen: reduced to %d due to error\n"),
+				 last_blklen);
 		}
 		last_error_count=error_count;
 		last_bytes_per_error=0; /* force recalc */
@@ -2009,21 +1969,17 @@ calc_blklen(long total_sent)
 		d=this_bytes_per_error-last_bytes_per_error;
 	if (d<4)
 	{
-		if (Verbose > 3)
-		{
-			log_info(_("calc_blklen: returned old value %d due to low bpe diff\n"),
-				last_blklen);
-			log_info(_("calc_blklen: old %ld, new %ld, d %ld\n"),
-				last_bytes_per_error,this_bytes_per_error,d );
-		}
+		log_trace(_("calc_blklen: returned old value %d due to low bpe diff\n"),
+			 last_blklen);
+		log_trace(_("calc_blklen: old %ld, new %ld, d %ld\n"),
+			 last_bytes_per_error,this_bytes_per_error,d );
 		return last_blklen;
 	}
 	last_bytes_per_error=this_bytes_per_error;
 
 calcit:
-	if (Verbose > 3)
-		log_info(_("calc_blklen: calc total_bytes=%ld, bpe=%ld, ec=%ld\n"),
-			total_bytes,this_bytes_per_error,(long) error_count);
+	log_trace(_("calc_blklen: calc total_bytes=%ld, bpe=%ld, ec=%ld\n"),
+		 total_bytes,this_bytes_per_error,(long) error_count);
 	for (i=32;i<=max_blklen;i*=2) {
 		long ok; /* some many ok blocks do we need */
 		long failed; /* and that's the number of blocks not transmitted ok */
@@ -2032,9 +1988,8 @@ calcit:
 		failed=((long) i + OVERHEAD) * ok / this_bytes_per_error;
 		transmitted=total_bytes + ok * OVERHEAD
 			+ failed * ((long) i+OVERHEAD+OVER_ERR);
-		if (Verbose > 4)
-			log_info(_("calc_blklen: blklen %d, ok %ld, failed %ld -> %lu\n"),
-				i,ok,failed,transmitted);
+		log_trace(_("calc_blklen: blklen %d, ok %ld, failed %ld -> %lu\n"),
+			  i,ok,failed,transmitted);
 		if (transmitted < best_bytes || !best_bytes)
 		{
 			best_bytes=transmitted;
@@ -2044,9 +1999,8 @@ calcit:
 	if (best_size > 2*last_blklen)
 		best_size=2*last_blklen;
 	last_blklen=best_size;
-	if (Verbose > 3)
-		log_info(_("calc_blklen: returned %d as best\n"),
-			last_blklen);
+	log_trace(_("calc_blklen: returned %d as best\n"),
+		  last_blklen);
 	return last_blklen;
 }
 
@@ -2192,7 +2146,7 @@ chkinvok (const char *s)
 		if (*p++ == '/')
 			s = p;
 	if (*s == 'v') {
-		Verbose = 1;
+		Verbose = LOG_INFO;
 		++s;
 	}
 	program_name = s;
@@ -2213,9 +2167,7 @@ countem (int argc, char **argv)
 
 	for (Totalleft = 0, Filesleft = 0; --argc >= 0; ++argv) {
 		f.st_size = -1;
-		if (Verbose > 2) {
-			log_info ("\nCountem: %03d %s ", argc, *argv);
-		}
+		log_trace ("\nCountem: %03d %s ", argc, *argv);
 		if (access (*argv, R_OK) >= 0 && stat (*argv, &f) >= 0) {
 			if (!S_ISDIR(f.st_mode) && !S_ISBLK(f.st_mode)) {
 				++Filesleft;
@@ -2225,11 +2177,9 @@ countem (int argc, char **argv)
 			++Filesleft;
 			Totalleft += DEFBYTL;
 		}
-		if (Verbose > 2)
-			log_info (" %ld", (long) f.st_size);
+		log_trace (" %ld", (long) f.st_size);
 	}
-	if (Verbose > 2)
-		log_info (_("\ncountem: Total %d %ld\n"),
+	log_trace (_("\ncountem: Total %d %ld\n"),
 				 Filesleft, Totalleft);
 	calc_blklen (Totalleft);
 }
