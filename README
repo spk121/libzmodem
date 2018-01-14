@@ -1,8 +1,26 @@
-Hi.  This is Mike Gran's fork of jnavila's fork of Uwe Ohse's fork of
-Chuck Forsberg's rzsz.
+LIBRZSZ - a library that sends and receives via ZModem
 
-Mike Gran's fork focusses on removing old and non-Linux code and also
-making it into a library that I can link into the BBS I wrote.
+
+Hi.  Mike Gran here.  This project, if and when complete, will be
+a library that I can link to a program that will send and receive
+files from stdout/stdin using the ZModem protocol.
+
+This project is *PRE-ALPHA*.  It does not yet compile to a library
+that can be used to provide ZModem transfer.
+
+When complete, the API will be described in the rzsz.h header file.
+
+It derives from the lrzsz project, which is code for executables that
+send and receive files via XModem, YModem, or ZModem.  Specifically,
+this is Mike Gran's fork of jnavila's fork of Uwe Ohse's fork of Chuck
+Forsberg's rzsz.
+
+To become a library, the rz and sz executables need to become linkable
+libraries and to be modified in three ways.
+
+* all logging and screen I/O need to be redirected
+* all hard exits need to become error codes
+* the operations need to become interruptable and restartable
 
 Mike Gran's fork lives at https://github.com/spk121/lrzsz
 
