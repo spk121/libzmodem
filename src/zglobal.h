@@ -179,7 +179,6 @@ extern int Twostop;
 extern int iofd;
 extern unsigned Baudrate;
 
-void vfile (const char *format, ...);
 #define vchar(x) putc(x,stderr)
 #define vstring(x) fputs(x,stderr)
 
