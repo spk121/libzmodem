@@ -150,13 +150,11 @@ struct zm_fileinfo {
 
 #define R_BYTESLEFT(x) ((x)->bytes_total-(x)->bytes_received)
 
-extern enum zm_type_enum protocol;
-
 extern const char *program_name;        /* the name by which we were called */
-extern int Verbose;
-extern int errors;
-extern int no_timeout;
-extern int under_rsh;
+// extern int Verbose;
+// extern int errors;
+// extern int no_timeout;
+// extern int under_rsh;
 
 void bibi (int n);
 
@@ -199,9 +197,9 @@ extern int bytes_per_error;  /* generate one error around every x bytes */
 /* Globals used by ZMODEM functions */
 extern char Rxhdr[4];      /* Received header */
 extern char Txhdr[4];      /* Transmitted header */
-extern long Txpos;     /* Transmitted file position */
-
 // extern long Txpos;     /* Transmitted file position */
+// extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
+
 struct zm_ {
 	int rxtimeout;          /* Constant: tenths of seconds to wait for something */
 	int znulls;             /* Constant: Number of nulls to send at beginning of ZDATA hdr */

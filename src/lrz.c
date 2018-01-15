@@ -47,48 +47,48 @@
 
 unsigned Baudrate = 2400;
 
-FILE *fout;
+static FILE *fout;
 
 
-int Lastrx;
-int Crcflg;
-int Firstsec;
-int errors;
-int Restricted=1;	/* restricted; no /.. or ../ in filenames */
-int Readnum = MAX_BLOCK; /* Number of bytes to ask for in read() from modem */
-int skip_if_not_found;
+static int Lastrx;
+static int Crcflg;
+static int Firstsec;
+static int errors;
+static int Restricted=1;	/* restricted; no /.. or ../ in filenames */
+static int Readnum = MAX_BLOCK; /* Number of bytes to ask for in read() from modem */
+static int skip_if_not_found;
 
-char *Pathname;
+static char *Pathname;
 const char *program_name;		/* the name by which we were called */
 
-int Topipe=0;
-int MakeLCPathname=TRUE;	/* make received pathname lower case */
-int Verbose=LOG_ERROR;
-int Quiet=0;		/* overrides logic that would otherwise set verbose */
-int Nflag = 0;		/* Don't really transfer files */
-int Rxclob=FALSE;	/* Clobber existing file */
-int Rxbinary=FALSE;	/* receive all files in bin mode */
-int Rxascii=FALSE;	/* receive files in ascii (translate) mode */
-int Thisbinary;		/* current file is to be received in bin mode */
-int try_resume=FALSE;
-int allow_remote_commands=FALSE;
-int junk_path=FALSE;
-int no_timeout=FALSE;
-enum zm_type_enum protocol;
-int	under_rsh=FALSE;
-int zmodem_requested=FALSE;
+static int Topipe=0;
+static int MakeLCPathname=TRUE;	/* make received pathname lower case */
+static int Verbose=LOG_ERROR;
+static int Quiet=0;		/* overrides logic that would otherwise set verbose */
+static int Nflag = 0;		/* Don't really transfer files */
+static int Rxclob=FALSE;	/* Clobber existing file */
+static int Rxbinary=FALSE;	/* receive all files in bin mode */
+static int Rxascii=FALSE;	/* receive files in ascii (translate) mode */
+static int Thisbinary;		/* current file is to be received in bin mode */
+static int try_resume=FALSE;
+static int allow_remote_commands=FALSE;
+static int junk_path=FALSE;
+static int no_timeout=FALSE;
+static enum zm_type_enum protocol;
+static int	under_rsh=FALSE;
+// static int zmodem_requested=FALSE;
 
-char secbuf[MAX_BLOCK + 1];
+static char secbuf[MAX_BLOCK + 1];
 
-int timesync_flag=0;
-int in_timesync=0;
-int in_tcpsync=0;
-int tcpsync_flag=1;
-int tcp_socket=-1;
-int tcp_flag=0;
-char *tcp_server_address=NULL;
+static int timesync_flag=0;
+static int in_timesync=0;
+static int in_tcpsync=0;
+static int tcpsync_flag=1;
+static int tcp_socket=-1;
+static int tcp_flag=0;
+static char *tcp_server_address=NULL;
 
-char tcp_buf[256]="";
+static char tcp_buf[256]="";
 static int o_sync = 0;
 static int rzfiles (zm_t *zm, struct zm_fileinfo *);
 static int tryz (zm_t *zm);
@@ -98,7 +98,6 @@ static void report (int sct);
 static void uncaps (char *s);
 static int IsAnyLower (const char *s);
 static int putsec (struct zm_fileinfo *zi, char *buf, size_t n);
-static int make_dirs (char *pathname);
 static int procheader (zm_t *zm, char *name, struct zm_fileinfo *);
 static int wcgetsec (size_t *Blklen, char *rxbuf, unsigned int maxtime);
 static int wcrx (struct zm_fileinfo *);
@@ -203,8 +202,7 @@ main(int argc, char *argv[])
 	int exitcode=0;
 	int c;
 	unsigned int startup_delay=0;
-
-	Rxtimeout = 100;
+	int Rxtimeout = 100;	/* Receive timeout in deciseconds. */
 	setbuf(stderr, NULL);
 	if ((cp=getenv("SHELL")) && (strstr(cp, "rsh") || strstr(cp, "rksh")
 		|| strstr(cp,"rbash") || strstr(cp, "rshell")))

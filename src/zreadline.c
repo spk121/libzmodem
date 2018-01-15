@@ -58,6 +58,8 @@ zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
 int 
 readline_internal(unsigned int timeout)
 {
+	/* FIXME: no_timeout should be a module-level flag? */
+	int no_timeout = 0;
 
 	if (!no_timeout)
 	{
@@ -91,9 +93,10 @@ readline_internal(unsigned int timeout)
 				mod=1;
 		}
 	}
-	log_trace("Read returned %d bytes\n", readline_left);
-	if (readline_left==-1)
-		log_trace("errno=%d:%s\n", errno,strerror(errno));
+	if (readline_left == -1)
+		log_trace("Read failure :%s\n", strerror(errno));
+	else
+		log_trace("Read returned %d bytes\n", readline_left);
 	if (readline_left < 1)
 		return TIMEOUT;
 	--readline_left;
