@@ -21,7 +21,7 @@
 #include "zglobal.h"
 
 /* this code was duplicate in lrz.c and lsz.c */
-
+#if 0
 const char *
 protname(void)
 {
@@ -39,3 +39,4 @@ protname(void)
 	}
 	return prot_name;
 }
+#endif

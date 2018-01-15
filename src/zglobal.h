@@ -156,7 +156,6 @@ extern const char *program_name;        /* the name by which we were called */
 extern int Verbose;
 extern int errors;
 extern int no_timeout;
-extern int Zctlesc;    /* Encode control characters */
 extern int under_rsh;
 
 void bibi (int n);
@@ -177,8 +176,6 @@ void readline_setup (int fd, size_t readnum,
 extern int Fromcu;
 extern int Twostop;
 extern int iofd;
-extern unsigned Baudrate;
-
 
 /* rbsb.c */
 int from_cu (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
@@ -197,31 +194,51 @@ extern long cr3tab[];
 
 /* zm.c */
 #include "zmodem.h"
-extern unsigned int Rxtimeout;        /* Tenths of seconds to wait for something */
 extern int bytes_per_error;  /* generate one error around every x bytes */
 
 /* Globals used by ZMODEM functions */
-extern int Rxframeind;     /* ZBIN ZBIN32, or ZHEX type of frame received */
-extern int Rxtype;     /* Type of header received */
-extern int Zrwindow;       /* RX window size (controls garbage count) */
-/* extern int Rxcount; */       /* Count of data bytes received */
 extern char Rxhdr[4];      /* Received header */
 extern char Txhdr[4];      /* Transmitted header */
 extern long Txpos;     /* Transmitted file position */
-extern int Txfcs32;        /* TURE means send binary frames with 32 bit FCS */
-extern int Crc32t;     /* Display flag indicating 32 bit CRC being sent */
-extern int Crc32;      /* Display flag indicating 32 bit CRC being received */
-extern int Znulls;     /* Number of nulls to send at beginning of ZDATA hdr */
-extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
 
-extern void zsendline (int c);
-extern void zsendline_init (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
-void zm_send_binary_header (int type, char *hdr);
-void zm_send_hex_header (int type, char *hdr);
-void zm_send_data (const char *buf, size_t length, int frameend);
-void zm_send_data32 (const char *buf, size_t length, int frameend);
-int zm_receive_data (char *buf, int length, size_t *received);
-int zm_get_header (char *hdr, int eflag, size_t *);
+// extern long Txpos;     /* Transmitted file position */
+struct zm_ {
+	int rxtimeout;          /* Constant: tenths of seconds to wait for something */
+	int znulls;             /* Constant: Number of nulls to send at beginning of ZDATA hdr */
+	int eflag;              /* Constant: local display of non zmodem characters */
+				/* 0:  no display */
+				/* 1:  display printing characters only */
+				/* 2:  display all non ZMODEM characters */
+	int baudrate;		/* Constant: in bps */
+	int turbo_escape;       /* Constant: TRUE means quit quickly */
+	int zrwindow;		/* RX window size (controls garbage count) */
+
+	int zctlesc;            /* Variable: TRUE means to encode control characters */
+	int txfcs32;            /* Variable: TRUE means send binary frames with 32 bit FCS */
+
+	int rxtype;		/* State: type of header received */
+	enum zm_type_enum protocol; /* State: x, y, or z-modem */
+	char zsendline_tab[256]; /* State: conversion chart for zmodem escape sequence encoding */
+	char lastsent;		/* State: last byte send */
+	int crc32t;             /* State: display flag indicating 32-bit CRC being sent */
+	int crc32;              /* State: display flag indicating 32 bit CRC being received */
+	int rxframeind;	        /* State: ZBIN, ZBIN32, or ZHEX type of frame received */
+	int zmodem_requested;
+};
+
+typedef struct zm_ zm_t;
+
+zm_t *zm_init(enum zm_type_enum protocol, int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow);
+int zm_get_zctlesc(zm_t *zm);
+void zm_set_zctlesc(zm_t *zm, int zctlesc);
+void zm_update_table(zm_t *zm);
+extern void zsendline (zm_t *zm, int c);
+void zm_send_binary_header (zm_t *zm, int type, char *hdr);
+void zm_send_hex_header (zm_t *zm, int type, char *hdr);
+void zm_send_data (zm_t *zm, const char *buf, size_t length, int frameend);
+void zm_send_data32 (zm_t *zm, const char *buf, size_t length, int frameend);
+int zm_receive_data (zm_t *zm, char *buf, int length, size_t *received);
+int zm_get_header (zm_t *zm, char *hdr, size_t *);
 void zm_store_header (size_t pos) LRZSZ_ATTRIB_REGPARM(1);
 long zm_reclaim_header (char *hdr) LRZSZ_ATTRIB_REGPARM(1);
 

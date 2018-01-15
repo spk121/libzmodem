@@ -143,11 +143,14 @@ struct termios oldtty, tty;
  *  2: set XON/XOFF for sb/sz with ZMODEM or YMODEM-g
  *  1: save old tty stat, set raw mode
  *  0: restore original tty mode
+ * Returns the output baudrate, or zero on failure
  */
 int
 io_mode(int fd, int n)
 {
 	static int did0 = FALSE;
+	/* FIXME: for case 2, need a way to pass in the protocol. */
+	enum zm_type_enum _protocol = ZM_ZMODEM;
 
 	log_debug("mode:%d", n);
 
@@ -169,8 +172,8 @@ io_mode(int fd, int n)
 		if (Twostop)
 			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
 
-		tty.c_lflag = protocol==ZM_ZMODEM ? 0 : ISIG;
-		tty.c_cc[VINTR] = protocol==ZM_ZMODEM ? -1 : 030;	/* Interrupt char */
+		tty.c_lflag = _protocol==ZM_ZMODEM ? 0 : ISIG;
+		tty.c_cc[VINTR] = _protocol==ZM_ZMODEM ? -1 : 030;	/* Interrupt char */
 #ifdef _POSIX_VDISABLE
 		if (((int) _POSIX_VDISABLE)!=(-1)) {
 			tty.c_cc[VQUIT] = _POSIX_VDISABLE;		/* Quit char */
@@ -185,7 +188,7 @@ io_mode(int fd, int n)
 
 		tcsetattr(fd,TCSADRAIN,&tty);
 
-		return OK;
+		return getspeed(cfgetospeed(&tty));
 	case 1:
 	case 3:
 		if(!did0) {
@@ -211,19 +214,18 @@ io_mode(int fd, int n)
 		tty.c_cc[VMIN] = 1; /* This many chars satisfies reads */
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
 		tcsetattr(fd,TCSADRAIN,&tty);
-		Baudrate = getspeed(cfgetospeed(&tty));
-		return OK;
+		return getspeed(cfgetospeed(&tty));
 	case 0:
 		if(!did0)
-			return ERROR;
+			return 0;
 		tcdrain (fd); /* wait until everything is sent */
 		tcflush (fd,TCIOFLUSH); /* flush input queue */
 		tcsetattr (fd,TCSADRAIN,&oldtty);
 		tcflow (fd,TCOON); /* restart output */
 
-		return OK;
+		return getspeed(cfgetospeed(&tty));
 	default:
-		return ERROR;
+		return 0;
 	}
 }
 
