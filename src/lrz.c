@@ -88,8 +88,6 @@ struct rz_ {
 	int makelcpathname;  /* A flag. When true, make received pathname lowercase. */
 	int nflag;		/* A flag. Don't really transfer files */
 	int rxclob;		/* A flag. Allow clobbering existing file */
-	int rxbinary;	/* A flag. Receive all files in bin mode */
-	int rxascii;	/* A flag. Receive files in ascii (translate) mode */
 	int try_resume; /* A flag. When true, try restarting downloads */
 	int junk_path;  /* A flag. When true, ignore the path
 			 * component of an incoming filename. */
@@ -121,8 +119,8 @@ struct rz_ {
 
 typedef struct rz_ rz_t;
 
-rz_t *rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
-	      int rxbinary, int nflag, int junk_path,
+rz_t *rz_init(int under_rsh, int restricted, char lzmanag,
+	      int nflag, int junk_path,
 	      unsigned long min_bps, long min_bps_time,
 	      time_t stop_time, int try_resume,
 	      int makelcpathname, int rxclob,
@@ -153,8 +151,8 @@ static void zmputs (const char *s);
 static size_t getfree (void);
 
 rz_t*
-rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
-	int rxbinary, int nflag, int junk_path,
+rz_init(int under_rsh, int restricted, char lzmanag,
+	int nflag, int junk_path,
 	unsigned long min_bps, long min_bps_time,
 	time_t stop_time, int try_resume,
 	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe)
@@ -165,8 +163,6 @@ rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 	rz->restricted = restricted;
 	rz->lzmanag = lzmanag;
 	rz->zconv = 0;
-	rz->rxascii = rxascii;
-	rz->rxbinary = rxbinary;
 	rz->nflag = nflag;
 	rz->junk_path = junk_path;
 	rz->min_bps = min_bps;
@@ -259,8 +255,6 @@ main(int argc, char *argv[])
 	int under_rsh = FALSE;
 	int Restricted = 1;
 	char Lzmanag = '\0';
-	int Rxascii = FALSE;
-	int Rxbinary=FALSE;
 	int Nflag = 0;
 	int Zctlesc = 0;
 	int junk_path = FALSE;
@@ -311,8 +305,6 @@ main(int argc, char *argv[])
 		case 0:
 			break;
 		case '+': Lzmanag = ZF1_ZMAPND; break;
-		case 'a': Rxascii=TRUE;  break;
-		case 'b': Rxbinary=TRUE; break;
 		case 'D': Nflag = TRUE; break;
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
 		case 'e': Zctlesc = 1; break;
@@ -475,8 +467,6 @@ main(int argc, char *argv[])
 	rz_t *rz = rz_init(under_rsh,
 			   Restricted,
 			   Lzmanag,
-			   Rxascii,
-			   Rxbinary,
 			   Nflag,
 			   junk_path,
 			   min_bps,
@@ -960,18 +950,18 @@ procheader(rz_t *rz, zm_t *zm, char *name, struct zm_fileinfo *zi)
 
 	/* set default parameters and overrides */
 	openmode = "w";
-	rz->thisbinary = (!rz->rxascii) || rz->rxbinary;
+	rz->thisbinary = TRUE;
 	if (rz->lzmanag)
 		rz->zmanag = rz->lzmanag;
 
 	/*
 	 *  Process ZMODEM remote file management requests
 	 */
-	if (!rz->rxbinary && rz->zconv == ZCNL)	/* Remote ASCII override */
+	if (rz->zconv == ZCNL)	/* Remote ASCII override */
 		rz->thisbinary = 0;
 	if (rz->zconv == ZCBIN)	/* Remote Binary override */
 		rz->thisbinary = TRUE;
-	if (rz->thisbinary && rz->zconv == ZCBIN && rz->try_resume)
+	if (rz->zconv == ZCBIN && rz->try_resume)
 		rz->zconv=ZCRESUM;
 	if (rz->zmanag == ZF1_ZMAPND && rz->zconv!=ZCRESUM)
 		openmode = "a";

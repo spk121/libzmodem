@@ -192,7 +192,6 @@ static struct option const long_options[] =
   {"start-8k", no_argument, NULL, '9'},
   {"try-4k", no_argument, NULL, '4'},
   {"start-4k", no_argument, NULL, '5'},
-  {"binary", no_argument, NULL, 'b'},
   {"full-path", no_argument, NULL, 'f'},
   {"escape", no_argument, NULL, 'e'},
   {"rename", no_argument, NULL, 'E'},
@@ -307,7 +306,6 @@ main(int argc, char **argv)
 			start_blklen=4096;
 			max_blklen=4096;
 			break;
-		case 'b': Lzconv = ZCBIN; break;
 		case 'f': Fullname=TRUE; break;
 		case 'e': Zctlesc = 1; break;
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
@@ -1196,7 +1194,6 @@ usage(int exitcode, const char *what)
 "      --start-4k              start with 4K blocksize (doesn't try 8)\n"
 "  -8, --try-8k                go up to 8K blocksize\n"
 "      --start-8k              start with 8K blocksize\n"
-"  -b, --binary                binary transfer\n"
 "      --delay-startup N       sleep N seconds before doing anything\n"
 "  -e, --escape                escape all control characters (Z)\n"
 "  -E, --rename                force receiver to rename files it already has\n"
