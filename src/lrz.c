@@ -143,7 +143,7 @@ rz_t *rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 static int rzfiles (rz_t *rz, zm_t *zm, struct zm_fileinfo *);
 static int tryz (rz_t *rz, zm_t *zm);
 static void checkpath (rz_t *rz, const char *name);
-static void chkinvok(const char *s, enum zm_type_enum *pprotocol, int *ptopipe);
+static void chkinvok(const char *s, int *ptopipe);
 static void report (int sct);
 static void uncaps (char *s);
 static int IsAnyLower (const char *s);
@@ -250,7 +250,6 @@ static struct option const long_options[] =
 	{"unrestrict", no_argument, NULL, 'U'},
 	{"verbose", no_argument, NULL, 'v'},
 	{"windowsize", required_argument, NULL, 'w'},
-	{"ymodem", no_argument, NULL, 1},
 	{"zmodem", no_argument, NULL, 'Z'},
 	{"overwrite", no_argument, NULL, 'y'},
 	{"null", no_argument, NULL, 'D'},
@@ -295,7 +294,6 @@ main(int argc, char *argv[])
 	int timesync_flag=0;
 	int Zrwindow=1400;
 	int MakeLCPathname=TRUE;
-	enum zm_type_enum protocol;
 	int Rxclob=FALSE;
 	int o_sync = 0;
 	int tcp_flag=0;
@@ -314,7 +312,7 @@ main(int argc, char *argv[])
 
 	from_cu();
 	int Topipe;
-	chkinvok(argv[0], &protocol, &Topipe);	/* if called as [-]rzCOMMAND set flag */
+	chkinvok(argv[0], &Topipe);	/* if called as [-]rzCOMMAND set flag */
 
 	setlocale (LC_ALL, "");
 	bindtextdomain (PACKAGE, LOCALEDIR);
@@ -446,8 +444,6 @@ main(int argc, char *argv[])
 			break;
 		case 'v':
 			Verbose=LOG_INFO; break;
-		case 1:   protocol=ZM_YMODEM; break;
-		case 'Z': protocol=ZM_ZMODEM; break;
 		case 'y':
 			Rxclob=TRUE; break;
 		case 2:
@@ -492,8 +488,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 	/* initialize zsendline tab */
-	zm_t *zm = zm_init(protocol,
-			   Rxtimeout,
+	zm_t *zm = zm_init(Rxtimeout,
 			   0,	/* Znulls */
 			   0, 	/* eflag */
 			   Baudrate,
@@ -624,8 +619,7 @@ usage(int exitcode, const char *what)
 	display(_("%s version %s"), program_name, VERSION);
 
 	display(_("Usage: %s [options]"), program_name);
-	display(_("Receive files with ZMODEM/YMODEM protocol"));
-	display(_("    (Y) = option applies to YMODEM only"));
+	display(_("Receive files with ZMODEM protocol"));
 	display(_("    (Z) = option applies to ZMODEM only"));
 	display(_("  -+, --append                append to existing files"));
 	display(_("  -a, --ascii                 ASCII transfer (change CR/LF to LF)"));
@@ -654,8 +648,6 @@ usage(int exitcode, const char *what)
 	display(_("  -v, --verbose               be verbose, provide debugging information"));
 	display(_("  -w, --windowsize N          Window is N bytes (Z)"));
 	display(_("  -y, --overwrite             Yes, clobber existing file if any"));
-	display(_("      --ymodem                use YMODEM protocol"));
-	display(_("  -Z, --zmodem                use ZMODEM protocol"));
 	display("");
 	display(_("short options use the same arguments as the long ones"));
 	exit(exitcode);
@@ -735,7 +727,6 @@ fubar:
 /*
  * Fetch a pathname from the other end as a C ctyle ASCIZ string.
  * Length is indeterminate as long as less than Blklen
- * A null string represents no more files (YMODEM)
  */
 static int
 wcrxpn(rz_t *rz, struct zm_fileinfo *zi, char *rpn)
@@ -1344,11 +1335,10 @@ report(int sct)
 /*
  * If called as [-][dir/../]vrzCOMMAND set Verbose to 1
  * If called as [-][dir/../]rzCOMMAND set the pipe flag
- * If called as rb use YMODEM protocol
  */
 
 static void
-chkinvok(const char *s, enum zm_type_enum *pprotocol, int *ptopipe)
+chkinvok(const char *s, int *ptopipe)
 {
 	const char *p;
 	*ptopipe = 0;
@@ -1365,9 +1355,6 @@ chkinvok(const char *s, enum zm_type_enum *pprotocol, int *ptopipe)
 	program_name = s;
 	if (*s == 'l')
 		s++; /* lrz -> rz */
-	*pprotocol=ZM_ZMODEM;
-	if (s[0]=='r' && (s[1]=='b' || s[1]=='y'))
-		*pprotocol=ZM_YMODEM;
 	if (s[2])
 		*ptopipe = 1;
 }
@@ -1427,9 +1414,6 @@ tryz(rz_t *rz, zm_t *zm)
 	register int cmdzack1flg;
 	int zrqinits_received=0;
 	size_t bytes_in_block=0;
-
-	if (zm->protocol!=ZM_ZMODEM)		/* Check for "rb" program name */
-		return 0;
 
 	for (n=zm->zmodem_requested?15:5;
 		 (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {

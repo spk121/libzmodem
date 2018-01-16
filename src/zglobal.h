@@ -132,7 +132,6 @@
 #define DEFBYTL 2000000000L	/* default rx file size */
 
 enum zm_type_enum {
-	ZM_YMODEM,
 	ZM_ZMODEM
 };
 
@@ -214,7 +213,6 @@ struct zm_ {
 	int txfcs32;            /* Variable: TRUE means send binary frames with 32 bit FCS */
 
 	int rxtype;		/* State: type of header received */
-	enum zm_type_enum protocol; /* State: x, y, or z-modem */
 	char zsendline_tab[256]; /* State: conversion chart for zmodem escape sequence encoding */
 	char lastsent;		/* State: last byte send */
 	int crc32t;             /* State: display flag indicating 32-bit CRC being sent */
@@ -225,7 +223,7 @@ struct zm_ {
 
 typedef struct zm_ zm_t;
 
-zm_t *zm_init(enum zm_type_enum protocol, int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow);
+zm_t *zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow);
 int zm_get_zctlesc(zm_t *zm);
 void zm_set_zctlesc(zm_t *zm, int zctlesc);
 void zm_update_table(zm_t *zm);

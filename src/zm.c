@@ -92,11 +92,10 @@ static void zsendline_init (zm_t *zm) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
-zm_init(enum zm_type_enum protocol, int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow)
+zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow)
 {
 	zm_t *zm = (zm_t *) malloc (sizeof (zm_t));
 	memset(zm, 0, sizeof(zm_t));
-	zm->protocol = protocol;
 	zm->rxtimeout = rxtimeout;
 	zm->znulls = znulls;
 	zm->eflag = eflag;
@@ -816,7 +815,6 @@ zm_read_binary_header(zm_t *zm, char *hdr)
 		log_error(badcrc);
 		return ERROR;
 	}
-	zm->protocol = ZM_ZMODEM;
 	zm->zmodem_requested=TRUE;
 	return zm->rxtype;
 }
@@ -857,7 +855,6 @@ zm_read_binary_header32(zm_t *zm, char *hdr)
 		log_error(badcrc);
 		return ERROR;
 	}
-	zm->protocol = ZM_ZMODEM;
 	zm->zmodem_requested=TRUE;
 	return zm->rxtype;
 }
@@ -898,7 +895,6 @@ zm_read_hex_header(zm_t *zm, char *hdr)
 		READLINE_PF(1);
 		break;
 	}
-	zm->protocol = ZM_ZMODEM;
 	zm->zmodem_requested=TRUE;
 	return zm->rxtype;
 }

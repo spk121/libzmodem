@@ -55,7 +55,6 @@ static unsigned Txwspac;	/* Spacing between zcrcq requests */
 static unsigned Txwcnt;	/* Counter used to space ack requests */
 static size_t Lrxpos;		/* Receiver's last reported offset */
 static int errors;
-static enum zm_type_enum protocol;
 static int under_rsh=FALSE;
 static  int turbo_escape;
 static int no_unixmode;
@@ -237,7 +236,6 @@ static struct option const long_options[] =
   {"unrestrict", no_argument, NULL, 'U'},
   {"verbose", no_argument, NULL, 'v'},
   {"windowsize", required_argument, NULL, 'w'},
-  {"ymodem", no_argument, NULL, 1},
   {"zmodem", no_argument, NULL, 'Z'},
   {"overwrite", no_argument, NULL, 'y'},
   {"overwrite-or-skip", no_argument, NULL, 'Y'},
@@ -485,8 +483,6 @@ main(int argc, char **argv)
 			 || (!blkopt && Txwspac < MAX_BLOCK))
 				blkopt = Txwspac;
 			break;
-		case 1:   protocol=ZM_YMODEM; break;
-		case 'Z': protocol=ZM_ZMODEM; break;
 		case 'Y':
 			Lskipnocor = TRUE;
 			/* **** FALLL THROUGH TO **** */
@@ -526,27 +522,19 @@ main(int argc, char **argv)
 		log_fatal(_("this program was never intended to be used setuid"));
 		exit(1);
 	}
-	zm = zm_init(protocol,
-		     Rxtimeout,
+	zm = zm_init(Rxtimeout,
 		     Znulls,
 		     0, 	/* eflag */
 		     Baudrate,
 		     turbo_escape,
 		     Zctlesc,
 		     Zrwindow);
-	if (protocol == ZM_ZMODEM)
-		log_info("initial protocol is ZMODEM");
-	else if (protocol == ZM_YMODEM)
-		log_info("initial protocol is YMODEM");
+	log_info("initial protocol is ZMODEM");
 	if (start_blklen==0) {
-		if (zm->protocol == ZM_ZMODEM) {
-			start_blklen=1024;
-			if (Tframlen) {
-				start_blklen=max_blklen=Tframlen;
-			}
+		start_blklen=1024;
+		if (Tframlen) {
+			start_blklen=max_blklen=Tframlen;
 		}
-		else
-			start_blklen=128;
 	}
 
 	if (argc<2)
@@ -658,52 +646,49 @@ main(int argc, char **argv)
 	signal(SIGPIPE, bibi);
 	signal(SIGHUP, bibi);
 
-	if (zm->protocol==ZM_ZMODEM) {
-		display("rz");
-		fflush(stdout);
-	}
+	display("rz");
+	fflush(stdout);
 	countem(npats, patts);
-	if (zm->protocol == ZM_ZMODEM) {
-		/* throw away any input already received. This doesn't harm
-		 * as we invite the receiver to send it's data again, and
-		 * might be useful if the receiver has already died or
-		 * if there is dirt left if the line
-		 */
-		struct timeval t;
-		unsigned char throwaway;
-		fd_set f;
+	
+	/* throw away any input already received. This doesn't harm
+	 * as we invite the receiver to send it's data again, and
+	 * might be useful if the receiver has already died or
+	 * if there is dirt left if the line
+	 */
+	struct timeval t;
+	unsigned char throwaway;
+	fd_set f;
 
-		purgeline(io_mode_fd);
+	purgeline(io_mode_fd);
 
-		t.tv_sec = 0;
-		t.tv_usec = 0;
+	t.tv_sec = 0;
+	t.tv_usec = 0;
 
-		FD_ZERO(&f);
-		FD_SET(io_mode_fd,&f);
+	FD_ZERO(&f);
+	FD_SET(io_mode_fd,&f);
 
-		while (select(1,&f,NULL,NULL,&t)) {
-			if (0==read(io_mode_fd,&throwaway,1)) /* EOF ... */
-				break;
-		}
+	while (select(1,&f,NULL,NULL,&t)) {
+		if (0==read(io_mode_fd,&throwaway,1)) /* EOF ... */
+			break;
+	}
 
-		purgeline(io_mode_fd);
-		zm_store_header(0L);
-		if (command_mode)
-			Txhdr[ZF0] = ZCOMMAND;
-		zm_send_hex_header(zm, ZRQINIT, Txhdr);
-		zrqinits_sent++;
-		if (Rxflags2 != ZF1_TIMESYNC)
-			/* disable timesync if there are any flags we don't know.
-			 * dsz/gsz seems to use some other flags! */
-			enable_timesync=FALSE;
-		if (Rxflags2 & ZF1_TIMESYNC && enable_timesync) {
-			Totalleft+=6; /* TIMESYNC never needs more */
-			Filesleft++;
-		}
-		if (tcp_flag==1) {
-			Totalleft+=256; /* tcp never needs more */
-			Filesleft++;
-		}
+	purgeline(io_mode_fd);
+	zm_store_header(0L);
+	if (command_mode)
+		Txhdr[ZF0] = ZCOMMAND;
+	zm_send_hex_header(zm, ZRQINIT, Txhdr);
+	zrqinits_sent++;
+	if (Rxflags2 != ZF1_TIMESYNC)
+		/* disable timesync if there are any flags we don't know.
+		 * dsz/gsz seems to use some other flags! */
+		enable_timesync=FALSE;
+	if (Rxflags2 & ZF1_TIMESYNC && enable_timesync) {
+		Totalleft+=6; /* TIMESYNC never needs more */
+		Filesleft++;
+	}
+	if (tcp_flag==1) {
+		Totalleft+=256; /* tcp never needs more */
+		Filesleft++;
 	}
 	fflush(stdout);
 
@@ -1186,11 +1171,7 @@ wcputsec(zm_t *zm, char *buf, int sectnum, size_t cseclen)
 
 	firstch=0;	/* part of logic to detect CAN CAN */
 
-	if (zm->protocol==ZM_YMODEM) {
-		log_debug(_("Ymodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
-	} else if (zm->protocol==ZM_ZMODEM) {
-		log_debug(_("Zmodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
-	}
+	log_debug(_("Zmodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
 	for (attempts=0; attempts <= RETRYMAX; attempts++) {
 		Lastrx= firstch;
 		putchar(cseclen==1024?STX:SOH);
@@ -1334,9 +1315,8 @@ usage(int exitcode, const char *what)
 
 	display(_("Usage: %s [options] file ..."), program_name);
 	display(_("   or: %s [options] -{c|i} COMMAND\n"),program_name);
-	display(_("Send file(s) with ZMODEM/YMODEM protocol"));
+	display(_("Send file(s) with ZMODEM protocol"));
 	display(_(
-		"    (Y) = option applies to YMODEM only\n"
 		"    (Z) = option applies to ZMODEM only\n"
 		));
 	/* splitted into two halves for really bad compilers */
@@ -1383,8 +1363,6 @@ usage(int exitcode, const char *what)
 "  -w, --windowsize N          Window is N bytes (Z)\n"
 "  -y, --overwrite             overwrite existing files\n"
 "  -Y, --overwrite-or-skip     overwrite existing files, else skip\n"
-"      --ymodem                use YMODEM protocol\n"
-"  -Z, --zmodem                use ZMODEM protocol\n"
 "\n"
 "short options use the same arguments as the long ones\n"
 	));
@@ -2124,9 +2102,6 @@ listen:
 	}
 }
 
-/*
- * If called as lsb use YMODEM protocol
- */
 static void
 chkinvok (const char *s)
 {
@@ -2145,10 +2120,6 @@ chkinvok (const char *s)
 	program_name = s;
 	if (*s == 'l')
 		s++;					/* lsz -> sz */
-	protocol = ZM_ZMODEM;
-	if (s[0] == 's' && (s[1] == 'b' || s[1] == 'y')) {
-		protocol = ZM_YMODEM;
-	}
 }
 
 static void
