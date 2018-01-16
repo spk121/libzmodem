@@ -119,8 +119,6 @@ from_cu(void)
 
 
 
-int Twostop;		/* Use two stop bits */
-
 
 /*
  *  Return non 0 if something to read from io descriptor f
@@ -166,9 +164,6 @@ io_mode(int fd, int n)
 
 		tty.c_cflag &= ~PARENB;	/* Disable parity */
 		tty.c_cflag |= CS8;	/* Set character size = 8 */
-		if (Twostop)
-			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
-
 		tty.c_lflag =  0;
 		tty.c_cc[VINTR] = -1;	/* Interrupt char */
 #ifdef _POSIX_VDISABLE
@@ -206,8 +201,6 @@ io_mode(int fd, int n)
 		/* Set character size = 8 */
 		tty.c_cflag &= ~(CSIZE);
 		tty.c_cflag |= CS8;
-		if (Twostop)
-			tty.c_cflag |= CSTOPB;	/* Set two stop bits */
 		tty.c_cc[VMIN] = 1; /* This many chars satisfies reads */
 		tty.c_cc[VTIME] = 1;	/* or in this many tenths of seconds */
 		tcsetattr(fd,TCSADRAIN,&tty);

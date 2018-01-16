@@ -170,7 +170,6 @@ void readline_setup (int fd, size_t readnum,
 
 /* rbsb.c */
 extern int Fromcu;
-extern int Twostop;
 extern int iofd;
 
 /* rbsb.c */

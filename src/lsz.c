@@ -196,7 +196,6 @@ static int Zrwindow = 1400;	/* RX window size (controls garbage count) */
 static struct option const long_options[] =
 {
   {"append", no_argument, NULL, '+'},
-  {"twostop", no_argument, NULL, '2'},
   {"try-8k", no_argument, NULL, '8'},
   {"start-8k", no_argument, NULL, '9'},
   {"try-4k", no_argument, NULL, '4'},
@@ -306,7 +305,6 @@ main(int argc, char **argv)
 		case 0:
 			break;
 		case '+': Lzmanag = ZF1_ZMAPND; break;
-		case '2': Twostop = TRUE; break;
 		case '8':
 			if (max_blklen==8192)
 				start_blklen=8192;
@@ -1322,7 +1320,6 @@ usage(int exitcode, const char *what)
 	/* splitted into two halves for really bad compilers */
 	display(_(
 "  -+, --append                append to existing destination file (Z)\n"
-"  -2, --twostop               use 2 stop bits\n"
 "  -4, --try-4k                go up to 4K blocksize\n"
 "      --start-4k              start with 4K blocksize (doesn't try 8)\n"
 "  -8, --try-8k                go up to 8K blocksize\n"
