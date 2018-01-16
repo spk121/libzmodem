@@ -210,8 +210,6 @@ static struct option const long_options[] =
   {"rename", no_argument, NULL, 'E'},
   {"help", no_argument, NULL, 'h'},
   {"crc-check", no_argument, NULL, 'H'},
-  {"1024", no_argument, NULL, 'k'},
-  {"1k", no_argument, NULL, 'k'},
   {"packetlen", required_argument, NULL, 'L'},
   {"framelen", required_argument, NULL, 'l'},
   {"min-bps", required_argument, NULL, 'm'},
@@ -352,7 +350,6 @@ main(int argc, char **argv)
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
 		case 'h': usage(0,NULL); break;
 		case 'H': Lzmanag = ZF1_ZMCRC; break;
-		case 'k': start_blklen=1024; break;
 		case 'L':
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, "ck");
 			blkopt = tmp;
@@ -1329,7 +1326,6 @@ usage(int exitcode, const char *what)
 "  -f, --full-path             send full pathname (Y/Z)\n"
 "  -i, --immediate-command CMD send remote CMD, return immediately (Z)\n"
 "  -h, --help                  print this usage message\n"
-"  -k, --1k                    send 1024 byte packets (X)\n"
 "  -L, --packetlen N           limit subpacket length to N bytes (Z)\n"
 "  -l, --framelen N            limit frame length to N bytes (l>=L) (Z)\n"
 "  -m, --min-bps N             stop transmission if BPS below N\n"
