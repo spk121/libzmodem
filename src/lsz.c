@@ -56,7 +56,6 @@ static unsigned Txwcnt;	/* Counter used to space ack requests */
 static size_t Lrxpos;		/* Receiver's last reported offset */
 static int errors;
 static int under_rsh=FALSE;
-static  int turbo_escape;
 static int no_unixmode;
 
 static int Canseek=1; /* 1: can; 0: only rewind, -1: neither */
@@ -212,7 +211,6 @@ static struct option const long_options[] =
   {"quiet", no_argument, NULL, 'q'},
   {"stop-at", required_argument, NULL, 's'},
   {"timeout", required_argument, NULL, 't'},
-  {"turbo", no_argument, NULL, 'T'},
   {"unlink", no_argument, NULL, 'u'},
   {"unrestrict", no_argument, NULL, 'U'},
   {"verbose", no_argument, NULL, 'v'},
@@ -403,7 +401,6 @@ main(int argc, char **argv)
 					usage(2,_("stop time to small"));
 			}
 			break;
-		case 'T': turbo_escape=1; break;
 		case 't':
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
 			Rxtimeout = tmp;
@@ -478,7 +475,6 @@ main(int argc, char **argv)
 		     Znulls,
 		     0, 	/* eflag */
 		     Baudrate,
-		     turbo_escape,
 		     Zctlesc,
 		     Zrwindow);
 	log_info("initial protocol is ZMODEM");

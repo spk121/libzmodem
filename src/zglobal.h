@@ -205,7 +205,6 @@ struct zm_ {
 				/* 1:  display printing characters only */
 				/* 2:  display all non ZMODEM characters */
 	int baudrate;		/* Constant: in bps */
-	int turbo_escape;       /* Constant: TRUE means quit quickly */
 	int zrwindow;		/* RX window size (controls garbage count) */
 
 	int zctlesc;            /* Variable: TRUE means to encode control characters */
@@ -222,7 +221,7 @@ struct zm_ {
 
 typedef struct zm_ zm_t;
 
-zm_t *zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow);
+zm_t *zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow);
 int zm_get_zctlesc(zm_t *zm);
 void zm_set_zctlesc(zm_t *zm, int zctlesc);
 void zm_update_table(zm_t *zm);

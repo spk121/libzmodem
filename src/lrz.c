@@ -448,7 +448,6 @@ main(int argc, char *argv[])
 			   0,	/* Znulls */
 			   0, 	/* eflag */
 			   Baudrate,
-			   0,  /* turbo_escape */
 			   Zctlesc,
 			   Zrwindow);
 

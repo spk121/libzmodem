@@ -92,7 +92,7 @@ static void zsendline_init (zm_t *zm) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
-zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, int zctlesc, int zrwindow)
+zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow)
 {
 	zm_t *zm = (zm_t *) malloc (sizeof (zm_t));
 	memset(zm, 0, sizeof(zm_t));
@@ -100,7 +100,6 @@ zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int turbo_escape, in
 	zm->znulls = znulls;
 	zm->eflag = eflag;
 	zm->baudrate = baudrate;
-	zm->turbo_escape = turbo_escape;
 	zm->zctlesc = zctlesc;
 	zm->zrwindow = zrwindow;
 	zsendline_init(zm);
@@ -928,19 +927,14 @@ zsendline_init(zm_t *zm)
 				break;
 			case 020: /* ^P */
 			case 0220:
-				if (zm->turbo_escape)
-					zm->zsendline_tab[i]=0;
-				else
-					zm->zsendline_tab[i]=1;
+				zm->zsendline_tab[i]=1;
 				break;
 			case 015:
 			case 0215:
 				if (zm->zctlesc)
 					zm->zsendline_tab[i]=1;
-				else if (!zm->turbo_escape)
-					zm->zsendline_tab[i]=2;
 				else
-					zm->zsendline_tab[i]=0;
+					zm->zsendline_tab[i]=2;
 				break;
 			default:
 				if (zm->zctlesc)
