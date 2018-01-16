@@ -112,7 +112,6 @@ static int Restricted=0;	/* restricted; no /.. or ../ in filenames */
 static int Quiet=0;		/* overrides logic that would otherwise set verbose */
 static int Fullname=0;		/* transmit full pathname */
 static int Unlinkafter=0;	/* Unlink file after it is sent */
-static int Dottoslash=0;	/* Change foo.bar.baz to foo/bar/baz */
 static int firstsec;
 static int errcnt=0;		/* number of files unreadable */
 static size_t blklen=128;		/* length of transmitted records */
@@ -204,7 +203,6 @@ static struct option const long_options[] =
   {"cmdtries", required_argument, NULL, 'C'},
   {"command", required_argument, NULL, 'c'},
   {"immediate-command", required_argument, NULL, 'i'},
-  {"dot-to-slash", no_argument, NULL, 'd'},
   {"full-path", no_argument, NULL, 'f'},
   {"escape", no_argument, NULL, 'e'},
   {"rename", no_argument, NULL, 'E'},
@@ -342,8 +340,6 @@ main(int argc, char **argv)
 			command_mode = TRUE;
 			Cmdstr = optarg;
 			break;
-		case 'd':
-			++Dottoslash;
 			/* **** FALL THROUGH TO **** */
 		case 'f': Fullname=TRUE; break;
 		case 'e': Zctlesc = 1; break;
@@ -995,20 +991,6 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 		}
 
 	q = (char *) 0;
-	if (Dottoslash) {		/* change . to . */
-		for (p=zi->fname; *p; ++p) {
-			if (*p == '/')
-				q = p;
-			else if (*p == '.')
-				*(q=p) = '/';
-		}
-		if (q && strlen(++q) > 8) {	/* If name>8 chars */
-			q += 8;			/*   make it .ext */
-			strcpy(name2, q);	/* save excess of name */
-			*q = '.';
-			strcpy(++q, name2);	/* add it back */
-		}
-	}
 
 	for (p=zi->fname, q=txbuf ; *p; )
 		if ((*q++ = *p++) == '/' && !Fullname)
@@ -1319,7 +1301,6 @@ usage(int exitcode, const char *what)
 "  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)\n"
 "  -c, --command COMMAND       execute remote command COMMAND (Z)\n"
 "  -C, --command-tries N       try N times to execute a command (Z)\n"
-"  -d, --dot-to-slash          change '.' to '/' in pathnames (Y/Z)\n"
 "      --delay-startup N       sleep N seconds before doing anything\n"
 "  -e, --escape                escape all control characters (Z)\n"
 "  -E, --rename                force receiver to rename files it already has\n"
