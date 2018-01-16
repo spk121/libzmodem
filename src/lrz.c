@@ -70,8 +70,6 @@ struct rz_ {
 				 * request byte */
 	int tryzhdrtype;         /* Header type to send corresponding
 				  * to Last rx close */
-	int in_timesync;	/* True when we receive special file
-				 * "$time$.t" */
 	char tcp_buf[256];	/* Buffer to receive TCP protocol
 				 * synchronization strings from
 				 * fout */
@@ -125,8 +123,6 @@ struct rz_ {
 				 * running under a restricted
 				 * environment. When true, files save
 				 * as 'rw' not 'rwx' */
-	int timesync_flag;	/* A flag.  when true, handle special
-				 * file "$time$.t" for timesyncing. */
 };
 
 typedef struct rz_ rz_t;
@@ -135,7 +131,7 @@ rz_t *rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 	      int rxbinary, long buffersize,
 	      int allow_remote_commands, int nflag, int junk_path,
 	      unsigned long min_bps, long min_bps_time,
-	      time_t stop_time, int try_resume, int timesync_flag,
+	      time_t stop_time, int try_resume,
 	      int makelcpathname, int rxclob,
 	      int o_sync, int tcp_flag, int topipe
 );
@@ -168,7 +164,7 @@ rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 	int rxbinary, long buffersize,
 	int allow_remote_commands, int nflag, int junk_path,
 	unsigned long min_bps, long min_bps_time,
-	time_t stop_time, int try_resume, int timesync_flag,
+	time_t stop_time, int try_resume,
 	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe)
 {
 	rz_t *rz = (rz_t *)malloc(sizeof(rz_t));
@@ -187,7 +183,6 @@ rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 	rz->min_bps_time = min_bps_time;
 	rz->stop_time = stop_time;
 	rz->try_resume = try_resume;
-	rz->timesync_flag = timesync_flag;
 	rz->makelcpathname = makelcpathname;
 	rz->rxclob = rxclob;
 	rz->o_sync = o_sync;
@@ -244,7 +239,6 @@ static struct option const long_options[] =
 	{"restricted", no_argument, NULL, 'R'},
 	{"quiet", no_argument, NULL, 'q'},
 	{"stop-at", required_argument, NULL, 's'},
-	{"timesync", no_argument, NULL, 'S'},
 	{"timeout", required_argument, NULL, 't'},
 	{"keep-uppercase", no_argument, NULL, 'u'},
 	{"unrestrict", no_argument, NULL, 'U'},
@@ -291,7 +285,6 @@ main(int argc, char *argv[])
 	int Verbose=LOG_ERROR;
 	time_t stop_time = 0;
 	int try_resume=FALSE;
-	int timesync_flag=0;
 	int Zrwindow=1400;
 	int MakeLCPathname=TRUE;
 	int Rxclob=FALSE;
@@ -411,13 +404,6 @@ main(int argc, char *argv[])
 				try_resume=TRUE;
 			break;
 		case 'R': Restricted++;  break;
-		case 'S':
-			timesync_flag++;
-			if (timesync_flag==2) {
-				if (getuid()!=0)
-					log_error(_("not running as root (this is good!), can not set time"));
-			}
-			break;
 		case 't':
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
 			Rxtimeout = tmp;
@@ -524,7 +510,6 @@ main(int argc, char *argv[])
 			   min_bps_time,
 			   stop_time,
 			   try_resume,
-			   timesync_flag,
 			   MakeLCPathname,
 			   Rxclob,
 			   o_sync,
@@ -641,7 +626,6 @@ usage(int exitcode, const char *what)
 	display(_("  -r, --resume                try to resume interrupted file transfer (Z)"));
 	display(_("  -R, --restricted            restricted, more secure mode"));
 	display(_("  -s, --stop-at {HH:MM|+N}    stop transmission at HH:MM or in N seconds"));
-	display(_("  -S, --timesync              request remote time (twice: set local time)"));
 	display(_("  -t, --timeout N             set timeout to N tenths of a second"));
 	display(_("  -u, --keep-uppercase        keep upper case filenames"));
 	display(_("  -U, --unrestrict            disable restricted mode (if allowed to)"));
@@ -1022,9 +1006,6 @@ procheader(rz_t *rz, zm_t *zm, char *name, struct zm_fileinfo *zi)
 	if (rz->skip_if_not_found)
 		openmode="r+";
 
-	rz->in_timesync=0;
-	if (rz->timesync_flag && 0==strcmp(name,"$time$.t"))
-		rz->in_timesync=1;
 	rz->in_tcpsync=0;
 	if (0==strcmp(name,"$tcp$.t"))
 		rz->in_tcpsync=1;
@@ -1050,7 +1031,6 @@ procheader(rz_t *rz, zm_t *zm, char *name, struct zm_fileinfo *zi)
 	/* Check for existing file */
 	if (rz->zconv != ZCRESUM && !rz->rxclob && (rz->zmanag&ZF1_ZMMASK) != ZF1_ZMCLOB
 		&& (rz->zmanag&ZF1_ZMMASK) != ZF1_ZMAPND
-	    && !rz->in_timesync
 	    && !rz->in_tcpsync
 		&& (rz->fout=fopen(name, "r"))) {
 		struct stat sta;
@@ -1126,17 +1106,6 @@ procheader(rz_t *rz, zm_t *zm, char *name, struct zm_fileinfo *zi)
 			*p = 0;
 	}
 
-	if (rz->in_timesync)
-	{
-		long t=time(0);
-		long d=t-zi->modtime;
-		if (d<0)
-			d=0;
-		if (d>60)
-			log_debug(_("TIMESYNC: here %ld, remote %ld, diff %ld seconds"),
-				  (long) t, (long) zi->modtime, d);
-		return ERROR; /* skips file */
-	}
 	if (rz->in_tcpsync) {
 		rz->fout=tmpfile();
 		if (!rz->fout) {
@@ -1424,8 +1393,6 @@ tryz(rz_t *rz, zm_t *zm)
 #else
 		Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO;
 #endif
-		if (rz->timesync_flag)
-			Txhdr[ZF1] |= ZF1_TIMESYNC;
 		if (zm->zctlesc)
 			Txhdr[ZF0] |= TESCCTL; /* TESCCTL == ESCCTL */
 		zm_send_hex_header(zm, rz->tryzhdrtype, Txhdr);

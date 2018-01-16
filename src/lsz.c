@@ -134,7 +134,6 @@ static int command_mode;		/* Send a command, then exit. */
 static int Cmdtries = 11;
 static int Cmdack1;		/* Rx ACKs command, then do it */
 static int Exitcode;
-static int enable_timesync=0;
 static size_t Lastsync;		/* Last offset to which we got a ZRPOS */
 static int Beenhereb4;		/* How many times we've been ZRPOS'd same place */
 
@@ -222,7 +221,6 @@ static struct option const long_options[] =
   {"restricted", no_argument, NULL, 'R'},
   {"quiet", no_argument, NULL, 'q'},
   {"stop-at", required_argument, NULL, 's'},
-  {"timesync", no_argument, NULL, 'S'},
   {"timeout", required_argument, NULL, 't'},
   {"turbo", no_argument, NULL, 'T'},
   {"unlink", no_argument, NULL, 'u'},
@@ -438,7 +436,6 @@ main(int argc, char **argv)
 					usage(2,_("stop time to small"));
 			}
 			break;
-		case 'S': enable_timesync=1; break;
 		case 'T': turbo_escape=1; break;
 		case 't':
 			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
@@ -666,14 +663,6 @@ main(int argc, char **argv)
 		Txhdr[ZF0] = ZCOMMAND;
 	zm_send_hex_header(zm, ZRQINIT, Txhdr);
 	zrqinits_sent++;
-	if (Rxflags2 != ZF1_TIMESYNC)
-		/* disable timesync if there are any flags we don't know.
-		 * dsz/gsz seems to use some other flags! */
-		enable_timesync=FALSE;
-	if (Rxflags2 & ZF1_TIMESYNC && enable_timesync) {
-		Totalleft+=6; /* TIMESYNC never needs more */
-		Filesleft++;
-	}
 	if (tcp_flag==1) {
 		Totalleft+=256; /* tcp never needs more */
 		Filesleft++;
@@ -810,17 +799,6 @@ wcsend (zm_t *zm, int argc, char *argp[])
 		Totsecs = 0;
 		if (wcs (zm, argp[n],NULL) == ERROR)
 			return ERROR;
-	}
-	if (Rxflags2 & ZF1_TIMESYNC && enable_timesync) {
-		/* implement Peter Mandrellas extension */
-		char buf[60];
-		time_t t = time (NULL);
-		struct tm *tm = localtime (&t);		/* sets timezone */
-		strftime (buf, sizeof (buf) - 1, "%H:%M:%S", tm);
-		log_info (_("Answering TIMESYNC at %s"),buf);
-		sprintf(buf+strlen(buf),"%ld\r\n", timezone / 60);
-		log_info (" (%s %ld)\r\n", _ ("timezone"), timezone / 60);
-		send_pseudo(zm, "/$time$.t",buf);
 	}
 	Totsecs = 0;
 	if (Filcnt == 0) {			/* bitch if we couldn't open ANY files */

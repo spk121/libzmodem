@@ -87,7 +87,6 @@
 #define ESC8    0x80	/* Receiver expects 8th bit to be escaped */
 /* Bit Masks for ZRINIT flags byze ZF1 */
 #define ZF1_CANVHDR  0x01  /* Variable headers OK, unused in lrzsz */
-#define ZF1_TIMESYNC 0x02 /* nonstandard, Receiver request timesync */
 
 /* Parameters for ZSINIT frame */
 #define ZATTNLEN 32	/* Max length of attention string */
