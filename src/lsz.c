@@ -87,7 +87,6 @@ static void usage1 (int exitcode);
 
 static int Filesleft;
 static long Totalleft;
-static size_t buffersize=16384;
 static int use_mmap=1;
 
 /*
@@ -194,7 +193,6 @@ static struct option const long_options[] =
   {"try-4k", no_argument, NULL, '4'},
   {"start-4k", no_argument, NULL, '5'},
   {"binary", no_argument, NULL, 'b'},
-  {"bufsize", required_argument, NULL, 'B'},
   {"full-path", no_argument, NULL, 'f'},
   {"escape", no_argument, NULL, 'e'},
   {"rename", no_argument, NULL, 'E'},
@@ -310,13 +308,6 @@ main(int argc, char **argv)
 			max_blklen=4096;
 			break;
 		case 'b': Lzconv = ZCBIN; break;
-		case 'B':
-			if (0==strcmp(optarg,"auto"))
-				buffersize= (size_t) -1;
-			else
-				buffersize=strtol(optarg,NULL,10);
-			use_mmap=0;
-			break;
 		case 'f': Fullname=TRUE; break;
 		case 'e': Zctlesc = 1; break;
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
@@ -826,39 +817,6 @@ wcs(zm_t *zm, const char *oname, const char *remotename)
 	} else {
 		strcpy(name, oname);
 	}
-	if (!use_mmap || dont_mmap_this)
-	{
-		static char *s=NULL;
-		static size_t last_length=0;
-		struct stat st;
-		if (fstat(fileno(input_f),&st)==-1)
-			st.st_size=1024*1024;
-		if (buffersize==(size_t) -1 && s) {
-			if ((size_t) st.st_size > last_length) {
-				free(s);
-				s=NULL;
-				last_length=0;
-			}
-		}
-		if (!s && buffersize) {
-			last_length=16384;
-			if (buffersize==(size_t) -1) {
-				if (st.st_size>0)
-					last_length=st.st_size;
-			} else
-				last_length=buffersize;
-			/* buffer whole pages */
-			last_length=(last_length+4095)&0xfffff000;
-			s=malloc(last_length);
-			if (!s) {
-				log_fatal(_("out of memory"));
-				exit(1);
-			}
-		}
-		if (s) {
-			setvbuf(input_f,s,_IOFBF,last_length);
-		}
-	}
 	vpos = 0;
 	/* Check for directory or block special files */
 	fstat(fileno(input_f), &f);
@@ -1239,7 +1197,6 @@ usage(int exitcode, const char *what)
 "  -8, --try-8k                go up to 8K blocksize\n"
 "      --start-8k              start with 8K blocksize\n"
 "  -b, --binary                binary transfer\n"
-"  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)\n"
 "      --delay-startup N       sleep N seconds before doing anything\n"
 "  -e, --escape                escape all control characters (Z)\n"
 "  -E, --rename                force receiver to rename files it already has\n"

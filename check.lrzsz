@@ -20,7 +20,7 @@ else
 fi
 
 #SZBUFSIZE="-B 524288"
-RZBUFSIZE="-B 524288"
+#RZBUFSIZE="-B 524288"
 
 SZ="$objdir/src/lsz"
 RZ="$objdir/src/lrz"

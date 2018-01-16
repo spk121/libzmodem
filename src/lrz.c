@@ -100,10 +100,6 @@ struct rz_ {
 	int o_sync;		/* A flag. When true, each write will
 				 * be reliably completed before
 				 * returning. */
-	long buffersize;	/* The size of the backing store
-				 * buffer for 'fout' as set by
-				 * setvbuf. -1 is automatic. Code
-				 * likes 32k as default.  */
 	unsigned long min_bps;	/* When non-zero, sets a minimum allow
 				 * transmission rate.  Dropping below
 				 * that rate will cancel the
@@ -126,7 +122,7 @@ struct rz_ {
 typedef struct rz_ rz_t;
 
 rz_t *rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
-	      int rxbinary, long buffersize, int nflag, int junk_path,
+	      int rxbinary, int nflag, int junk_path,
 	      unsigned long min_bps, long min_bps_time,
 	      time_t stop_time, int try_resume,
 	      int makelcpathname, int rxclob,
@@ -158,7 +154,7 @@ static size_t getfree (void);
 
 rz_t*
 rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
-	int rxbinary, long buffersize, int nflag, int junk_path,
+	int rxbinary, int nflag, int junk_path,
 	unsigned long min_bps, long min_bps_time,
 	time_t stop_time, int try_resume,
 	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe)
@@ -171,7 +167,6 @@ rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 	rz->zconv = 0;
 	rz->rxascii = rxascii;
 	rz->rxbinary = rxbinary;
-	rz->buffersize = buffersize;
 	rz->nflag = nflag;
 	rz->junk_path = junk_path;
 	rz->min_bps = min_bps;
@@ -214,7 +209,6 @@ static struct option const long_options[] =
 	{"append", no_argument, NULL, '+'},
 	{"ascii", no_argument, NULL, 'a'},
 	{"binary", no_argument, NULL, 'b'},
-	{"bufsize", required_argument, NULL, 'B'},
 	{"escape", no_argument, NULL, 'e'},
 	{"rename", no_argument, NULL, 'E'},
 	{"help", no_argument, NULL, 'h'},
@@ -267,7 +261,6 @@ main(int argc, char *argv[])
 	char Lzmanag = '\0';
 	int Rxascii = FALSE;
 	int Rxbinary=FALSE;
-	long buffersize=32768;
 	int Nflag = 0;
 	int Zctlesc = 0;
 	int junk_path = FALSE;
@@ -320,12 +313,6 @@ main(int argc, char *argv[])
 		case '+': Lzmanag = ZF1_ZMAPND; break;
 		case 'a': Rxascii=TRUE;  break;
 		case 'b': Rxbinary=TRUE; break;
-		case 'B':
-			if (strcmp(optarg,"auto")==0)
-				buffersize=-1;
-			else
-				buffersize=strtol(optarg,NULL,10);
-			break;
 		case 'D': Nflag = TRUE; break;
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
 		case 'e': Zctlesc = 1; break;
@@ -490,7 +477,6 @@ main(int argc, char *argv[])
 			   Lzmanag,
 			   Rxascii,
 			   Rxbinary,
-			   buffersize,
 			   Nflag,
 			   junk_path,
 			   min_bps,
@@ -1186,8 +1172,6 @@ procheader(rz_t *rz, zm_t *zm, char *name, struct zm_fileinfo *zi)
 	}
 buffer_it:
 	if (rz->topipe == 0) {
-		static char *s=NULL;
-		static size_t last_length=0;
 		if (rz->o_sync) {
 			int oldflags;
 			oldflags = fcntl (fileno(rz->fout), F_GETFD, 0);
@@ -1195,32 +1179,6 @@ buffer_it:
 				oldflags|=O_SYNC;
 				fcntl (fileno(rz->fout), F_SETFD, oldflags); /* errors don't matter */
 			}
-		}
-
-		if (rz->buffersize==-1 && s) {
-			if (zi->bytes_total>last_length) {
-				free(s);
-				s=NULL;
-				last_length=0;
-			}
-		}
-		if (!s && rz->buffersize) {
-			last_length=32768;
-			if (rz->buffersize==-1) {
-				if (zi->bytes_total>0)
-					last_length=zi->bytes_total;
-			} else
-				last_length = rz->buffersize;
-			/* buffer `4096' bytes pages */
-			last_length=(last_length+4095)&0xfffff000;
-			s=malloc(last_length);
-			if (!s) {
-				log_fatal(_("out of memory"));
-				exit(1);
-			}
-		}
-		if (s) {
-			setvbuf(rz->fout,s,_IOFBF,last_length);
 		}
 	}
 	zi->bytes_received=zi->bytes_skipped;
