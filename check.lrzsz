@@ -221,7 +221,7 @@ if test "$mode" = all -o "$mode" = tcp8 ; then
 	echo "testing ZMODEMtcp8k"
 	mkdir $testdir/zmodemtcp8k
 	failed=0
-	($SZ --tcp -q8OT $SZBUFSIZE $z_test_files ) <$testdir/pipe | \
+	($SZ --tcp -q $SZBUFSIZE $z_test_files ) <$testdir/pipe | \
 		(cd $testdir/zmodemtcp8k ; exec $RZ $RZBUFSIZE $QUIET >>../pipe )
 	for i in $z_test_files ; do 
 		bn=`basename $i`

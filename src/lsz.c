@@ -42,51 +42,86 @@
 
 
 #include <sys/mman.h>
-size_t mm_size;
-void *mm_addr=NULL;
 #include "timing.h"
 #include "long-options.h"
 #include "xstrtoul.h"
 #include "log.h"
 
-static unsigned Baudrate=2400;	/* Default, should be set by first mode() call */
-static unsigned Txwindow;	/* Control the size of the transmitted window */
-static unsigned Txwspac;	/* Spacing between zcrcq requests */
-static unsigned Txwcnt;	/* Counter used to space ack requests */
-static size_t Lrxpos;		/* Receiver's last reported offset */
-static int errors;
-static int under_rsh=FALSE;
-static int no_unixmode;
+struct sz_ {
+	// state
+	FILE *input_f;
+	size_t mm_size;
+	void *mm_addr;
+	size_t lastsync;		/* Last offset to which we got a ZRPOS */
+	size_t bytcnt;
+	char crcflg;
+	int firstsec;
+	unsigned txwindow;	/* Control the size of the transmitted window */
+	unsigned txwspac;	/* Spacing between zcrcq requests */
+	unsigned txwcnt;	/* Counter used to space ack requests */	
+	size_t lrxpos;		/* Receiver's last reported offset */
+	int errors;
+	int under_rsh;
 
-static int Canseek=1; /* 1: can; 0: only rewind, -1: neither */
+	int canseek; /* 1: can; 0: only rewind, -1: neither */
+	
+	// parameters
+	char lzconv;	/* Local ZMODEM file conversion request */
+	char lzmanag;	/* Local ZMODEM file management request */
+	int lskipnocor;
+	int tcp_flag;
+	int no_unixmode;
+	
+};
 
-static int zsendfile (zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen);
-static int getnak (zm_t *zm);
-static int wctxpn (zm_t *zm, struct zm_fileinfo *);
-static int wcs (zm_t *zm, const char *oname, const char *remotename);
-static size_t zfilbuf (struct zm_fileinfo *zi);
-static size_t filbuf (char *buf, size_t count);
-static int getzrxinit (zm_t *zm);
+typedef struct sz_ sz_t;
+
+static sz_t*
+sz_init(char lzconv, char lzmanag, int lskipnocor, int tcp_flag, unsigned txwindow, unsigned txwspac,
+	int under_rsh, int no_unixmode, int canseek)
+{
+	sz_t *sz = malloc(sizeof(sz_t));
+	memset(sz, 0, sizeof(sz_t));
+	sz->lzconv = lzconv;
+	sz->lzmanag = lzmanag;
+	sz->lskipnocor = lskipnocor;
+	sz->mm_addr = NULL;
+	sz->tcp_flag = tcp_flag;
+	sz->txwindow = txwindow;
+	sz->txwspac = txwspac;
+	sz->txwcnt = 0;
+	sz->under_rsh = under_rsh;
+	sz->no_unixmode = no_unixmode;
+	sz->canseek = canseek;
+	return sz;
+}
+
+static int zsendfile (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen);
+static int getnak (sz_t *sz, zm_t *zm);
+static int wctxpn (sz_t *sz, zm_t *zm, struct zm_fileinfo *);
+static int wcs (sz_t *sz, zm_t *zm, const char *oname, const char *remotename);
+static size_t zfilbuf (sz_t *sz, struct zm_fileinfo *zi);
+static size_t filbuf (sz_t *sz, char *buf, size_t count);
+static int getzrxinit (sz_t *sz, zm_t *zm);
 static int calc_blklen (long total_sent);
-static int sendzsinit (zm_t *zm);
-static int wctx (zm_t *zm, struct zm_fileinfo *);
-static int zsendfdata (zm_t *zm, struct zm_fileinfo *);
-static int getinsync (zm_t *zm, struct zm_fileinfo *, int flag);
+static int sendzsinit (sz_t *sz, zm_t *zm);
+static int wctx (sz_t *sz, zm_t *zm, struct zm_fileinfo *);
+static int zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *);
+static int getinsync (sz_t *sz, zm_t *zm, struct zm_fileinfo *, int flag);
 static void countem (int argc, char **argv);
 static void chkinvok (const char *s);
 static void usage (int exitcode, const char *what);
 static void saybibi (zm_t *zm);
-static int wcsend (zm_t *zm, int argc, char *argp[]);
-static int wcputsec (zm_t *zm, char *buf, int sectnum, size_t cseclen);
+static int wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[]);
+static int wcputsec (sz_t *sz, zm_t *zm, char *buf, int sectnum, size_t cseclen);
 static void usage1 (int exitcode);
 
 #define ZM_SEND_DATA(x,y,z)						\
 	do { if (zm->crc32t) {zm_send_data32(zm,x,y,z); } else {zm_send_data(zm,x,y,z);}} while(0)
-#define DATAADR (mm_addr ? ((char *)mm_addr)+zi->bytes_sent : txbuf)
+#define DATAADR (sz->mm_addr ? ((char *)sz->mm_addr)+zi->bytes_sent : txbuf)
 
 static int Filesleft;
 static long Totalleft;
-static int use_mmap=1;
 
 /*
  * Attention string to be executed by receiver to interrupt streaming data
@@ -95,7 +130,7 @@ static int use_mmap=1;
  */
 static char Myattn[] = { 0 };
 
-static FILE *input_f;
+// static FILE *input_f;
 
 #define MAX_BLOCK 8192
 static char txbuf[MAX_BLOCK];
@@ -103,13 +138,11 @@ static char txbuf[MAX_BLOCK];
 static long vpos = 0;			/* Number of bytes read from file */
 
 static char Lastrx;
-static char Crcflg;
-static int Verbose=LOG_ERROR;
+static int Verbose=LOG_TRACE;
 static int Restricted=0;	/* restricted; no /.. or ../ in filenames */
 static int Quiet=0;		/* overrides logic that would otherwise set verbose */
 static int Fullname=0;		/* transmit full pathname */
 static int Unlinkafter=0;	/* Unlink file after it is sent */
-static int firstsec;
 static int errcnt=0;		/* number of files unreadable */
 static size_t blklen=128;		/* length of transmitted records */
 static int Optiong;		/* Let it rip no wait for sector ACK's */
@@ -121,21 +154,19 @@ static unsigned Tframlen = 0;	/* Override for tx frame length */
 static unsigned blkopt=0;		/* Override value for zmodem blklen */
 static int Rxflags = 0;
 static int Rxflags2 = 0;
-static size_t bytcnt;
+// static size_t bytcnt;
 static int Wantfcs32 = TRUE;	/* want to send 32 bit FCS */
-static char Lzconv;	/* Local ZMODEM file conversion request */
-static char Lzmanag;	/* Local ZMODEM file management request */
-static int Lskipnocor;
-static char Lztrans;
+// static char Lzconv;	/* Local ZMODEM file conversion request */
+// static char Lzmanag;	/* Local ZMODEM file management request */
+// static int Lskipnocor;
 static int Exitcode;
-static size_t Lastsync;		/* Last offset to which we got a ZRPOS */
+// static size_t Lastsync;		/* Last offset to which we got a ZRPOS */
 static int Beenhereb4;		/* How many times we've been ZRPOS'd same place */
 
 static int no_timeout=FALSE;
 static size_t max_blklen=1024;
 static size_t start_blklen=0;
 static time_t stop_time=0;
-static int tcp_flag=0;
 static char *tcp_server_address=0;
 static int tcp_socket=-1;
 static int hyperterm=0;
@@ -249,6 +280,21 @@ main(int argc, char **argv)
 	int Znulls = 0;
 	int Rxtimeout = 0;
 	zm_t *zm;
+
+	char Lzconv = (char)0;	/* Local ZMODEM file conversion request */
+	char Lzmanag = (char)0;	/* Local ZMODEM file management request */
+	int Lskipnocor = 0;
+	int tcp_flag = 0;
+	unsigned Baudrate=2400;
+	unsigned Txwindow = 0;
+	unsigned Txwspac = 0;
+	size_t Lrxpos = 0;		/* Receiver's last reported offset */
+	int errors = 0;
+	int under_rsh=FALSE;
+	int no_unixmode = 0;
+
+	int Canseek=1; /* 1: can; 0: only rewind, -1: neither */
+	
 	if (((cp = getenv("ZNULLS")) != NULL) && *cp)
 		Znulls = atoi(cp);
 	if (((cp=getenv("SHELL"))!=NULL) && (strstr(cp, "rsh") || strstr(cp, "rksh")
@@ -477,6 +523,18 @@ main(int argc, char **argv)
 		     Baudrate,
 		     Zctlesc,
 		     Zrwindow);
+	sz_t* sz = sz_init(Lzconv,
+			   Lzmanag,
+			   Lskipnocor,
+			   tcp_flag,
+			   Txwindow,
+			   Txwspac,
+			   under_rsh,
+			   no_unixmode,
+			   Canseek
+
+		);
+		
 	log_info("initial protocol is ZMODEM");
 	if (start_blklen==0) {
 		start_blklen=1024;
@@ -506,7 +564,7 @@ main(int argc, char **argv)
 	}
 	log_debug("%s %s", program_name, VERSION);
 
-	if (tcp_flag==2) {
+	if (sz->tcp_flag==2) {
 		char buf[256];
 		char hn[256];
 		char *p,*q;
@@ -530,7 +588,7 @@ main(int argc, char **argv)
 		dup2(tcp_socket,0);
 		dup2(tcp_socket,1);
 	}
-	if (tcp_flag==3) {
+	if (sz->tcp_flag==3) {
 		char buf[256];
 		char *p;
 		p=strchr(tcp_server_address,':');
@@ -619,13 +677,13 @@ main(int argc, char **argv)
 	zm_store_header(0L);
 	zm_send_hex_header(zm, ZRQINIT, Txhdr);
 	zrqinits_sent++;
-	if (tcp_flag==1) {
+	if (sz->tcp_flag==1) {
 		Totalleft+=256; /* tcp never needs more */
 		Filesleft++;
 	}
 	fflush(stdout);
 
-	if (wcsend(zm, npats, patts)==ERROR) {
+	if (wcsend(sz, zm, npats, patts)==ERROR) {
 		Exitcode=0200;
 		canit(STDOUT_FILENO);
 	}
@@ -646,7 +704,7 @@ main(int argc, char **argv)
 }
 
 static int
-send_pseudo(zm_t *zm, const char *name, const char *data)
+send_pseudo(sz_t *sz, zm_t *zm, const char *name, const char *data)
 {
 	char *tmp;
 	const char *p;
@@ -709,7 +767,7 @@ send_pseudo(zm_t *zm, const char *name, const char *data)
 		return 1;
 	}
 
-	if (wcs (zm, tmp,name) == ERROR) {
+	if (wcs (sz, zm, tmp,name) == ERROR) {
 		log_info (_ ("send_pseudo %s: failed"),name);
 		ret=1;
 	}
@@ -719,21 +777,21 @@ send_pseudo(zm_t *zm, const char *name, const char *data)
 }
 
 static int
-wcsend (zm_t *zm, int argc, char *argp[])
+wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[])
 {
 	int n;
 
-	Crcflg = FALSE;
-	firstsec = TRUE;
-	bytcnt = (size_t) -1;
+	sz->crcflg = FALSE;
+	sz->firstsec = TRUE;
+	sz->bytcnt = (size_t) -1;
 
-	if (tcp_flag==1) {
+	if (sz->tcp_flag==1) {
 		char buf[256];
 		int d;
 
 		/* tell receiver to receive via tcp */
 		d=tcp_server(buf);
-		if (send_pseudo(zm, "/$tcp$.t",buf)) {
+		if (send_pseudo(sz, zm, "/$tcp$.t",buf)) {
 			log_fatal(_("tcp protocol init failed"));
 			exit(1);
 		}
@@ -746,7 +804,7 @@ wcsend (zm_t *zm, int argc, char *argp[])
 
 	for (n = 0; n < argc; ++n) {
 		Totsecs = 0;
-		if (wcs (zm, argp[n],NULL) == ERROR)
+		if (wcs (sz, zm, argp[n],NULL) == ERROR)
 			return ERROR;
 	}
 	Totsecs = 0;
@@ -768,13 +826,13 @@ wcsend (zm_t *zm, int argc, char *argp[])
 		zi.bytes_sent = 0;
 		zi.bytes_received = 0;
 		zi.bytes_skipped = 0;
-		wctxpn (zm, &zi);
+		wctxpn (sz, zm, &zi);
 	}
 	return OK;
 }
 
 static int
-wcs(zm_t *zm, const char *oname, const char *remotename)
+wcs(sz_t *sz, zm_t *zm, const char *oname, const char *remotename)
 {
 	struct stat f;
 	char name[PATH_MAX+1];
@@ -801,9 +859,9 @@ wcs(zm_t *zm, const char *oname, const char *remotename)
 		} else {
 			sprintf(name, "s%lu.lsz", (unsigned long) getpid());
 		}
-		input_f=stdin;
+		sz->input_f=stdin;
 		dont_mmap_this=1;
-	} else if ((input_f=fopen(oname, "r"))==NULL) {
+	} else if ((sz->input_f=fopen(oname, "r"))==NULL) {
 		int e=errno;
 		log_error(_("cannot open %s: %s"), oname, strerror(e));
 		++errcnt;
@@ -813,10 +871,10 @@ wcs(zm_t *zm, const char *oname, const char *remotename)
 	}
 	vpos = 0;
 	/* Check for directory or block special files */
-	fstat(fileno(input_f), &f);
+	fstat(fileno(sz->input_f), &f);
 	if (S_ISDIR(f.st_mode) || S_ISBLK(f.st_mode)) {
 		log_error(_("is not a file: %s"), name);
-		fclose(input_f);
+		fclose(sz->input_f);
 		return OK;
 	}
 
@@ -840,14 +898,14 @@ wcs(zm_t *zm, const char *oname, const char *remotename)
 	timing(1,NULL);
 
 	++Filcnt;
-	switch (wctxpn(zm, &zi)) {
+	switch (wctxpn(sz, zm, &zi)) {
 	case ERROR:
 		return ERROR;
 	case ZSKIP:
 		log_error(_("skipped: %s"), name);
 		return OK;
 	}
-	if (!zm->zmodem_requested && wctx(zm, &zi)==ERROR)
+	if (!zm->zmodem_requested && wctx(sz, zm, &zi)==ERROR)
 	{
 		return ERROR;
 	}
@@ -872,14 +930,14 @@ wcs(zm_t *zm, const char *oname, const char *remotename)
  *  N.B.: modifies the passed name, may extend it!
  */
 static int
-wctxpn(zm_t *zm, struct zm_fileinfo *zi)
+wctxpn(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 {
 	register char *p, *q;
 	char name2[PATH_MAX+1];
 	struct stat f;
 
 	if (!zm->zmodem_requested)
-		if (getnak(zm)) {
+		if (getnak(sz, zm)) {
 			log_debug("getnak failed");
 			return ERROR;
 		}
@@ -893,7 +951,7 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 	p=q;
 	while (q < (txbuf + MAX_BLOCK))
 		*q++ = 0;
-	if ((input_f!=stdin) && *zi->fname && (fstat(fileno(input_f), &f)!= -1)) {
+	if ((sz->input_f!=stdin) && *zi->fname && (fstat(fileno(sz->input_f), &f)!= -1)) {
 		if (hyperterm) {
 			sprintf(p, "%lu", (long) f.st_size);
 		} else {
@@ -903,7 +961,7 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 			 */
 			sprintf(p, "%lu %lo %o 0 %d %ld", (long) f.st_size,
 				f.st_mtime,
-				(unsigned int)((no_unixmode) ? 0 : f.st_mode),
+				(unsigned int)((sz->no_unixmode) ? 0 : f.st_mode),
 				Filesleft, Totalleft);
 		}
 	}
@@ -922,8 +980,8 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 		txbuf[126] = (f.st_size + 127) >>15;
 	}
 	if (zm->zmodem_requested)
-		return zsendfile(zm, zi,txbuf, 1+strlen(p)+(p-txbuf));
-	if (wcputsec(zm, txbuf, 0, 128)==ERROR) {
+		return zsendfile(sz, zm, zi,txbuf, 1+strlen(p)+(p-txbuf));
+	if (wcputsec(sz, zm, txbuf, 0, 128)==ERROR) {
 		log_debug("wcputsec failed");
 		return ERROR;
 	}
@@ -931,7 +989,7 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 }
 
 static int
-getnak(zm_t *zm)
+getnak(sz_t *sz, zm_t *zm)
 {
 	int firstch;
 	int tries=0;
@@ -941,7 +999,7 @@ getnak(zm_t *zm)
 		tries++;
 		switch (firstch = READLINE_PF(100)) {
 		case ZPAD:
-			if (getzrxinit(zm))
+			if (getzrxinit(sz, zm))
 				return ERROR;
 			return FALSE;
 		case TIMEOUT:
@@ -967,7 +1025,7 @@ getnak(zm_t *zm)
 			Optiong = TRUE;
 			blklen=1024;
 		case WANTCRC:
-			Crcflg = TRUE;
+			sz->crcflg = TRUE;
 		case NAK:
 			return FALSE;
 		case CAN:
@@ -982,12 +1040,12 @@ getnak(zm_t *zm)
 
 
 static int
-wctx(zm_t *zm, struct zm_fileinfo *zi)
+wctx(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 {
 	register size_t thisblklen;
 	register int sectnum, attempts, firstch;
 
-	firstsec=TRUE;  thisblklen = blklen;
+	sz->firstsec=TRUE;  thisblklen = blklen;
 	log_debug("wctx:file length=%ld", (long) zi->bytes_total);
 
 	while ((firstch=READLINE_PF(zm->rxtimeout))!=NAK && firstch != WANTCRC
@@ -998,20 +1056,20 @@ wctx(zm_t *zm, struct zm_fileinfo *zi)
 		return ERROR;
 	}
 	if (firstch==WANTCRC)
-		Crcflg=TRUE;
+		sz->crcflg=TRUE;
 	if (firstch==WANTG)
-		Crcflg=TRUE;
+		sz->crcflg=TRUE;
 	sectnum=0;
 	for (;;) {
 		if (zi->bytes_total <= (zi->bytes_sent + 896L))
 			thisblklen = 128;
-		if ( !filbuf(txbuf, thisblklen))
+		if ( !filbuf(sz, txbuf, thisblklen))
 			break;
-		if (wcputsec(zm, txbuf, ++sectnum, thisblklen)==ERROR)
+		if (wcputsec(sz, zm, txbuf, ++sectnum, thisblklen)==ERROR)
 			return ERROR;
 		zi->bytes_sent += thisblklen;
 	}
-	fclose(input_f);
+	fclose(sz->input_f);
 	attempts=0;
 	do {
 		purgeline(io_mode_fd);
@@ -1028,7 +1086,7 @@ wctx(zm_t *zm, struct zm_fileinfo *zi)
 }
 
 static int
-wcputsec(zm_t *zm, char *buf, int sectnum, size_t cseclen)
+wcputsec(sz_t *sz, zm_t *zm, char *buf, int sectnum, size_t cseclen)
 {
 	int checksum, wcj;
 	char *cp;
@@ -1051,7 +1109,7 @@ wcputsec(zm_t *zm, char *buf, int sectnum, size_t cseclen)
 			oldcrc=updcrc((0377& *cp), oldcrc);
 			checksum += *cp++;
 		}
-		if (Crcflg) {
+		if (sz->crcflg) {
 			oldcrc=updcrc(0,updcrc(0,oldcrc));
 			putchar(((int)oldcrc>>8) & 0xFF);
 			putchar(((int)oldcrc) & 0xFF);
@@ -1061,7 +1119,7 @@ wcputsec(zm_t *zm, char *buf, int sectnum, size_t cseclen)
 
 		fflush(stdout);
 		if (Optiong) {
-			firstsec = FALSE; return OK;
+			sz->firstsec = FALSE; return OK;
 		}
 		firstch = READLINE_PF(zm->rxtimeout);
 gotnak:
@@ -1075,12 +1133,12 @@ cancan:
 		case TIMEOUT:
 			log_error(_("Timeout on sector ACK")); continue;
 		case WANTCRC:
-			if (firstsec)
-				Crcflg = TRUE;
+			if (sz->firstsec)
+				sz->crcflg = TRUE;
 		case NAK:
 			log_error(_("NAK on sector")); continue;
 		case ACK:
-			firstsec=FALSE;
+			sz->firstsec=FALSE;
 			Totsecs += (cseclen>>7);
 			return OK;
 		case ERROR:
@@ -1104,12 +1162,12 @@ cancan:
 
 /* fill buf with count chars padding with ^Z for CPM */
 static size_t
-filbuf(char *buf, size_t count)
+filbuf(sz_t *sz, char *buf, size_t count)
 {
 	int c;
 	size_t m;
 
-	m = read(fileno(input_f), buf, count);
+	m = read(fileno(sz->input_f), buf, count);
 	if (m <= 0)
 		return 0;
 	while (m < count)
@@ -1119,7 +1177,7 @@ filbuf(char *buf, size_t count)
 	if (Lfseen) {
 		*buf++ = 012; --m; Lfseen = 0;
 	}
-	while ((c=getc(input_f))!=EOF) {
+	while ((c=getc(sz->input_f))!=EOF) {
 		if (c == 012) {
 			*buf++ = 015;
 			if (--m == 0) {
@@ -1140,19 +1198,19 @@ filbuf(char *buf, size_t count)
 
 /* Fill buffer with blklen chars */
 static size_t
-zfilbuf (struct zm_fileinfo *zi)
+zfilbuf (sz_t *sz, struct zm_fileinfo *zi)
 {
 	size_t n;
 
-	n = fread (txbuf, 1, blklen, input_f);
+	n = fread (txbuf, 1, blklen, sz->input_f);
 	if (n < blklen)
 		zi->eof_seen = 1;
 	else {
 		/* save one empty paket in case file ends ob blklen boundary */
-		int c = getc(input_f);
+		int c = getc(sz->input_f);
 
-		if (c != EOF || !feof(input_f))
-			ungetc(c, input_f);
+		if (c != EOF || !feof(sz->input_f))
+			ungetc(c, sz->input_f);
 		else
 			zi->eof_seen = 1;
 	}
@@ -1228,7 +1286,7 @@ usage(int exitcode, const char *what)
  * Get the receiver's init parameters
  */
 static int
-getzrxinit(zm_t *zm)
+getzrxinit(sz_t *sz, zm_t *zm)
 {
 	static int dont_send_zrqinit=1;
 	int old_timeout=zm->rxtimeout;
@@ -1272,7 +1330,7 @@ getzrxinit(zm_t *zm)
 			}
 			Rxbuflen = (0377 & Rxhdr[ZP0])+((0377 & Rxhdr[ZP1])<<8);
 			if ( !(Rxflags & CANFDX))
-				Txwindow = 0;
+				sz->txwindow = 0;
 			log_debug("Rxbuflen=%d Tframlen=%d", Rxbuflen, Tframlen);
 			if ( play_with_sigint)
 				signal(SIGINT, SIG_IGN);
@@ -1293,9 +1351,9 @@ getzrxinit(zm_t *zm)
 			 * If input is not a regular file, force ACK's to
 			 *  prevent running beyond the buffer limits
 			 */
-			fstat(fileno(input_f), &f);
+			fstat(fileno(sz->input_f), &f);
 			if (!(S_ISREG(f.st_mode))) {
-				Canseek = -1;
+				sz->canseek = -1;
 				/* return ERROR; */
 			}
 			/* Set initial subpacket length */
@@ -1312,9 +1370,9 @@ getzrxinit(zm_t *zm)
 			if (blkopt && blklen > blkopt)
 				blklen = blkopt;
 			log_debug("Rxbuflen=%d blklen=%d", Rxbuflen, blklen);
-			log_debug("Txwindow = %u Txwspac = %d", Txwindow, Txwspac);
+			log_debug("Txwindow = %u Txwspac = %d", sz->txwindow, sz->txwspac);
 			zm->rxtimeout=old_timeout;
-			return (sendzsinit(zm));
+			return (sendzsinit(sz, zm));
 		case ZCAN:
 		case TIMEOUT:
 			if (timeouts++==0)
@@ -1333,13 +1391,13 @@ getzrxinit(zm_t *zm)
 
 /* Send send-init information */
 static int
-sendzsinit(zm_t *zm)
+sendzsinit(sz_t *sz, zm_t *zm)
 {
 	int c;
 
 	if (Myattn[0] == '\0' && (!zm->zctlesc || (Rxflags & TESCCTL)))
 		return OK;
-	errors = 0;
+	sz->errors = 0;
 	for (;;) {
 		zm_store_header(0L);
 		if (zm->zctlesc) {
@@ -1355,7 +1413,7 @@ sendzsinit(zm_t *zm)
 		case ZACK:
 			return OK;
 		default:
-			if (++errors > 19)
+			if (++sz->errors > 19)
 				return ERROR;
 			continue;
 		}
@@ -1364,7 +1422,7 @@ sendzsinit(zm_t *zm)
 
 /* Send file name and related info */
 static int
-zsendfile(zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen)
+zsendfile(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen)
 {
 	int c;
 	unsigned long crc;
@@ -1375,12 +1433,12 @@ zsendfile(zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen)
 	 */
 
 	for (;;) {
-		Txhdr[ZF0] = Lzconv;	/* file conversion request */
-		Txhdr[ZF1] = Lzmanag;	/* file management request */
-		if (Lskipnocor)
+		Txhdr[ZF0] = sz->lzconv;	/* file conversion request */
+		Txhdr[ZF1] = sz->lzmanag;	/* file management request */
+		if (sz->lskipnocor)
 			Txhdr[ZF1] |= ZF1_ZMSKNOLOC;
-		Txhdr[ZF2] = Lztrans;	/* file transport request */
-		Txhdr[ZF3] = 0;
+		Txhdr[ZF2] = 0;	/* file transport compression request */
+		Txhdr[ZF3] = 0; /* extended options */
 		zm_send_binary_header(zm, ZFILE, Txhdr);
 		ZM_SEND_DATA(buf, blen, ZCRCW);
 again:
@@ -1408,54 +1466,54 @@ again:
 			return ERROR;
 		case ZCRC:
 			crc = 0xFFFFFFFFL;
-			if (use_mmap && !mm_addr)
+			if (!sz->mm_addr)
 			{
 				struct stat st;
-				if (fstat (fileno (input_f), &st) == 0) {
-					mm_size = st.st_size;
-					mm_addr = mmap (0, mm_size, PROT_READ,
-									MAP_SHARED, fileno (input_f), 0);
-					if ((caddr_t) mm_addr == (caddr_t) - 1)
-						mm_addr = NULL;
+				if (fstat (fileno (sz->input_f), &st) == 0) {
+					sz->mm_size = st.st_size;
+					sz->mm_addr = mmap (0, sz->mm_size, PROT_READ,
+									MAP_SHARED, fileno (sz->input_f), 0);
+					if ((caddr_t) sz->mm_addr == (caddr_t) - 1)
+						sz->mm_addr = NULL;
 					else {
-						fclose (input_f);
-						input_f = NULL;
+						fclose (sz->input_f);
+						sz->input_f = NULL;
 					}
 				}
 			}
-			if (mm_addr) {
+			if (sz->mm_addr) {
 				size_t i;
 				size_t count;
-				char *p=mm_addr;
-				count=(rxpos < mm_size && rxpos > 0)? rxpos: mm_size;
+				char *p=sz->mm_addr;
+				count=(rxpos < sz->mm_size && rxpos > 0)? rxpos: sz->mm_size;
 				for (i=0;i<count;i++,p++) {
 					crc = UPDC32(*p, crc);
 				}
 				crc = ~crc;
 			} else
-			if (Canseek >= 0) {
+			if (sz->canseek >= 0) {
 				if (rxpos==0) {
 					struct stat st;
-					if (0==fstat(fileno(input_f),&st)) {
+					if (0==fstat(fileno(sz->input_f),&st)) {
 						rxpos=st.st_size;
 					} else
 						rxpos=-1;
 				}
-				while (rxpos-- && ((c = getc(input_f)) != EOF))
+				while (rxpos-- && ((c = getc(sz->input_f)) != EOF))
 					crc = UPDC32(c, crc);
 				crc = ~crc;
-				clearerr(input_f);	/* Clear EOF */
-				fseek(input_f, 0L, 0);
+				clearerr(sz->input_f);	/* Clear EOF */
+				fseek(sz->input_f, 0L, 0);
 			}
 			zm_store_header(crc);
 			zm_send_binary_header(zm, ZCRC, Txhdr);
 			goto again;
 		case ZSKIP:
-			if (input_f)
-				fclose(input_f);
-			else if (mm_addr) {
-				munmap(mm_addr,mm_size);
-				mm_addr=NULL;
+			if (sz->input_f)
+				fclose(sz->input_f);
+			else if (sz->mm_addr) {
+				munmap(sz->mm_addr,sz->mm_size);
+				sz->mm_addr=NULL;
 			}
 
 			log_debug("receiver skipped");
@@ -1465,24 +1523,24 @@ again:
 			 * Suppress zcrcw request otherwise triggered by
 			 * lastsync==bytcnt
 			 */
-			if (!mm_addr)
-			if (rxpos && fseek(input_f, (long) rxpos, 0)) {
+			if (!sz->mm_addr)
+			if (rxpos && fseek(sz->input_f, (long) rxpos, 0)) {
 				int er=errno;
 				log_debug("fseek failed: %s", strerror(er));
 				return ERROR;
 			}
 			if (rxpos)
 				zi->bytes_skipped=rxpos;
-			bytcnt = zi->bytes_sent = rxpos;
-			Lastsync = rxpos -1;
-	 		return zsendfdata(zm, zi);
+			sz->bytcnt = zi->bytes_sent = rxpos;
+			sz->lastsync = rxpos -1;
+	 		return zsendfdata(sz, zm, zi);
 		}
 	}
 }
 
 /* Send the data in the file */
 static int
-zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
+zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 {
 	static int c;
 	static int junkcount;				/* Counts garbage chars received by TX */
@@ -1492,18 +1550,18 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 	static long total_sent = 0;
 	static time_t low_bps=0;
 
-	if (use_mmap && !mm_addr)
+	if (!sz->mm_addr)
 	{
 		struct stat st;
-		if (fstat (fileno (input_f), &st) == 0) {
-			mm_size = st.st_size;
-			mm_addr = mmap (0, mm_size, PROT_READ,
-							MAP_SHARED, fileno (input_f), 0);
-			if ((caddr_t) mm_addr == (caddr_t) - 1)
-				mm_addr = NULL;
+		if (fstat (fileno (sz->input_f), &st) == 0) {
+			sz->mm_size = st.st_size;
+			sz->mm_addr = mmap (0, sz->mm_size, PROT_READ,
+							MAP_SHARED, fileno (sz->input_f), 0);
+			if ((caddr_t) sz->mm_addr == (caddr_t) - 1)
+				sz->mm_addr = NULL;
 			else {
-				fclose (input_f);
-				input_f = NULL;
+				fclose (sz->input_f);
+				sz->input_f = NULL;
 			}
 		}
 	}
@@ -1511,7 +1569,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 	if (play_with_sigint)
 		signal (SIGINT, onintr);
 
-	Lrxpos = 0;
+	sz->lrxpos = 0;
 	junkcount = 0;
 	Beenhereb4 = 0;
   somemore:
@@ -1520,20 +1578,20 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 		  signal (SIGINT, onintr);
 	  waitack:
 		junkcount = 0;
-		c = getinsync (zm, zi, 0);
+		c = getinsync (sz, zm, zi, 0);
 	  gotack:
 		switch (c) {
 		default:
-			if (input_f)
-				fclose (input_f);
+			if (sz->input_f)
+				fclose (sz->input_f);
 			return ERROR;
 		case ZCAN:
-			if (input_f)
-				fclose (input_f);
+			if (sz->input_f)
+				fclose (sz->input_f);
 			return ERROR;
 		case ZSKIP:
-			if (input_f)
-				fclose (input_f);
+			if (sz->input_f)
+				fclose (sz->input_f);
 			return c;
 		case ZACK:
 		case ZRPOS:
@@ -1552,7 +1610,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 			{
 			case CAN:
 			case ZPAD:
-				c = getinsync (zm, zi, 1);
+				c = getinsync (sz, zm, zi, 1);
 				goto gotack;
 			case XOFF:			/* Wait a while for an XON */
 			case XOFF | 0200:
@@ -1561,7 +1619,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 		}
 	}
 
-	Txwcnt = 0;
+	sz->txwcnt = 0;
 	zm_store_header (zi->bytes_sent);
 	zm_send_binary_header (zm, ZDATA, Txhdr);
 
@@ -1573,27 +1631,27 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 		total_sent += blklen + OVERHEAD;
 		if (blklen != old)
 			log_trace (_("blklen now %d\n"), blklen);
-		if (mm_addr) {
-			if (zi->bytes_sent + blklen < mm_size)
+		if (sz->mm_addr) {
+			if (zi->bytes_sent + blklen < sz->mm_size)
 				n = blklen;
 			else {
-				n = mm_size - zi->bytes_sent;
+				n = sz->mm_size - zi->bytes_sent;
 				zi->eof_seen = 1;
 			}
 		} else
-			n = zfilbuf (zi);
+			n = zfilbuf (sz, zi);
 		if (zi->eof_seen) {
 			e = ZCRCE;
 			log_trace("e=ZCRCE/eof seen");
 		} else if (junkcount > 3) {
 			e = ZCRCW;
 			log_trace("e=ZCRCW/junkcount > 3");
-		} else if (bytcnt == Lastsync) {
+		} else if (sz->bytcnt == sz->lastsync) {
 			e = ZCRCW;
-			log_trace("e=ZCRCW/bytcnt == Lastsync == %ld",
-					(unsigned long) Lastsync);
-		} else if (Txwindow && (Txwcnt += n) >= Txwspac) {
-			Txwcnt = 0;
+			log_trace("e=ZCRCW/bytcnt == sz->lastsync == %ld",
+					(unsigned long) sz->lastsync);
+		} else if (sz->txwindow && (sz->txwcnt += n) >= sz->txwspac) {
+			sz->txwcnt = 0;
 			e = ZCRCQ;
 			log_trace("e=ZCRCQ/Window");
 		} else {
@@ -1639,7 +1697,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 		} else
 			not_printed++;
 		ZM_SEND_DATA (DATAADR, n, e);
-		bytcnt = zi->bytes_sent += n;
+		sz->bytcnt = zi->bytes_sent += n;
 		if (e == ZCRCW)
 			goto waitack;
 		/*
@@ -1654,7 +1712,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 			{
 			case CAN:
 			case ZPAD:
-				c = getinsync (zm, zi, 1);
+				c = getinsync (sz, zm, zi, 1);
 				if (c == ZACK)
 					break;
 				/* zcrce - dinna wanna starta ping-pong game */
@@ -1667,15 +1725,15 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 				++junkcount;
 			}
 		}
-		if (Txwindow) {
+		if (sz->txwindow) {
 			size_t tcount = 0;
-			while ((tcount = zi->bytes_sent - Lrxpos) >= Txwindow) {
+			while ((tcount = zi->bytes_sent - sz->lrxpos) >= sz->txwindow) {
 				log_debug ("%ld (%ld,%ld) window >= %u", tcount,
-					(long) zi->bytes_sent, (long) Lrxpos,
-					Txwindow);
+					(long) zi->bytes_sent, (long) sz->lrxpos,
+					sz->txwindow);
 				if (e != ZCRCQ)
 					ZM_SEND_DATA (txbuf, 0, e = ZCRCQ);
-				c = getinsync (zm, zi, 1);
+				c = getinsync (sz, zm, zi, 1);
 				if (c != ZACK) {
 					ZM_SEND_DATA (txbuf, 0, ZCRCE);
 					goto gotack;
@@ -1692,7 +1750,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 	for (;;) {
 		zm_store_header (zi->bytes_sent);
 		zm_send_binary_header (zm, ZEOF, Txhdr);
-		switch (getinsync (zm, zi, 0)) {
+		switch (getinsync (sz, zm, zi, 0)) {
 		case ZACK:
 			continue;
 		case ZRPOS:
@@ -1700,12 +1758,12 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 		case ZRINIT:
 			return OK;
 		case ZSKIP:
-			if (input_f)
-				fclose (input_f);
+			if (sz->input_f)
+				fclose (sz->input_f);
 			return c;
 		default:
-			if (input_f)
-				fclose (input_f);
+			if (sz->input_f)
+				fclose (sz->input_f);
 			return ERROR;
 		}
 	}
@@ -1829,7 +1887,7 @@ calcit:
  * Respond to receiver's complaint, get back in sync with receiver
  */
 static int
-getinsync(zm_t *zm, struct zm_fileinfo *zi, int flag)
+getinsync(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, int flag)
 {
 	int c;
 	size_t rxpos;
@@ -1847,30 +1905,30 @@ getinsync(zm_t *zm, struct zm_fileinfo *zi, int flag)
 			/*  If sending to a buffered modem, you  */
 			/*   might send a break at this point to */
 			/*   dump the modem's buffer.		 */
-			if (input_f)
-				clearerr(input_f);	/* In case file EOF seen */
-			if (!mm_addr)
-			if (fseek(input_f, (long) rxpos, 0))
+			if (sz->input_f)
+				clearerr(sz->input_f);	/* In case file EOF seen */
+			if (!sz->mm_addr)
+			if (fseek(sz->input_f, (long) rxpos, 0))
 				return ERROR;
 			zi->eof_seen = 0;
-			bytcnt = Lrxpos = zi->bytes_sent = rxpos;
-			if (Lastsync == rxpos) {
+			sz->bytcnt = sz->lrxpos = zi->bytes_sent = rxpos;
+			if (sz->lastsync == rxpos) {
 				error_count++;
 			}
-			Lastsync = rxpos;
+			sz->lastsync = rxpos;
 			return c;
 		case ZACK:
-			Lrxpos = rxpos;
+			sz->lrxpos = rxpos;
 			if (flag || zi->bytes_sent == rxpos)
 				return ZACK;
 			continue;
 		case ZRINIT:
 		case ZSKIP:
-			if (input_f)
-				fclose(input_f);
-			else if (mm_addr) {
-				munmap(mm_addr,mm_size);
-				mm_addr=NULL;
+			if (sz->input_f)
+				fclose(sz->input_f);
+			else if (sz->mm_addr) {
+				munmap(sz->mm_addr,sz->mm_size);
+				sz->mm_addr=NULL;
 			}
 			return c;
 		case ERROR:
