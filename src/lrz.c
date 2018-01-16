@@ -79,8 +79,7 @@ struct rz_ {
 
 	// Constant
 	int restricted;	/* restricted; no /.. or ../ in filenames */
-	                  /* restricted > 0 prevents remote commands
-			     restricted > 0 prevents unlinking
+	                  /*  restricted > 0 prevents unlinking
 			     restricted > 0 prevents overwriting dot files
 			     restricted = 2 prevents overwriting files
 			     restricted > 0 restrict files to curdir or PUBDIR
@@ -92,7 +91,6 @@ struct rz_ {
 	int rxbinary;	/* A flag. Receive all files in bin mode */
 	int rxascii;	/* A flag. Receive files in ascii (translate) mode */
 	int try_resume; /* A flag. When true, try restarting downloads */
-	int allow_remote_commands; /* A flag. Run ZCOMMAND blocks as command. */
 	int junk_path;  /* A flag. When true, ignore the path
 			 * component of an incoming filename. */
 	int tcp_flag;		/* Not a flag.
@@ -128,8 +126,7 @@ struct rz_ {
 typedef struct rz_ rz_t;
 
 rz_t *rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
-	      int rxbinary, long buffersize,
-	      int allow_remote_commands, int nflag, int junk_path,
+	      int rxbinary, long buffersize, int nflag, int junk_path,
 	      unsigned long min_bps, long min_bps_time,
 	      time_t stop_time, int try_resume,
 	      int makelcpathname, int rxclob,
@@ -161,8 +158,7 @@ static size_t getfree (void);
 
 rz_t*
 rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
-	int rxbinary, long buffersize,
-	int allow_remote_commands, int nflag, int junk_path,
+	int rxbinary, long buffersize, int nflag, int junk_path,
 	unsigned long min_bps, long min_bps_time,
 	time_t stop_time, int try_resume,
 	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe)
@@ -176,7 +172,6 @@ rz_init(int under_rsh, int restricted, char lzmanag, int rxascii,
 	rz->rxascii = rxascii;
 	rz->rxbinary = rxbinary;
 	rz->buffersize = buffersize;
-	rz->allow_remote_commands = allow_remote_commands;
 	rz->nflag = nflag;
 	rz->junk_path = junk_path;
 	rz->min_bps = min_bps;
@@ -220,8 +215,6 @@ static struct option const long_options[] =
 	{"ascii", no_argument, NULL, 'a'},
 	{"binary", no_argument, NULL, 'b'},
 	{"bufsize", required_argument, NULL, 'B'},
-	{"allow-commands", no_argument, NULL, 'C'},
-	{"allow-remote-commands", no_argument, NULL, 'C'},
 	{"escape", no_argument, NULL, 'e'},
 	{"rename", no_argument, NULL, 'E'},
 	{"help", no_argument, NULL, 'h'},
@@ -275,7 +268,6 @@ main(int argc, char *argv[])
 	int Rxascii = FALSE;
 	int Rxbinary=FALSE;
 	long buffersize=32768;
-	int allow_remote_commands = FALSE;
 	int Nflag = 0;
 	int Zctlesc = 0;
 	int junk_path = FALSE;
@@ -334,7 +326,6 @@ main(int argc, char *argv[])
 			else
 				buffersize=strtol(optarg,NULL,10);
 			break;
-		case 'C': allow_remote_commands=TRUE; break;
 		case 'D': Nflag = TRUE; break;
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
 		case 'e': Zctlesc = 1; break;
@@ -486,9 +477,6 @@ main(int argc, char *argv[])
 	if (startup_delay)
 		sleep(startup_delay);
 
-	if (Restricted && allow_remote_commands) {
-		allow_remote_commands=FALSE;
-	}
 	if (Fromcu && !Quiet) {
 		if (Verbose == LOG_ERROR)
 			Verbose = LOG_INFO;
@@ -503,7 +491,6 @@ main(int argc, char *argv[])
 			   Rxascii,
 			   Rxbinary,
 			   buffersize,
-			   allow_remote_commands,
 			   Nflag,
 			   junk_path,
 			   min_bps,
@@ -610,7 +597,6 @@ usage(int exitcode, const char *what)
 	display(_("  -a, --ascii                 ASCII transfer (change CR/LF to LF)"));
 	display(_("  -b, --binary                binary transfer"));
 	display(_("  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)"));
-	display(_("  -C, --allow-remote-commands allow execution of remote commands (Z)"));
 	display(_("  -D, --null                  write all received data to /dev/null"));
 	display(_("      --delay-startup N       sleep N seconds before doing anything"));
 	display(_("  -e, --escape                Escape control characters (Z)"));
@@ -1380,7 +1366,6 @@ static int
 tryz(rz_t *rz, zm_t *zm)
 {
 	register int c, n;
-	register int cmdzack1flg;
 	int zrqinits_received=0;
 	size_t bytes_in_block=0;
 
@@ -1461,38 +1446,6 @@ again:
 		case ZFREECNT:
 			zm_store_header(getfree());
 			zm_send_hex_header(zm, ZACK, Txhdr);
-			goto again;
-		case ZCOMMAND:
-			cmdzack1flg = Rxhdr[ZF0];
-			if (zm_receive_data(zm, rz->secbuf, MAX_BLOCK,&bytes_in_block) == GOTCRCW) {
-				log_info("%s",  _("remote command execution requested"));
-				log_info("%s: %s", program_name, rz->secbuf);
-				if (!rz->allow_remote_commands)
-				{
-					log_info("%s: %s", program_name,
-						 _("not executed"));
-					zm_send_hex_header(zm, ZCOMPL, Txhdr);
-					return ZCOMPL;
-				}
-				if (cmdzack1flg & ZCACK1)
-					zm_store_header(0L);
-				else
-					zm_store_header((size_t)sys2(rz->secbuf));
-				purgeline(0);	/* dump impatient questions */
-				do {
-					zm_send_hex_header(zm, ZCOMPL, Txhdr);
-					if (zm_get_header(zm, Rxhdr, NULL) == ZFIN)
-						break;
-					rz->errors++;
-
-				} while (rz->errors < 20);
-
-				ackbibi(zm);
-				if (cmdzack1flg & ZCACK1)
-					exec2(rz->secbuf);
-				return ZCOMPL;
-			}
-			zm_send_hex_header(zm, ZNAK, Txhdr);
 			goto again;
 		case ZCOMPL:
 			goto again;

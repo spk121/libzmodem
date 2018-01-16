@@ -76,7 +76,6 @@ static int getinsync (zm_t *zm, struct zm_fileinfo *, int flag);
 static void countem (int argc, char **argv);
 static void chkinvok (const char *s);
 static void usage (int exitcode, const char *what);
-static int zsendcmd (zm_t *zm, const char *buf, size_t blen);
 static void saybibi (zm_t *zm);
 static int wcsend (zm_t *zm, int argc, char *argp[]);
 static int wcputsec (zm_t *zm, char *buf, int sectnum, size_t cseclen);
@@ -130,9 +129,6 @@ static char Lzconv;	/* Local ZMODEM file conversion request */
 static char Lzmanag;	/* Local ZMODEM file management request */
 static int Lskipnocor;
 static char Lztrans;
-static int command_mode;		/* Send a command, then exit. */
-static int Cmdtries = 11;
-static int Cmdack1;		/* Rx ACKs command, then do it */
 static int Exitcode;
 static size_t Lastsync;		/* Last offset to which we got a ZRPOS */
 static int Beenhereb4;		/* How many times we've been ZRPOS'd same place */
@@ -199,9 +195,6 @@ static struct option const long_options[] =
   {"start-4k", no_argument, NULL, '5'},
   {"binary", no_argument, NULL, 'b'},
   {"bufsize", required_argument, NULL, 'B'},
-  {"cmdtries", required_argument, NULL, 'C'},
-  {"command", required_argument, NULL, 'c'},
-  {"immediate-command", required_argument, NULL, 'i'},
   {"full-path", no_argument, NULL, 'f'},
   {"escape", no_argument, NULL, 'e'},
   {"rename", no_argument, NULL, 'E'},
@@ -257,7 +250,6 @@ main(int argc, char **argv)
 	int stdin_files;
 	char **patts;
 	int c;
-	const char *Cmdstr=NULL;		/* Pointer to the command string */
 	unsigned int startup_delay=0;
 	int Znulls = 0;
 	int Rxtimeout = 0;
@@ -325,20 +317,6 @@ main(int argc, char **argv)
 				buffersize=strtol(optarg,NULL,10);
 			use_mmap=0;
 			break;
-		case 'C':
-			s_err = xstrtoul (optarg, NULL, 0, &tmp, NULL);
-			Cmdtries = tmp;
-			if (s_err != LONGINT_OK)
-				STRTOL_FATAL_ERROR (optarg, _("command tries"), s_err);
-			break;
-		case 'i':
-			Cmdack1 = ZCACK1;
-			/* **** FALL THROUGH TO **** */
-		case 'c':
-			command_mode = TRUE;
-			Cmdstr = optarg;
-			break;
-			/* **** FALL THROUGH TO **** */
 		case 'f': Fullname=TRUE; break;
 		case 'e': Zctlesc = 1; break;
 		case 'E': Lzmanag = ZF1_ZMCHNG; break;
@@ -534,13 +512,8 @@ main(int argc, char **argv)
 	npats = argc - optind;
 	patts=&argv[optind];
 
-	if (npats < 1 && !command_mode)
+	if (npats < 1)
 		usage(2,_("need at least one file to send"));
-	if (command_mode && Restricted) {
-		display(_("Can't send command in restricted mode"));
-		exit(1);
-	}
-
 	if (Fromcu && !Quiet) {
 		if (Verbose == LOG_FATAL)
 			Verbose = LOG_INFO;
@@ -659,8 +632,6 @@ main(int argc, char **argv)
 
 	purgeline(io_mode_fd);
 	zm_store_header(0L);
-	if (command_mode)
-		Txhdr[ZF0] = ZCOMMAND;
 	zm_send_hex_header(zm, ZRQINIT, Txhdr);
 	zrqinits_sent++;
 	if (tcp_flag==1) {
@@ -669,14 +640,7 @@ main(int argc, char **argv)
 	}
 	fflush(stdout);
 
-	if (Cmdstr) {
-		if (getzrxinit(zm)) {
-			Exitcode=0200; canit(STDOUT_FILENO);
-		}
-		else if (zsendcmd(zm, Cmdstr, strlen(Cmdstr)+1)) {
-			Exitcode=0200; canit(STDOUT_FILENO);
-		}
-	} else if (wcsend(zm, npats, patts)==ERROR) {
+	if (wcsend(zm, npats, patts)==ERROR) {
 		Exitcode=0200;
 		canit(STDOUT_FILENO);
 	}
@@ -1263,7 +1227,6 @@ usage(int exitcode, const char *what)
 	display(_("%s version %s"), program_name, VERSION);
 
 	display(_("Usage: %s [options] file ..."), program_name);
-	display(_("   or: %s [options] -{c|i} COMMAND\n"),program_name);
 	display(_("Send file(s) with ZMODEM protocol"));
 	display(_(
 		"    (Z) = option applies to ZMODEM only\n"
@@ -1277,13 +1240,10 @@ usage(int exitcode, const char *what)
 "      --start-8k              start with 8K blocksize\n"
 "  -b, --binary                binary transfer\n"
 "  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)\n"
-"  -c, --command COMMAND       execute remote command COMMAND (Z)\n"
-"  -C, --command-tries N       try N times to execute a command (Z)\n"
 "      --delay-startup N       sleep N seconds before doing anything\n"
 "  -e, --escape                escape all control characters (Z)\n"
 "  -E, --rename                force receiver to rename files it already has\n"
 "  -f, --full-path             send full pathname (Y/Z)\n"
-"  -i, --immediate-command CMD send remote CMD, return immediately (Z)\n"
 "  -h, --help                  print this usage message\n"
 "  -L, --packetlen N           limit subpacket length to N bytes (Z)\n"
 "  -l, --framelen N            limit frame length to N bytes (l>=L) (Z)\n"
@@ -1349,9 +1309,6 @@ getzrxinit(zm_t *zm)
 			zm_store_header(rxpos);
 			zm_send_hex_header(zm, ZACK, Txhdr);
 			continue;
-		case ZCOMMAND:		/* They didn't see our ZRQINIT */
-			/* ??? Since when does a receiver send ZCOMMAND?  -- uwe */
-			continue;
 		case ZRINIT:
 			Rxflags = 0377 & Rxhdr[ZF0];
 			Rxflags2 = 0377 & Rxhdr[ZF1];
@@ -1386,12 +1343,10 @@ getzrxinit(zm_t *zm)
 			 * If input is not a regular file, force ACK's to
 			 *  prevent running beyond the buffer limits
 			 */
-			if ( !command_mode) {
-				fstat(fileno(input_f), &f);
-				if (!(S_ISREG(f.st_mode))) {
-					Canseek = -1;
-					/* return ERROR; */
-				}
+			fstat(fileno(input_f), &f);
+			if (!(S_ISREG(f.st_mode))) {
+				Canseek = -1;
+				/* return ERROR; */
 			}
 			/* Set initial subpacket length */
 			if (blklen < 1024) {	/* Command line override? */
@@ -1993,56 +1948,6 @@ saybibi(zm_t *zm)
 		case ZCAN:
 		case TIMEOUT:
 			return;
-		}
-	}
-}
-
-/* Send command and related info */
-static int
-zsendcmd(zm_t *zm, const char *buf, size_t blen)
-{
-	int c;
-	pid_t cmdnum;
-	size_t rxpos;
-
-	cmdnum = getpid();
-	errors = 0;
-	for (;;) {
-		zm_store_header((size_t) cmdnum);
-		Txhdr[ZF0] = Cmdack1;
-		zm_send_binary_header(zm, ZCOMMAND, Txhdr);
-		ZM_SEND_DATA(buf, blen, ZCRCW);
-listen:
-		zm->rxtimeout = 100;		/* Ten second wait for resp. */
-		c = zm_get_header(zm, Rxhdr, &rxpos);
-
-		switch (c) {
-		case ZRINIT:
-			goto listen;	/* CAF 8-21-87 */
-		case ERROR:
-		case TIMEOUT:
-			if (++errors > Cmdtries)
-				return ERROR;
-			continue;
-		case ZCAN:
-		case ZABORT:
-		case ZFIN:
-		case ZSKIP:
-		case ZRPOS:
-			return ERROR;
-		default:
-			if (++errors > 20)
-				return ERROR;
-			continue;
-		case ZCOMPL:
-			Exitcode = rxpos;
-			saybibi(zm);
-			return OK;
-		case ZRQINIT:
-			log_debug("******** RZ *******");
-			system("rz");
-			log_debug("******** SZ *******");
-			goto listen;
 		}
 	}
 }
