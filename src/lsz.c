@@ -237,7 +237,6 @@ static struct option const long_options[] =
   {"unrestrict", no_argument, NULL, 'U'},
   {"verbose", no_argument, NULL, 'v'},
   {"windowsize", required_argument, NULL, 'w'},
-  {"xmodem", no_argument, NULL, 'X'},
   {"ymodem", no_argument, NULL, 1},
   {"zmodem", no_argument, NULL, 'Z'},
   {"overwrite", no_argument, NULL, 'y'},
@@ -486,7 +485,6 @@ main(int argc, char **argv)
 			 || (!blkopt && Txwspac < MAX_BLOCK))
 				blkopt = Txwspac;
 			break;
-		case 'X': protocol=ZM_XMODEM; break;
 		case 1:   protocol=ZM_YMODEM; break;
 		case 'Z': protocol=ZM_ZMODEM; break;
 		case 'Y':
@@ -660,53 +658,51 @@ main(int argc, char **argv)
 	signal(SIGPIPE, bibi);
 	signal(SIGHUP, bibi);
 
-	if ( zm->protocol!=ZM_XMODEM) {
-		if (zm->protocol==ZM_ZMODEM) {
-			display("rz");
-			fflush(stdout);
+	if (zm->protocol==ZM_ZMODEM) {
+		display("rz");
+		fflush(stdout);
+	}
+	countem(npats, patts);
+	if (zm->protocol == ZM_ZMODEM) {
+		/* throw away any input already received. This doesn't harm
+		 * as we invite the receiver to send it's data again, and
+		 * might be useful if the receiver has already died or
+		 * if there is dirt left if the line
+		 */
+		struct timeval t;
+		unsigned char throwaway;
+		fd_set f;
+
+		purgeline(io_mode_fd);
+
+		t.tv_sec = 0;
+		t.tv_usec = 0;
+
+		FD_ZERO(&f);
+		FD_SET(io_mode_fd,&f);
+
+		while (select(1,&f,NULL,NULL,&t)) {
+			if (0==read(io_mode_fd,&throwaway,1)) /* EOF ... */
+				break;
 		}
-		countem(npats, patts);
-		if (zm->protocol == ZM_ZMODEM) {
-			/* throw away any input already received. This doesn't harm
-			 * as we invite the receiver to send it's data again, and
-			 * might be useful if the receiver has already died or
-			 * if there is dirt left if the line
-			 */
-			struct timeval t;
-			unsigned char throwaway;
-			fd_set f;
 
-			purgeline(io_mode_fd);
-
-			t.tv_sec = 0;
-			t.tv_usec = 0;
-
-			FD_ZERO(&f);
-			FD_SET(io_mode_fd,&f);
-
-			while (select(1,&f,NULL,NULL,&t)) {
-				if (0==read(io_mode_fd,&throwaway,1)) /* EOF ... */
-					break;
-			}
-
-			purgeline(io_mode_fd);
-			zm_store_header(0L);
-			if (command_mode)
-				Txhdr[ZF0] = ZCOMMAND;
-			zm_send_hex_header(zm, ZRQINIT, Txhdr);
-			zrqinits_sent++;
-			if (Rxflags2 != ZF1_TIMESYNC)
-				/* disable timesync if there are any flags we don't know.
-				 * dsz/gsz seems to use some other flags! */
-				enable_timesync=FALSE;
-			if (Rxflags2 & ZF1_TIMESYNC && enable_timesync) {
-				Totalleft+=6; /* TIMESYNC never needs more */
-				Filesleft++;
-			}
-			if (tcp_flag==1) {
-				Totalleft+=256; /* tcp never needs more */
-				Filesleft++;
-			}
+		purgeline(io_mode_fd);
+		zm_store_header(0L);
+		if (command_mode)
+			Txhdr[ZF0] = ZCOMMAND;
+		zm_send_hex_header(zm, ZRQINIT, Txhdr);
+		zrqinits_sent++;
+		if (Rxflags2 != ZF1_TIMESYNC)
+			/* disable timesync if there are any flags we don't know.
+			 * dsz/gsz seems to use some other flags! */
+			enable_timesync=FALSE;
+		if (Rxflags2 & ZF1_TIMESYNC && enable_timesync) {
+			Totalleft+=6; /* TIMESYNC never needs more */
+			Filesleft++;
+		}
+		if (tcp_flag==1) {
+			Totalleft+=256; /* tcp never needs more */
+			Filesleft++;
 		}
 	}
 	fflush(stdout);
@@ -861,7 +857,7 @@ wcsend (zm_t *zm, int argc, char *argp[])
 	}
 	if (zm->zmodem_requested)
 		saybibi (zm);
-	else if (zm->protocol != ZM_XMODEM) {
+	else {
 		struct zm_fileinfo zi;
 		char pa[PATH_MAX+1];
 		*pa='\0';
@@ -1015,14 +1011,6 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 	char name2[PATH_MAX+1];
 	struct stat f;
 
-	if (zm->protocol==ZM_XMODEM) {
-		if (*zi->fname && fstat(fileno(input_f), &f)!= -1) {
-			log_info(_("Sending %s, %ld blocks: "),
-				 zi->fname, (long) (f.st_size>>7));
-		}
-		log_info(_("Give your local XMODEM receive command now."));
-		return OK;
-	}
 	if (!zm->zmodem_requested)
 		if (getnak(zm)) {
 			log_debug("getnak failed");
@@ -1197,10 +1185,8 @@ wcputsec(zm_t *zm, char *buf, int sectnum, size_t cseclen)
 	int attempts;
 
 	firstch=0;	/* part of logic to detect CAN CAN */
-	
-	if (zm->protocol==ZM_XMODEM) {
-		log_debug(_("Xmodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
-	} else if (zm->protocol==ZM_YMODEM) {
+
+	if (zm->protocol==ZM_YMODEM) {
 		log_debug(_("Ymodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
 	} else if (zm->protocol==ZM_ZMODEM) {
 		log_debug(_("Zmodem sectors/kbytes sent: %3d/%2dk"), Totsecs, Totsecs/8 );
@@ -1348,9 +1334,8 @@ usage(int exitcode, const char *what)
 
 	display(_("Usage: %s [options] file ..."), program_name);
 	display(_("   or: %s [options] -{c|i} COMMAND\n"),program_name);
-	display(_("Send file(s) with ZMODEM/YMODEM/XMODEM protocol"));
+	display(_("Send file(s) with ZMODEM/YMODEM protocol"));
 	display(_(
-		"    (X) = option applies to XMODEM only\n"
 		"    (Y) = option applies to YMODEM only\n"
 		"    (Z) = option applies to ZMODEM only\n"
 		));
@@ -1396,7 +1381,6 @@ usage(int exitcode, const char *what)
 "  -U, --unrestrict            turn off restricted mode (if allowed to)\n"
 "  -v, --verbose               be verbose, provide debugging information\n"
 "  -w, --windowsize N          Window is N bytes (Z)\n"
-"  -X, --xmodem                use XMODEM protocol\n"
 "  -y, --overwrite             overwrite existing files\n"
 "  -Y, --overwrite-or-skip     overwrite existing files, else skip\n"
 "      --ymodem                use YMODEM protocol\n"
@@ -1824,7 +1808,7 @@ zsendfdata (zm_t *zm, struct zm_fileinfo *zi)
 				  (long) zi->bytes_sent, (long) zi->bytes_total,
 				  last_bps, minleft, secleft);
 			last_txpos = zi->bytes_sent;
-		} else 
+		} else
 			not_printed++;
 		ZM_SEND_DATA (DATAADR, n, e);
 		bytcnt = zi->bytes_sent += n;
@@ -2162,8 +2146,6 @@ chkinvok (const char *s)
 	if (*s == 'l')
 		s++;					/* lsz -> sz */
 	protocol = ZM_ZMODEM;
-	if (s[0] == 's' && s[1] == 'x')
-		protocol = ZM_XMODEM;
 	if (s[0] == 's' && (s[1] == 'b' || s[1] == 'y')) {
 		protocol = ZM_YMODEM;
 	}

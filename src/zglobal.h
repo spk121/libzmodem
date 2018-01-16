@@ -132,7 +132,6 @@
 #define DEFBYTL 2000000000L	/* default rx file size */
 
 enum zm_type_enum {
-	ZM_XMODEM,
 	ZM_YMODEM,
 	ZM_ZMODEM
 };
