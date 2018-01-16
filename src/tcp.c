@@ -131,9 +131,13 @@ tcp_connect (char *buf)
 	memset(&s_in,0,sizeof(s_in));
 	s_in.sin_family = AF_INET;
 
+	if (buf == NULL || strlen(buf) == 0) {
+		log_fatal(_("tcp_connect hostname is empty"));
+		exit (1);
+	}
 	/* i _really_ distrust scanf & co. Or maybe i distrust bad input */
 	if (*buf!='[') {
-		log_fatal(_("tcp_connect: illegal format1"));
+		log_fatal(_("tcp_connect: invalid format1 '%s'"), buf);
 		exit(1);
 	}
 	p=strchr(buf+1,']');
