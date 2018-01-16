@@ -110,7 +110,6 @@ static char Crcflg;
 static int Verbose=LOG_ERROR;
 static int Restricted=0;	/* restricted; no /.. or ../ in filenames */
 static int Quiet=0;		/* overrides logic that would otherwise set verbose */
-static int Ascii=0;		/* Add CR's for brain damaged programs */
 static int Fullname=0;		/* transmit full pathname */
 static int Unlinkafter=0;	/* Unlink file after it is sent */
 static int Dottoslash=0;	/* Change foo.bar.baz to foo/bar/baz */
@@ -200,7 +199,6 @@ static struct option const long_options[] =
   {"start-8k", no_argument, NULL, '9'},
   {"try-4k", no_argument, NULL, '4'},
   {"start-4k", no_argument, NULL, '5'},
-  {"ascii", no_argument, NULL, 'a'},
   {"binary", no_argument, NULL, 'b'},
   {"bufsize", required_argument, NULL, 'B'},
   {"cmdtries", required_argument, NULL, 'C'},
@@ -325,7 +323,6 @@ main(int argc, char **argv)
 			start_blklen=4096;
 			max_blklen=4096;
 			break;
-		case 'a': Lzconv = ZCNL; Ascii = TRUE; break;
 		case 'b': Lzconv = ZCBIN; break;
 		case 'B':
 			if (0==strcmp(optarg,"auto"))
@@ -1023,7 +1020,7 @@ wctxpn(zm_t *zm, struct zm_fileinfo *zi)
 	p=q;
 	while (q < (txbuf + MAX_BLOCK))
 		*q++ = 0;
-	if ((!Ascii) && (input_f!=stdin) && *zi->fname && (fstat(fileno(input_f), &f)!= -1)) {
+	if ((input_f!=stdin) && *zi->fname && (fstat(fileno(input_f), &f)!= -1)) {
 		if (hyperterm) {
 			sprintf(p, "%lu", (long) f.st_size);
 		} else {
@@ -1073,7 +1070,6 @@ getnak(zm_t *zm)
 		case ZPAD:
 			if (getzrxinit(zm))
 				return ERROR;
-			Ascii = 0;	/* Receiver does the conversion */
 			return FALSE;
 		case TIMEOUT:
 			/* 30 seconds are enough */
@@ -1240,14 +1236,12 @@ filbuf(char *buf, size_t count)
 	int c;
 	size_t m;
 
-	if ( !Ascii) {
-		m = read(fileno(input_f), buf, count);
-		if (m <= 0)
-			return 0;
-		while (m < count)
-			buf[m++] = 032;
-		return count;
-	}
+	m = read(fileno(input_f), buf, count);
+	if (m <= 0)
+		return 0;
+	while (m < count)
+		buf[m++] = 032;
+	return count;
 	m=count;
 	if (Lfseen) {
 		*buf++ = 012; --m; Lfseen = 0;
@@ -1324,7 +1318,6 @@ usage(int exitcode, const char *what)
 "      --start-4k              start with 4K blocksize (doesn't try 8)\n"
 "  -8, --try-8k                go up to 8K blocksize\n"
 "      --start-8k              start with 8K blocksize\n"
-"  -a, --ascii                 ASCII transfer (change CR/LF to LF)\n"
 "  -b, --binary                binary transfer\n"
 "  -B, --bufsize N             buffer N bytes (N==auto: buffer whole file)\n"
 "  -c, --command COMMAND       execute remote command COMMAND (Z)\n"
