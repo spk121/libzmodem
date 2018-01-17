@@ -32,13 +32,13 @@
 
 /* send cancel string to get the other end to shut up */
 void
-canit (int fd)
+canit (zreadline_t *zr, int fd)
 {
 	static char canistr[] =
 	{
 		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0
 	};
-	purgeline(fd);
+	purgeline(zr, fd);
 	write(fd,canistr,strlen(canistr));
 	if (fd==0)
 		write(1,canistr,strlen(canistr));

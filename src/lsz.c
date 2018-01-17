@@ -152,23 +152,23 @@ sz_init(char lzconv, char lzmanag, int lskipnocor, int tcp_flag, unsigned txwind
 	return sz;
 }
 
-static int zsendfile (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen);
-static int getnak (sz_t *sz, zm_t *zm);
-static int wctxpn (sz_t *sz, zm_t *zm, struct zm_fileinfo *);
-static int wcs (sz_t *sz, zm_t *zm, const char *oname, const char *remotename);
+static int zsendfile (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen);
+static int getnak (sz_t *sz, zreadline_t *zr, zm_t *zm);
+static int wctxpn (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *);
+static int wcs (sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotename);
 static size_t zfilbuf (sz_t *sz, struct zm_fileinfo *zi);
 static size_t filbuf (sz_t *sz, char *buf, size_t count);
-static int getzrxinit (sz_t *sz, zm_t *zm);
+static int getzrxinit (sz_t *sz, zreadline_t *zr, zm_t *zm);
 static int calc_blklen (sz_t *sz, long total_sent);
-static int sendzsinit (sz_t *sz, zm_t *zm);
-static int wctx (sz_t *sz, zm_t *zm, struct zm_fileinfo *);
-static int zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *);
-static int getinsync (sz_t *sz, zm_t *zm, struct zm_fileinfo *, int flag);
+static int sendzsinit (sz_t *sz, zreadline_t *zr, zm_t *zm);
+static int wctx (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *);
+static int zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *);
+static int getinsync (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *, int flag);
 static void countem (sz_t *sz, int argc, char **argv);
 static void usage (int exitcode, const char *what);
-static void saybibi (zm_t *zm);
-static int wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[]);
-static int wcputsec (sz_t *sz, zm_t *zm, char *buf, int sectnum, size_t cseclen);
+static void saybibi (zreadline_t *zr, zm_t *zm);
+static int wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[]);
+static int wcputsec (sz_t *sz, zreadline_t *zr, zm_t *zm, char *buf, int sectnum, size_t cseclen);
 static void usage1 (int exitcode);
 
 #define ZM_SEND_DATA(x,y,z)						\
@@ -204,7 +204,7 @@ static int no_timeout=FALSE;
 void
 bibi (int n)
 {
-	canit(STDOUT_FILENO);
+	// canit(zr, STDOUT_FILENO);
 	fflush (stdout);
 	// FIXME, should be io_mode (sz->io_mode_fd, 0);
 	io_mode(0, 0);
@@ -304,7 +304,7 @@ main(int argc, char **argv)
 	int under_rsh=FALSE;
 	int no_unixmode = 0;
 	int Canseek=1; /* 1: can; 0: only rewind, -1: neither */
-	int Verbose=LOG_TRACE;
+	int Verbose=LOG_ERROR;
 	int Restricted=0;	/* restricted; no /.. or ../ in filenames */
 	int Quiet=0;		/* overrides logic that would otherwise set verbose */
 	int Fullname=0;		/* transmit full pathname */
@@ -671,7 +671,7 @@ main(int argc, char **argv)
 		sz->io_mode_fd=1;
 	}
 	zm->baudrate = io_mode(sz->io_mode_fd,1);
-	readline_setup(sz->io_mode_fd, 128, 256);
+	zreadline_t *zr = zreadline_init(sz->io_mode_fd, 128, 256, 0, 0);
 
 	if (signal(SIGINT, bibi) == SIG_IGN)
 		signal(SIGINT, SIG_IGN);
@@ -696,7 +696,7 @@ main(int argc, char **argv)
 	unsigned char throwaway;
 	fd_set f;
 
-	purgeline(sz->io_mode_fd);
+	purgeline(zr, sz->io_mode_fd);
 
 	t.tv_sec = 0;
 	t.tv_usec = 0;
@@ -709,7 +709,7 @@ main(int argc, char **argv)
 			break;
 	}
 
-	purgeline(sz->io_mode_fd);
+	purgeline(zr, sz->io_mode_fd);
 	zm_store_header(0L);
 	zm_send_hex_header(zm, ZRQINIT, Txhdr);
 	sz->zrqinits_sent++;
@@ -719,9 +719,9 @@ main(int argc, char **argv)
 	}
 	fflush(stdout);
 
-	if (wcsend(sz, zm, npats, patts)==ERROR) {
+	if (wcsend(sz, zr, zm, npats, patts)==ERROR) {
 		sz->exitcode=0200;
-		canit(STDOUT_FILENO);
+		canit(zr, STDOUT_FILENO);
 	}
 	fflush(stdout);
 	io_mode(sz->io_mode_fd, 0);
@@ -740,7 +740,7 @@ main(int argc, char **argv)
 }
 
 static int
-send_pseudo(sz_t *sz, zm_t *zm, const char *name, const char *data)
+send_pseudo(sz_t *sz, zreadline_t *zr,  zm_t *zm, const char *name, const char *data)
 {
 	char *tmp;
 	const char *p;
@@ -803,7 +803,7 @@ send_pseudo(sz_t *sz, zm_t *zm, const char *name, const char *data)
 		return 1;
 	}
 
-	if (wcs (sz, zm, tmp,name) == ERROR) {
+	if (wcs (sz, zr, zm, tmp,name) == ERROR) {
 		log_info (_ ("send_pseudo %s: failed"),name);
 		ret=1;
 	}
@@ -813,7 +813,7 @@ send_pseudo(sz_t *sz, zm_t *zm, const char *name, const char *data)
 }
 
 static int
-wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[])
+wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 {
 	int n;
 
@@ -827,7 +827,7 @@ wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[])
 
 		/* tell receiver to receive via tcp */
 		d=tcp_server(buf);
-		if (send_pseudo(sz, zm, "/$tcp$.t",buf)) {
+		if (send_pseudo(sz, zr, zm, "/$tcp$.t",buf)) {
 			log_fatal(_("tcp protocol init failed"));
 			exit(1);
 		}
@@ -840,17 +840,17 @@ wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[])
 
 	for (n = 0; n < argc; ++n) {
 		sz->totsecs = 0;
-		if (wcs (sz, zm, argp[n],NULL) == ERROR)
+		if (wcs (sz, zr, zm, argp[n],NULL) == ERROR)
 			return ERROR;
 	}
 	sz->totsecs = 0;
 	if (sz->filcnt == 0) {			/* bitch if we couldn't open ANY files */
-		canit(STDOUT_FILENO);
+		canit(zr, STDOUT_FILENO);
 		log_info (_ ("Can't open any requested files."));
 		return ERROR;
 	}
 	if (zm->zmodem_requested)
-		saybibi (zm);
+		saybibi (zr, zm);
 	else {
 		struct zm_fileinfo zi;
 		char pa[PATH_MAX+1];
@@ -862,13 +862,13 @@ wcsend (sz_t *sz, zm_t *zm, int argc, char *argp[])
 		zi.bytes_sent = 0;
 		zi.bytes_received = 0;
 		zi.bytes_skipped = 0;
-		wctxpn (sz, zm, &zi);
+		wctxpn (sz, zr, zm, &zi);
 	}
 	return OK;
 }
 
 static int
-wcs(sz_t *sz, zm_t *zm, const char *oname, const char *remotename)
+wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotename)
 {
 	struct stat f;
 	char name[PATH_MAX+1];
@@ -882,7 +882,7 @@ wcs(sz_t *sz, zm_t *zm, const char *oname, const char *remotename)
 		 	strlen(MK_STRING(PUBDIR))))
 #endif
 		) {
-			canit(STDOUT_FILENO);
+			canit(zr, STDOUT_FILENO);
 			log_fatal(_("security violation: not allowed to upload from %s"),oname);
 			exit(1);
 		}
@@ -933,14 +933,14 @@ wcs(sz_t *sz, zm_t *zm, const char *oname, const char *remotename)
 	timing(1,NULL);
 
 	++sz->filcnt;
-	switch (wctxpn(sz, zm, &zi)) {
+	switch (wctxpn(sz, zr, zm, &zi)) {
 	case ERROR:
 		return ERROR;
 	case ZSKIP:
 		log_error(_("skipped: %s"), name);
 		return OK;
 	}
-	if (!zm->zmodem_requested && wctx(sz, zm, &zi)==ERROR)
+	if (!zm->zmodem_requested && wctx(sz, zr, zm, &zi)==ERROR)
 	{
 		return ERROR;
 	}
@@ -963,14 +963,14 @@ wcs(sz_t *sz, zm_t *zm, const char *oname, const char *remotename)
  *  N.B.: modifies the passed name, may extend it!
  */
 static int
-wctxpn(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
+wctxpn(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 {
 	register char *p, *q;
 	char name2[PATH_MAX+1];
 	struct stat f;
 
 	if (!zm->zmodem_requested)
-		if (getnak(sz, zm)) {
+		if (getnak(sz, zr, zm)) {
 			log_debug("getnak failed");
 			return ERROR;
 		}
@@ -1013,8 +1013,8 @@ wctxpn(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 		sz->txbuf[126] = (f.st_size + 127) >>15;
 	}
 	if (zm->zmodem_requested)
-		return zsendfile(sz, zm, zi,sz->txbuf, 1+strlen(p)+(p-sz->txbuf));
-	if (wcputsec(sz, zm, sz->txbuf, 0, 128)==ERROR) {
+		return zsendfile(sz, zr, zm, zi,sz->txbuf, 1+strlen(p)+(p-sz->txbuf));
+	if (wcputsec(sz, zr, zm, sz->txbuf, 0, 128)==ERROR) {
 		log_debug("wcputsec failed");
 		return ERROR;
 	}
@@ -1022,7 +1022,7 @@ wctxpn(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 }
 
 static int
-getnak(sz_t *sz, zm_t *zm)
+getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 {
 	int firstch;
 	int tries=0;
@@ -1030,9 +1030,9 @@ getnak(sz_t *sz, zm_t *zm)
 	sz->lastrx = 0;
 	for (;;) {
 		tries++;
-		switch (firstch = READLINE_PF(100)) {
+		switch (firstch = zreadline_pf(zr, 100)) {
 		case ZPAD:
-			if (getzrxinit(sz, zm))
+			if (getzrxinit(sz, zr, zm))
 				return ERROR;
 			return FALSE;
 		case TIMEOUT:
@@ -1062,7 +1062,7 @@ getnak(sz_t *sz, zm_t *zm)
 		case NAK:
 			return FALSE;
 		case CAN:
-			if ((firstch = READLINE_PF(20)) == CAN && sz->lastrx == CAN)
+			if ((firstch = zreadline_pf(zr, 20)) == CAN && sz->lastrx == CAN)
 				return TRUE;
 		default:
 			break;
@@ -1073,7 +1073,7 @@ getnak(sz_t *sz, zm_t *zm)
 
 
 static int
-wctx(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
+wctx(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 {
 	register size_t thisblklen;
 	register int sectnum, attempts, firstch;
@@ -1081,7 +1081,7 @@ wctx(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 	sz->firstsec=TRUE;  thisblklen = sz->blklen;
 	log_debug("wctx:file length=%ld", (long) zi->bytes_total);
 
-	while ((firstch=READLINE_PF(zm->rxtimeout))!=NAK && firstch != WANTCRC
+	while ((firstch=zreadline_pf(zr, zm->rxtimeout))!=NAK && firstch != WANTCRC
 	  && firstch != WANTG && firstch!=TIMEOUT && firstch!=CAN)
 		;
 	if (firstch==CAN) {
@@ -1098,18 +1098,18 @@ wctx(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 			thisblklen = 128;
 		if ( !filbuf(sz, sz->txbuf, thisblklen))
 			break;
-		if (wcputsec(sz, zm, sz->txbuf, ++sectnum, thisblklen)==ERROR)
+		if (wcputsec(sz, zr, zm, sz->txbuf, ++sectnum, thisblklen)==ERROR)
 			return ERROR;
 		zi->bytes_sent += thisblklen;
 	}
 	fclose(sz->input_f);
 	attempts=0;
 	do {
-		purgeline(sz->io_mode_fd);
+		purgeline(zr, sz->io_mode_fd);
 		putchar(EOT);
 		fflush(stdout);
 		++attempts;
-	} while ((firstch=(READLINE_PF(zm->rxtimeout)) != ACK) && attempts < RETRYMAX);
+	} while ((firstch=(zreadline_pf(zr,zm->rxtimeout)) != ACK) && attempts < RETRYMAX);
 	if (attempts == RETRYMAX) {
 		log_error(_("No ACK on EOT"));
 		return ERROR;
@@ -1119,7 +1119,7 @@ wctx(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 }
 
 static int
-wcputsec(sz_t *sz, zm_t *zm, char *buf, int sectnum, size_t cseclen)
+wcputsec(sz_t *sz, zreadline_t *zr, zm_t *zm, char *buf, int sectnum, size_t cseclen)
 {
 	int checksum, wcj;
 	char *cp;
@@ -1154,7 +1154,7 @@ wcputsec(sz_t *sz, zm_t *zm, char *buf, int sectnum, size_t cseclen)
 		if (sz->optiong) {
 			sz->firstsec = FALSE; return OK;
 		}
-		firstch = READLINE_PF(zm->rxtimeout);
+		firstch = zreadline_pf(zr, zm->rxtimeout);
 gotnak:
 		switch (firstch) {
 		case CAN:
@@ -1181,7 +1181,7 @@ cancan:
 		}
 		for (;;) {
 			sz->lastrx = firstch;
-			if ((firstch = READLINE_PF(zm->rxtimeout)) == TIMEOUT)
+			if ((firstch = zreadline_pf(zr,zm->rxtimeout)) == TIMEOUT)
 				break;
 			if (firstch == NAK || firstch == WANTCRC)
 				goto gotnak;
@@ -1319,7 +1319,7 @@ usage(int exitcode, const char *what)
  * Get the receiver's init parameters
  */
 static int
-getzrxinit(sz_t *sz, zm_t *zm)
+getzrxinit(sz_t *sz, zreadline_t *zr, zm_t *zm)
 {
 	static int dont_send_zrqinit=1;
 	int old_timeout=zm->rxtimeout;
@@ -1345,7 +1345,7 @@ getzrxinit(sz_t *sz, zm_t *zm)
 		}
 		dont_send_zrqinit=0;
 
-		switch (zm_get_header(zm, Rxhdr, &rxpos)) {
+		switch (zm_get_header(zr, zm, Rxhdr, &rxpos)) {
 		case ZCHALLENGE:	/* Echo receiver's challenge numbr */
 			zm_store_header(rxpos);
 			zm_send_hex_header(zm, ZACK, Txhdr);
@@ -1405,7 +1405,7 @@ getzrxinit(sz_t *sz, zm_t *zm)
 			log_debug("Rxbuflen=%d blklen=%d", sz->rxbuflen, sz->blklen);
 			log_debug("Txwindow = %u Txwspac = %d", sz->txwindow, sz->txwspac);
 			zm->rxtimeout=old_timeout;
-			return (sendzsinit(sz, zm));
+			return (sendzsinit(sz, zr, zm));
 		case ZCAN:
 		case TIMEOUT:
 			if (timeouts++==0)
@@ -1424,7 +1424,7 @@ getzrxinit(sz_t *sz, zm_t *zm)
 
 /* Send send-init information */
 static int
-sendzsinit(sz_t *sz, zm_t *zm)
+sendzsinit(sz_t *sz, zreadline_t *zr, zm_t *zm)
 {
 	int c;
 
@@ -1439,7 +1439,7 @@ sendzsinit(sz_t *sz, zm_t *zm)
 		else
 			zm_send_binary_header(zm, ZSINIT, Txhdr);
 		ZM_SEND_DATA(Myattn, 1+strlen(Myattn), ZCRCW);
-		c = zm_get_header(zm, Rxhdr, NULL);
+		c = zm_get_header(zr, zm, Rxhdr, NULL);
 		switch (c) {
 		case ZCAN:
 			return ERROR;
@@ -1455,7 +1455,7 @@ sendzsinit(sz_t *sz, zm_t *zm)
 
 /* Send file name and related info */
 static int
-zsendfile(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen)
+zsendfile(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t blen)
 {
 	int c;
 	unsigned long crc;
@@ -1475,10 +1475,10 @@ zsendfile(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, const char *buf, size_t bl
 		zm_send_binary_header(zm, ZFILE, Txhdr);
 		ZM_SEND_DATA(buf, blen, ZCRCW);
 again:
-		c = zm_get_header(zm, Rxhdr, &rxpos);
+		c = zm_get_header(zr, zm, Rxhdr, &rxpos);
 		switch (c) {
 		case ZRINIT:
-			while ((c = READLINE_PF(50)) > 0)
+			while ((c = zreadline_pf(zr, 50)) > 0)
 				if (c == ZPAD) {
 					goto again;
 				}
@@ -1566,14 +1566,14 @@ again:
 				zi->bytes_skipped=rxpos;
 			sz->bytcnt = zi->bytes_sent = rxpos;
 			sz->lastsync = rxpos -1;
-	 		return zsendfdata(sz, zm, zi);
+	 		return zsendfdata(sz, zr, zm, zi);
 		}
 	}
 }
 
 /* Send the data in the file */
 static int
-zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
+zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 {
 	static int c;
 	static int junkcount;				/* Counts garbage chars received by TX */
@@ -1610,7 +1610,7 @@ zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 		  signal (SIGINT, onintr);
 	  waitack:
 		junkcount = 0;
-		c = getinsync (sz, zm, zi, 0);
+		c = getinsync (sz, zr, zm, zi, 0);
 	  gotack:
 		switch (c) {
 		default:
@@ -1638,15 +1638,15 @@ zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 		 *  rdchk(fdes) returns non 0 if a character is available
 		 */
 		while (rdchk (sz->io_mode_fd)) {
-			switch (READLINE_PF (1))
+			switch (zreadline_pf (zr, 1))
 			{
 			case CAN:
 			case ZPAD:
-				c = getinsync (sz, zm, zi, 1);
+				c = getinsync (sz, zr, zm, zi, 1);
 				goto gotack;
 			case XOFF:			/* Wait a while for an XON */
 			case XOFF | 0200:
-				READLINE_PF (100);
+				zreadline_pf (zr, 100);
 			}
 		}
 	}
@@ -1740,11 +1740,11 @@ zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 		 */
 		fflush (stdout);
 		while (rdchk (sz->io_mode_fd)) {
-			switch (READLINE_PF (1))
+			switch (zreadline_pf (zr, 1))
 			{
 			case CAN:
 			case ZPAD:
-				c = getinsync (sz, zm, zi, 1);
+				c = getinsync (sz, zr, zm, zi, 1);
 				if (c == ZACK)
 					break;
 				/* zcrce - dinna wanna starta ping-pong game */
@@ -1752,7 +1752,7 @@ zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 				goto gotack;
 			case XOFF:			/* Wait a while for an XON */
 			case XOFF | 0200:
-				READLINE_PF (100);
+				zreadline_pf (zr, 100);
 			default:
 				++junkcount;
 			}
@@ -1765,7 +1765,7 @@ zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 					sz->txwindow);
 				if (e != ZCRCQ)
 					ZM_SEND_DATA (sz->txbuf, 0, e = ZCRCQ);
-				c = getinsync (sz, zm, zi, 1);
+				c = getinsync (sz, zr, zm, zi, 1);
 				if (c != ZACK) {
 					ZM_SEND_DATA (sz->txbuf, 0, ZCRCE);
 					goto gotack;
@@ -1782,7 +1782,7 @@ zsendfdata (sz_t *sz, zm_t *zm, struct zm_fileinfo *zi)
 	for (;;) {
 		zm_store_header (zi->bytes_sent);
 		zm_send_binary_header (zm, ZEOF, Txhdr);
-		switch (getinsync (sz, zm, zi, 0)) {
+		switch (getinsync (sz, zr, zm, zi, 0)) {
 		case ZACK:
 			continue;
 		case ZRPOS:
@@ -1919,13 +1919,13 @@ calcit:
  * Respond to receiver's complaint, get back in sync with receiver
  */
 static int
-getinsync(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, int flag)
+getinsync(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi, int flag)
 {
 	int c;
 	size_t rxpos;
 
 	for (;;) {
-		c = zm_get_header(zm, Rxhdr, &rxpos);
+		c = zm_get_header(zr, zm, Rxhdr, &rxpos);
 		switch (c) {
 		case ZCAN:
 		case ZABORT:
@@ -1975,12 +1975,12 @@ getinsync(sz_t *sz, zm_t *zm, struct zm_fileinfo *zi, int flag)
 
 /* Say "bibi" to the receiver, try to do it cleanly */
 static void
-saybibi(zm_t *zm)
+saybibi(zreadline_t *zr, zm_t *zm)
 {
 	for (;;) {
 		zm_store_header(0L);		/* CAF Was zm_send_binary_header - minor change */
 		zm_send_hex_header(zm, ZFIN, Txhdr);	/*  to make debugging easier */
-		switch (zm_get_header(zm, Rxhdr,NULL)) {
+		switch (zm_get_header(zr, zm, Rxhdr,NULL)) {
 		case ZFIN:
 			putchar('O');
 			putchar('O');

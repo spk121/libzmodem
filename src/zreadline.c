@@ -37,11 +37,39 @@
 /* Ward Christensen / CP/M parameters - Don't change these! */
 #define TIMEOUT (-2)
 
-static size_t readline_readnum;
-static int readline_fd;
-static char *readline_buffer;
-int readline_left=0;
-char *readline_ptr;
+static int
+readline_internal(zreadline_t *zr, unsigned int timeout);
+
+zreadline_t *
+zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
+	int bytes_per_error)
+{
+	zreadline_t *zr = (zreadline_t *) malloc (sizeof(zreadline_t));
+	memset (zr, 0, sizeof(zreadline_t));
+	zr->readline_fd = fd;
+	zr->readline_readnum = readnum;
+	zr->readline_buffer = malloc(bufsize > readnum ? bufsize : readnum);
+	if (!zr->readline_buffer) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
+	zr->no_timeout = no_timeout;
+	zr->bytes_per_error = bytes_per_error;
+	return zr;
+}
+
+int
+zreadline_pf(zreadline_t *zr, int timeout)
+{
+	zr->readline_left --;
+	if (zr->readline_left >= 0) {
+		char c = *(zr->readline_ptr);
+		zr->readline_ptr ++;
+		return (unsigned char) c;
+	}
+	else
+		return readline_internal(zr, timeout);
+}
 
 static void
 zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
@@ -55,13 +83,10 @@ zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
  *
  * timeout is in tenths of seconds
  */
-int 
-readline_internal(unsigned int timeout)
+static int
+readline_internal(zreadline_t *zr, unsigned int timeout)
 {
-	/* FIXME: no_timeout should be a module-level flag? */
-	int no_timeout = 0;
-
-	if (!no_timeout)
+	if (!zr->no_timeout)
 	{
 		unsigned int n;
 		n = timeout/10;
@@ -70,57 +95,47 @@ readline_internal(unsigned int timeout)
 		else if (n==0)
 			n=1;
 		log_trace("Calling read: alarm=%d  Readnum=%d ",
-			 n, readline_readnum);
-		signal(SIGALRM, zreadline_alarm_handler); 
+			 n, zr->readline_readnum);
+		signal(SIGALRM, zreadline_alarm_handler);
 		alarm(n);
 	}
-	else 
-		log_trace("Calling read: Readnum=%d ", readline_readnum);
+	else
+		log_trace("Calling read: Readnum=%d ", zr->readline_readnum);
 
-	readline_ptr=readline_buffer;
-	readline_left=read(readline_fd, readline_ptr, readline_readnum);
-	if (!no_timeout)
+	zr->readline_ptr = zr->readline_buffer;
+	zr->readline_left = read(zr->readline_fd,
+				 zr->readline_ptr,
+				 zr->readline_readnum);
+	if (!zr->no_timeout)
 		alarm(0);
-	if (readline_left>0 && bytes_per_error) {
+	if (zr->readline_left > 0 && zr->bytes_per_error) {
 		static long ct=0;
 		static int mod=1;
-		ct+=readline_left;
-		while (ct>bytes_per_error) {
-			readline_ptr[ct % bytes_per_error]^=mod;
-			ct-=bytes_per_error;
+		ct += zr->readline_left;
+		while (ct > zr->bytes_per_error) {
+			zr->readline_ptr[ct % zr->bytes_per_error] ^= mod;
+			ct -= zr->bytes_per_error;
 			mod++;
 			if (mod==256)
 				mod=1;
 		}
 	}
-	if (readline_left == -1)
+	if (zr->readline_left == -1)
 		log_trace("Read failure :%s\n", strerror(errno));
 	else
-		log_trace("Read returned %d bytes\n", readline_left);
-	if (readline_left < 1)
+		log_trace("Read returned %d bytes\n", zr->readline_left);
+	if (zr->readline_left < 1)
 		return TIMEOUT;
-	--readline_left;
-	return (*readline_ptr++ & 0377);
+	zr->readline_left -- ;
+	char c = *zr->readline_ptr;
+	zr->readline_ptr++;
+	return (unsigned char) c;
 }
 
 
-
 void
-readline_setup(int fd, size_t readnum, size_t bufsize)
+zreadline_purge(zreadline_t *zr)
 {
-	readline_fd=fd;
-	readline_readnum=readnum;
-	readline_buffer=malloc(bufsize > readnum ? bufsize : readnum);
-	if (!readline_buffer) {
-		log_fatal(_("out of memory"));
-		exit(1);
-	}
-}
-
-void
-readline_purge(void)
-{
-	readline_left=0;
+	zr->readline_left=0;
 	return;
 }
-

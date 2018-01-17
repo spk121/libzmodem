@@ -226,9 +226,9 @@ sendbrk(int fd)
 }
 
 void
-purgeline(int fd)
+purgeline(zreadline_t *zr, int fd)
 {
-	readline_purge();
+	zreadline_purge(zr);
 #ifdef TCFLSH
 	ioctl(fd, TCFLSH, 0);
 #else

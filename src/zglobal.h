@@ -156,17 +156,30 @@ extern const char *program_name;        /* the name by which we were called */
 
 void bibi (int n);
 
-/* zreadline.c */
-extern char *readline_ptr; /* pointer for removing chars from linbuf */
-extern int readline_left; /* number of buffered chars left to read */
-#define READLINE_PF(timeout) \
-    (--readline_left >= 0? (*readline_ptr++ & 0377) : readline_internal(timeout))
+struct zreadline_ {
+	char *readline_ptr; /* pointer for removing chars from linbuf */
+	int readline_left; /* number of buffered chars left to read */
+	size_t readline_readnum;
+	int readline_fd;
+	char *readline_buffer;
+	int no_timeout; 	/* when true, readline does not timeout */
+	int bytes_per_error;
+};
 
-int readline_internal (unsigned int timeout);
-void readline_purge (void);
-void readline_setup (int fd, size_t readnum,
-	size_t buffer_size) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+typedef struct zreadline_ zreadline_t;
 
+/* /\* zreadline.c *\/ */
+/* #define READLINE_PF(timeout) \ */
+/*     (--readline_left >= 0? (*readline_ptr++ & 0377) : readline_internal(timeout)) */
+
+zreadline_t *
+zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
+	      int bytes_per_error);
+
+void zreadline_purge (zreadline_t *zr);
+void zreadline_setup (zreadline_t *zr, int fd, size_t readnum,
+		      size_t buffer_size, int no_timeout);
+int zreadline_pf(zreadline_t *zr, int timeout);
 
 /* rbsb.c */
 extern int Fromcu;
@@ -177,8 +190,8 @@ int from_cu (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int rdchk (int fd);
 int io_mode (int fd, int n) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 void sendbrk (int fd);
-void purgeline (int fd);
-void canit (int fd);
+void purgeline (zreadline_t *zr, int fd);
+void canit (zreadline_t *zr, int fd);
 
 
 /* crctab.c */
@@ -230,8 +243,8 @@ void zm_send_binary_header (zm_t *zm, int type, char *hdr);
 void zm_send_hex_header (zm_t *zm, int type, char *hdr);
 void zm_send_data (zm_t *zm, const char *buf, size_t length, int frameend);
 void zm_send_data32 (zm_t *zm, const char *buf, size_t length, int frameend);
-int zm_receive_data (zm_t *zm, char *buf, int length, size_t *received);
-int zm_get_header (zm_t *zm, char *hdr, size_t *);
+int zm_receive_data (zreadline_t *zr, zm_t *zm, char *buf, int length, size_t *received);
+int zm_get_header (zreadline_t *zr, zm_t *zm, char *hdr, size_t *);
 void zm_store_header (size_t pos) LRZSZ_ATTRIB_REGPARM(1);
 long zm_reclaim_header (char *hdr) LRZSZ_ATTRIB_REGPARM(1);
 
