@@ -39,9 +39,8 @@
 #include <sys/stat.h>
 
 #include "timing.h"
-#include "long-options.h"
-#include "xstrtoul.h"
 #include "log.h"
+#include "zmodem.h"
 
 #define MAX_BLOCK 8192
 
@@ -128,7 +127,8 @@ rz_t *rz_init(int under_rsh, int restricted, char lzmanag,
 	      int o_sync, int tcp_flag, int topipe
 );
 
-static int rzfiles (rz_t *rz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *);
+
+static int rz_receive_files (rz_t *rz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *);
 static int tryz (rz_t *rz, zreadline_t *zr, zm_t *zm);
 static void checkpath (rz_t *rz, zreadline_t *zr, const char *name);
 static void chkinvok(const char *s, int *ptopipe);
@@ -189,7 +189,7 @@ rz_init(int under_rsh, int restricted, char lzmanag,
 }
 
 /* called by signal interrupt or terminate to clean things up */
-void
+static void
 bibi(int n)
 {
 	//FIXME: figure out how to avoid global zmodem_requested
@@ -200,6 +200,8 @@ bibi(int n)
 	log_fatal(_("caught signal %s; exiting"), n);
 	exit(128+n);
 }
+
+#if 0
 
 static struct option const long_options[] =
 {
@@ -599,10 +601,22 @@ usage(int exitcode, const char *what)
 	display(_("short options use the same arguments as the long ones"));
 	exit(exitcode);
 }
+#endif
 
 /*
  * Let's receive something already.
  */
+
+size_t zmodem_receive(const char *directory,
+		      bool (*approver)(const char *filename, size_t size, time_t date),
+		      void (*tick)(const char *filename, size_t bytes_received),
+		      void (*complete)(const char *filename, int result, size_t size, time_t date),
+		      uint64_t min_bps,
+		      uint32_t flags)
+{
+	return 0u;
+}
+
 
 static int
 wcreceive(rz_t *rz, zreadline_t *zr, zm_t *zm)
@@ -626,7 +640,7 @@ wcreceive(rz_t *rz, zreadline_t *zr, zm_t *zm)
 			return OK;
 		if (c == ERROR)
 			goto fubar;
-		c = rzfiles(rz, zr, zm, &zi);
+		c = rz_receive_files(rz, zr, zm, &zi);
 
 		if (c)
 			goto fubar;
@@ -1318,6 +1332,15 @@ tryz(rz_t *rz, zreadline_t *zr, zm_t *zm)
 	int zrqinits_received=0;
 	size_t bytes_in_block=0;
 
+	/* Spec 8.1: "When the ZMODEM receive program starts, it
+	   immediately sends a ZRINIT header to initiate ZMODEM file
+	   transfers...  The receive program resendts its header at
+	   intervals for a suitable period of time (40 seconds
+	   total)...."
+	   
+	   On startup rz->tryzhdrtype is, by default, set to ZRINIT
+	*/
+	
 	for (n=zm->zmodem_requested?15:5;
 		 (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {
 		/* Set buffer length (0) and capability flags */
@@ -1343,6 +1366,11 @@ tryz(rz_t *rz, zreadline_t *zr, zm_t *zm)
 again:
 		switch (zm_get_header(zr, zm, Rxhdr, NULL)) {
 		case ZRQINIT:
+
+			/* Spec 8.1: "[after sending ZRINIT] if the
+			 * receiving program receives a ZRQINIT
+			 * header, it resends the ZRINIT header." */
+			
 			/* getting one ZRQINIT is totally ok. Normally a ZFILE follows
 			 * (and might be in our buffer, so don't purge it). But if we
 			 * get more ZRQINITs than the sender has started up before us
@@ -1375,6 +1403,16 @@ again:
 			zm_send_hex_header(zm, ZNAK, Txhdr);
 			goto again;
 		case ZSINIT:
+			/* Spec 8.1: "[after receiving the ZRINIT]
+			 * then sender may then send an optional
+			 * ZSINIT frame to define the receiving
+			 * program's Attn sequence, or to specify
+			 * complete control character escaping.  If
+			 * the ZSINIT header specified ESCCTL or ESC8,
+			 * a HEX header is used, and the receiver
+			 * activates the specified ESC modes before
+			 * reading the following data subpacket.  */
+			
 			/* this once was:
 			 * Zctlesc = TESCCTL & Rxhdr[ZF0];
 			 * trouble: if rz get --escape flag:
@@ -1386,6 +1424,11 @@ again:
 			 */
 			zm->zctlesc |= (TESCCTL & Rxhdr[ZF0]);
 			if (zm_receive_data(zr, zm, rz->attn, ZATTNLEN, &bytes_in_block) == GOTCRCW) {
+				/* Spec 8.1: "[after receiving a
+				 * ZSINIT] the receiver sends a ZACK
+				 * header in response, containing
+				 * either the serial number of the
+				 * receiving program, or 0." */
 				zm_store_header(1L);
 				zm_send_hex_header(zm, ZACK, Txhdr);
 				goto again;
@@ -1404,6 +1447,10 @@ again:
 			ackbibi(zr, zm);
 			return ZCOMPL;
 		case ZRINIT:
+			/* Spec 8.1: "If [after sending ZRINIT] the
+			   receiving program receives a ZRINIT header,
+			   it is an echo indicating that the sending
+			   program is not operational."  */
 			log_info(_("got ZRINIT"));
 			return ERROR;
 		case ZCAN:
@@ -1419,7 +1466,7 @@ again:
  * Receive 1 or more files with ZMODEM protocol
  */
 static int
-rzfiles(rz_t *rz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
+rz_receive_files(rz_t *rz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 {
 	register int c;
 

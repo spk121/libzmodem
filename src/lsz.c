@@ -43,10 +43,8 @@
 
 #include <sys/mman.h>
 #include "timing.h"
-#include "long-options.h"
-#include "xstrtoul.h"
 #include "log.h"
-
+#include "zmodem.h"
 
 #define MAX_BLOCK 8192
 
@@ -201,7 +199,7 @@ static int no_timeout=FALSE;
 
 
 /* called by signal interrupt or terminate to clean things up */
-void
+static void
 bibi (int n)
 {
 	// canit(zr, STDOUT_FILENO);
@@ -226,8 +224,10 @@ onintr(int n LRZSZ_ATTRIB_UNUSED)
 	// longjmp(sz->intrjmp, -1);
 }
 
+
 const char *program_name = "sz";
 
+#if 0
 static struct option const long_options[] =
 {
   {"append", no_argument, NULL, '+'},
@@ -683,8 +683,16 @@ main(int argc, char **argv)
 	signal(SIGPIPE, bibi);
 	signal(SIGHUP, bibi);
 
-	display("rz");
+	/* Spec 8.1: "The sending program may send the string "rz\r" to
+	   invoke the receiving program from a possible command
+	   mode." */
+	display("rz\r");
 	fflush(stdout);
+	
+	/* Spec 8.1: "The sending program may then display a message
+	 * intended for human consumption."  That would happen here,
+	 * if we did it.  */
+
 	countem(sz, npats, patts);
 	
 	/* throw away any input already received. This doesn't harm
@@ -711,6 +719,10 @@ main(int argc, char **argv)
 
 	purgeline(zr, sz->io_mode_fd);
 	zm_store_header(0L);
+
+	/* Spec 8.1: "Then the sender may send a ZRQINIT. The ZRQINIT
+	   header causes a previously started receive program to send
+	   its ZRINIT header without delay." */
 	zm_send_hex_header(zm, ZRQINIT, Txhdr);
 	sz->zrqinits_sent++;
 	if (sz->tcp_flag==1) {
@@ -737,6 +749,18 @@ main(int argc, char **argv)
 		log_info(_("Transfer complete"));
 	exit(dm);
 	/*NOTREACHED*/
+}
+
+#endif
+
+size_t zmodem_send(int file_count,
+		   const char **file_list,
+		   bool (*tick)(const char *filename, size_t bytes_received),
+		   void (*complete)(const char *filename, int result, size_t size, time_t date),
+		   uint64_t min_bps,
+		   uint32_t flags)
+{
+	return 0u;
 }
 
 static int
@@ -840,6 +864,7 @@ wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 
 	for (n = 0; n < argc; ++n) {
 		sz->totsecs = 0;
+		/* The files are transmitted one at a time, here. */
 		if (wcs (sz, zr, zm, argp[n],NULL) == ERROR)
 			return ERROR;
 	}
@@ -850,6 +875,7 @@ wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 		return ERROR;
 	}
 	if (zm->zmodem_requested)
+		/* The session to the receiver is terminated here. */
 		saybibi (zr, zm);
 	else {
 		struct zm_fileinfo zi;
@@ -946,8 +972,7 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 	}
 
 	long bps;
-	double d=timing(0,NULL);
-	if (d==0) /* can happen if timing() uses time() */
+	double d=timing(0,NULL);	if (d==0) /* can happen if timing() uses time() */
 		d=0.5;
 	bps=zi.bytes_sent/d;
 	log_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
@@ -992,6 +1017,12 @@ wctxpn(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 			 * in case mode_t is wider than an int. But i believe
 			 * sending %lo instead of %o _could_ break compatability
 			 */
+
+			/* Spec 8.2: "[the sender will send a] ZCRCW
+			 * data subpacket containing the file name,
+			 * file length, modification date, and other
+			 * information identical to that used by
+			 * YMODEM batch." */
 			sprintf(p, "%lu %lo %o 0 %d %ld", (long) f.st_size,
 				f.st_mtime,
 				(unsigned int)((sz->no_unixmode) ? 0 : f.st_mode),
@@ -1031,7 +1062,12 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 	for (;;) {
 		tries++;
 		switch (firstch = zreadline_pf(zr, 100)) {
+
 		case ZPAD:
+			/* Spec 7.3.1: "A binary header begins with
+			 * the sequence ZPAD, ZDLE, ZBIN. */
+			/* Spec 7.3.3: "A hex header begins with the
+			 * sequence ZPAD ZPAD ZDLE ZHEX." */
 			if (getzrxinit(sz, zr, zm))
 				return ERROR;
 			return FALSE;
@@ -1060,6 +1096,11 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 		case WANTCRC:
 			sz->crcflg = TRUE;
 		case NAK:
+			/* Spec 8.1: "The sending program awaits a
+			 * command from the receiving port to start
+			 * file transfers.  If a 'C', 'G', or NAK is
+			 * received, and XMODEM or YMODEM file
+			 * transfer is indicated.  */
 			return FALSE;
 		case CAN:
 			if ((firstch = zreadline_pf(zr, 20)) == CAN && sz->lastrx == CAN)
@@ -1250,6 +1291,7 @@ zfilbuf (sz_t *sz, struct zm_fileinfo *zi)
 	return n;
 }
 
+#if 0
 static void
 usage1 (int exitcode)
 {
@@ -1314,6 +1356,8 @@ usage(int exitcode, const char *what)
 	));
 	exit(exitcode);
 }
+
+#endif
 
 /*
  * Get the receiver's init parameters
@@ -1466,6 +1510,10 @@ zsendfile(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi, const cha
 	 */
 
 	for (;;) {
+		/* Spec 8.2: "The sender then sends a ZFILE header
+		 * with ZMODEM Conversion, Management, and Transport
+		 * options followed by a ZCRCW data subpacket
+		 * containing the file name, ...." */
 		Txhdr[ZF0] = sz->lzconv;	/* file conversion request */
 		Txhdr[ZF1] = sz->lzmanag;	/* file management request */
 		if (sz->lskipnocor)
@@ -1498,6 +1546,14 @@ again:
 		case ZFIN:
 			return ERROR;
 		case ZCRC:
+			/* Spec 8.2: "[if] the receiver has a file
+			 * with the same name and length, [it] may
+			 * respond with a ZCRC header with a byte
+			 * count, which requires the sender to perform
+			 * a 32-bit CRC on the specified number of
+			 * bytes in the file, and transmit the
+			 * complement of the CRC is an answering ZCRC
+			 * header." */
 			crc = 0xFFFFFFFFL;
 			if (!sz->mm_addr)
 			{
@@ -1542,6 +1598,10 @@ again:
 			zm_send_binary_header(zm, ZCRC, Txhdr);
 			goto again;
 		case ZSKIP:
+		/* Spec 8.2: "[after deciding if the file name, file
+		 * size, etc are acceptable] The receiver may respond
+		 * with a ZSKIP header, which makes the sender proceed
+		 * to the next file (if any)." */
 			if (sz->input_f)
 				fclose(sz->input_f);
 			else if (sz->mm_addr) {
@@ -1552,6 +1612,10 @@ again:
 			log_debug("receiver skipped");
 			return c;
 		case ZRPOS:
+			/* Spec 8.2: "A ZRPOS header from the receiver
+			 * initiates transmittion of the file data
+			 * starting at the offset in the file
+			 * specified by the ZRPOS header.  */
 			/*
 			 * Suppress zcrcw request otherwise triggered by
 			 * lastsync==bytcnt
@@ -1566,6 +1630,10 @@ again:
 				zi->bytes_skipped=rxpos;
 			sz->bytcnt = zi->bytes_sent = rxpos;
 			sz->lastsync = rxpos -1;
+			/* Spec 8.2: [in response to ZRPOS] the sender
+			 * sends a ZDATA binary header (with file
+			 * position) followed by one or more data
+			 * subpackets."  */
 	 		return zsendfdata(sz, zr, zm, zi);
 		}
 	}
@@ -1583,6 +1651,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	static long total_sent = 0;
 	static time_t low_bps=0;
 
+	/* memmap that file, if necessary */
 	if (!sz->mm_addr)
 	{
 		struct stat st;
@@ -1605,6 +1674,9 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	sz->lrxpos = 0;
 	junkcount = 0;
   somemore:
+	/* Note that this whole next block is a
+	 * setjmp block for error recovery.  The 
+	 * normal code path follows it. */
 	if (setjmp (sz->intrjmp)) {
 	  if (sz->play_with_sigint)
 		  signal (SIGINT, onintr);
@@ -1651,6 +1723,13 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		}
 	}
 
+	/* Spec 8.2: "A ZRPOS header from the receiver initiates
+	 * transmittion of the file data starting at the offset in the
+	 * file specified by the ZRPOS header.  */	
+	/* Spec 8.2: [in response to ZRPOS] the sender sends a ZDATA
+	 * binary header (with file position) followed by one or more
+	 * data subpackets."  */
+	
 	sz->txwcnt = 0;
 	zm_store_header (zi->bytes_sent);
 	zm_send_binary_header (zm, ZDATA, Txhdr);
@@ -1673,20 +1752,39 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		} else
 			n = zfilbuf (sz, zi);
 		if (zi->eof_seen) {
+			/* Spec 8.2: "In the absence of fatal error,
+			 * the sender eventually encounters end of
+			 * file.  If the end of file is encountered
+			 * within a frame, the frame is closed with a
+			 * ZCRCE data subpacket, which does not elicit
+			 * a response except in case of error." */
 			e = ZCRCE;
 			log_trace("e=ZCRCE/eof seen");
 		} else if (junkcount > 3) {
+			/* Spec 8.2: "ZCRCW data subpackets expect a
+			 * response before the next frame is sent." */
 			e = ZCRCW;
 			log_trace("e=ZCRCW/junkcount > 3");
 		} else if (sz->bytcnt == sz->lastsync) {
+			/* Spec 8.2: "ZCRCW data subpackets expect a
+			 * response before the next frame is sent." */
 			e = ZCRCW;
 			log_trace("e=ZCRCW/bytcnt == sz->lastsync == %ld",
 					(unsigned long) sz->lastsync);
 		} else if (sz->txwindow && (sz->txwcnt += n) >= sz->txwspac) {
+			/* Spec 8.2: "ZCRCQ data subpackets expect a
+			 * ZACK response with the receiver's file
+			 * offset if no error, otherwise a ZRPOS
+			 * response with the last good file
+			 * offset. */
 			sz->txwcnt = 0;
 			e = ZCRCQ;
 			log_trace("e=ZCRCQ/Window");
 		} else {
+			/* Spec 8.2: "A data subpacket terminated by
+			 * ZCRCG ... does not elicit a response unles
+			 * an error is detected: more data
+			 * subpacket(s) follow immediately."  */
 			e = ZCRCG;
 			log_trace("e=ZCRCG");
 		}
@@ -1731,6 +1829,8 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		ZM_SEND_DATA (DATAADR, n, e);
 		sz->bytcnt = zi->bytes_sent += n;
 		if (e == ZCRCW)
+			/* Spec 8.2: "ZCRCW data subpackets expect a
+			 * response before the next frame is sent." */
 			goto waitack;
 		/*
 		 * If the reverse channel can be tested for data,
@@ -1780,6 +1880,9 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		signal (SIGINT, SIG_IGN);
 
 	for (;;) {
+		/* Spec 8.2: [after sending a file] The sender sends a
+		 * ZEOF header with the file ending offset equal to
+		 * the number of characters in the file. */
 		zm_store_header (zi->bytes_sent);
 		zm_send_binary_header (zm, ZEOF, Txhdr);
 		switch (getinsync (sz, zr, zm, zi, 0)) {
@@ -1788,6 +1891,8 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		case ZRPOS:
 			goto somemore;
 		case ZRINIT:
+			/* If the receiver is satisfied with the file,
+			 * it returns ZRINIT. */
 			return OK;
 		case ZSKIP:
 			if (sz->input_f)
@@ -1979,9 +2084,18 @@ saybibi(zreadline_t *zr, zm_t *zm)
 {
 	for (;;) {
 		zm_store_header(0L);		/* CAF Was zm_send_binary_header - minor change */
+
+		/* Spec 8.3: "The sender closes the session with a
+		 * ZFIN header.  The receiver acknowledges this with
+		 * its own ZFIN header."  */
 		zm_send_hex_header(zm, ZFIN, Txhdr);	/*  to make debugging easier */
 		switch (zm_get_header(zr, zm, Rxhdr,NULL)) {
 		case ZFIN:
+			/* Spec 8.3: "When the sender receives the
+                         * acknowledging header, it sends two
+                         * characters, "OO" (Over and Out) and exits
+                         * to the operating system or application that
+                         * invoked it." */
 			putchar('O');
 			putchar('O');
 			fflush(stdout);

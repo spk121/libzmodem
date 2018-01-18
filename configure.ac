@@ -32,7 +32,6 @@ dnl Checks for header files.
 dnl Checks for typedefs, structures, and compiler characteristics.
 
 dnl Checks for library functions.
-AC_REPLACE_FUNCS(strtoul strtol)
 
 dnl special tests
 

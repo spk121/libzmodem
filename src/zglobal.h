@@ -154,8 +154,6 @@ extern const char *program_name;        /* the name by which we were called */
 // extern int no_timeout;
 // extern int under_rsh;
 
-void bibi (int n);
-
 struct zreadline_ {
 	char *readline_ptr; /* pointer for removing chars from linbuf */
 	int readline_left; /* number of buffered chars left to read */
@@ -201,7 +199,7 @@ extern long cr3tab[];
 #define UPDC32(b, c) (cr3tab[((int)c ^ b) & 0xff] ^ ((c >> 8) & 0x00FFFFFF))
 
 /* zm.c */
-#include "zmodem.h"
+#include "_zmodem.h"
 extern int bytes_per_error;  /* generate one error around every x bytes */
 
 /* Globals used by ZMODEM functions */

@@ -1,5 +1,5 @@
 bin_PROGRAMS= mrz msz
-lib_LIBRARIES = libzmodem.la
+lib_LTLIBRARIES = libzmodem.la
 mrz_SOURCES = mrz.c
 mrz_LDADD = libzmodem.la
 msz_SOURCES = msz.c
@@ -17,8 +17,8 @@ libzmodem_la_SOURCES = \
 	timing.h timing.c \
 	zglobal.h \
 	zm.c \
-	zmodem.h \
+	_zmodem.h \
 	zreadline.c
-pkginclude_HEADERS = rzsz.h
+pkginclude_HEADERS = zmodem.h
 
 AM_CFLAGS = -Wall -Wextra -Wconversion
