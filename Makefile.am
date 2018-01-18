@@ -1,4 +1,4 @@
-SUBDIRS = lib src man po testsuite
+SUBDIRS = src man po testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
 	fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
@@ -14,10 +14,10 @@ fastcheck:
 
 vcheck:
 	$(srcdir)/check.lrzsz $(srcdir) `pwd`
-vcheck-%:
-	$(srcdir)/check.lrzsz $(srcdir) `pwd`	$(subst vcheck-,,$@)
-check-%:
-	QUIET=-q $(srcdir)/check.lrzsz $(srcdir) `pwd`	$(subst check-,,$@)
+# vcheck-%:
+# 	$(srcdir)/check.lrzsz $(srcdir) `pwd`	$(subst vcheck-,,$@)
+# check-%:
+# 	QUIET=-q $(srcdir)/check.lrzsz $(srcdir) `pwd`	$(subst check-,,$@)
 vcheck-x:
 	$(srcdir)/check.lrzsz $(srcdir) `pwd`	x
 vcheck-y:

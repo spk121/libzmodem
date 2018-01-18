@@ -6,16 +6,16 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall foreign])
-
 AC_USE_SYSTEM_EXTENSIONS
 AM_PROG_AR
+LT_INIT
 
 dnl AC_C_CROSS is in AC_PROG_CC since 2.12
 
 ALL_LINGUAS="de"
 
 AC_ARG_ENABLE(pubdir,
-	[--enable-pubdir=/path   include support for a public writeable directory],
+	[--enable-pubdir=/path include support for a public writeable directory],
 	[if test "$enableval" = "no" ; then 
 		: 
 	  else 
@@ -26,7 +26,6 @@ dnl Checks for programs.
 dnl AC_PROG_INSTALL  included in AM_INIT_AUTOMAKE
 dnl AC_PROG_MAKE_SET included in AM_INIT_AUTOMAKE
 AC_PROG_CC
-AC_PROG_RANLIB
 
 dnl Checks for header files.
 
@@ -47,7 +46,5 @@ then
 fi
 AC_SUBST(DEJAGNU)
 
-AC_CONFIG_FILES([Makefile lib/Makefile testsuite/Makefile \
-man/Makefile po/Makefile.in src/Makefile \
-src/lrzszbug]),
+AC_CONFIG_FILES([Makefile testsuite/Makefile man/Makefile src/Makefile])
 AC_OUTPUT
