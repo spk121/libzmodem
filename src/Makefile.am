@@ -1,10 +1,10 @@
 bin_PROGRAMS= mrz msz
-lib_LTLIBRARIES = libzmodem.la
+lib_LIBRARIES = libzmodem.a
 mrz_SOURCES = mrz.c
-mrz_LDADD = libzmodem.la
+mrz_LDADD = libzmodem.a
 msz_SOURCES = msz.c
-msz_LDADD = libzmodem.la
-libzmodem_la_SOURCES = \
+msz_LDADD = libzmodem.a
+libzmodem_a_SOURCES = \
 	canit.c \
 	crctab.c \
 	gettext.h \

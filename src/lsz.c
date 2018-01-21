@@ -39,7 +39,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <stdbool.h>
 
 #include <sys/mman.h>
 #include "timing.h"
@@ -60,7 +60,7 @@ struct sz_ {
 	int firstsec;
 	unsigned txwindow;	/* Control the size of the transmitted window */
 	unsigned txwspac;	/* Spacing between zcrcq requests */
-	unsigned txwcnt;	/* Counter used to space ack requests */	
+	unsigned txwcnt;	/* Counter used to space ack requests */
 	size_t lrxpos;		/* Receiver's last reported offset */
 	int errors;
 	int under_rsh;
@@ -83,7 +83,7 @@ struct sz_ {
 	jmp_buf intrjmp;	/* For the interrupt on RX CAN */
 	int zrqinits_sent;
 	int play_with_sigint;
-	
+
 	// parameters
 	char lzconv;	/* Local ZMODEM file conversion request */
 	char lzmanag;	/* Local ZMODEM file management request */
@@ -104,6 +104,10 @@ struct sz_ {
 	int hyperterm;
 	int io_mode_fd;
 
+	void (*complete_cb)(const char *filename, int result, size_t size, time_t date);
+	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left);
+
+
 };
 
 typedef struct sz_ sz_t;
@@ -114,7 +118,10 @@ sz_init(char lzconv, char lzmanag, int lskipnocor, int tcp_flag, unsigned txwind
 	int fullname, unsigned blkopt, int tframlen, int wantfcs32,
 	size_t max_blklen, size_t start_blklen, time_t stop_time,
 	long min_bps, long min_bps_time,
-	char *tcp_server_address, int tcp_socket, int hyperterm)
+	char *tcp_server_address, int tcp_socket, int hyperterm,
+	void (*complete_cb)(const char *filename, int result, size_t size, time_t date),
+	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
+	)
 {
 	sz_t *sz = malloc(sizeof(sz_t));
 	memset(sz, 0, sizeof(sz_t));
@@ -147,6 +154,8 @@ sz_init(char lzconv, char lzmanag, int lskipnocor, int tcp_flag, unsigned txwind
 		sz->tcp_server_address = NULL;
 	sz->tcp_socket = tcp_socket;
 	sz->hyperterm = hyperterm;
+	sz->complete_cb = complete_cb;
+	sz->tick_cb = tick_cb;
 	return sz;
 }
 
@@ -321,7 +330,7 @@ main(int argc, char **argv)
 	int hyperterm=0;
 	int Zctlesc;	/* Encode control characters */
 	int Zrwindow = 1400;	/* RX window size (controls garbage count) */
-	
+
 	if (((cp = getenv("ZNULLS")) != NULL) && *cp)
 		Znulls = atoi(cp);
 	if (((cp=getenv("SHELL"))!=NULL) && (strstr(cp, "rsh") || strstr(cp, "rksh")
@@ -570,7 +579,7 @@ main(int argc, char **argv)
 			   tcp_socket,
 			   hyperterm
 		);
-		
+
 	log_info("initial protocol is ZMODEM");
 	if (sz->start_blklen==0) {
 		sz->start_blklen=1024;
@@ -688,13 +697,13 @@ main(int argc, char **argv)
 	   mode." */
 	display("rz\r");
 	fflush(stdout);
-	
+
 	/* Spec 8.1: "The sending program may then display a message
 	 * intended for human consumption."  That would happen here,
 	 * if we did it.  */
 
 	countem(sz, npats, patts);
-	
+
 	/* throw away any input already received. This doesn't harm
 	 * as we invite the receiver to send it's data again, and
 	 * might be useful if the receiver has already died or
@@ -755,11 +764,125 @@ main(int argc, char **argv)
 
 size_t zmodem_send(int file_count,
 		   const char **file_list,
-		   bool (*tick)(const char *filename, size_t bytes_received),
+		   bool (*tick)(long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		   void (*complete)(const char *filename, int result, size_t size, time_t date),
 		   uint64_t min_bps,
 		   uint32_t flags)
 {
+	log_set_level(LOG_ERROR);
+	zreadline_t *zr = zreadline_init(0, /* fd */
+					 128, /* readnum */
+					 256, /* bufsize */
+					 1,   /* no_timeout */
+					 0);   /* bytes_per_error */
+	zm_t *zm = zm_init(600,	/* rxtimeout */
+			   0, 	/* znulls */
+			   0,	/* eflag */
+			   2400, /* baudrate */
+			   1,	 /* zctlesc */
+			   1400); /* zrwindow */
+	sz_t *sz = sz_init(0,	  /* lzconv */
+			   0,	  /* lzmanag */
+			   0,	  /* lskipnocor */
+			   0,	  /* tcp_flag */
+			   0,	  /* txwindow */
+			   0,	  /* txwspac */
+			   0,	  /* under_rsh */
+			   0,	  /* no_unixmode */
+			   1,	  /* canseek */
+			   0,	  /* restricted */
+			   0,	  /* fullname */
+			   0,	  /* blkopt */
+			   0,	  /* tframlen */
+			   1,	  /* wantfcs32 */
+			   1024,  /* max_blklen */
+			   1024,  /* start_blklen */
+			   0,	  /* stop_time */
+			   0,	  /* min_bps */
+			   0,	  /* min_bps_time */
+			   0x0,	  /* tcp_server_address */
+			   -1,	  /* tcp_socket */
+			   0,	  /* hyperterm */
+			   complete,  /* file complete callback */
+			   tick	      /* tick callback */
+		);
+	log_info("initial protocol is ZMODEM");
+	if (sz->start_blklen==0) {
+		sz->start_blklen=1024;
+		if (sz->tframlen) {
+			sz->start_blklen=sz->max_blklen=sz->tframlen;
+		}
+	}
+	zm->baudrate = io_mode(sz->io_mode_fd,1);
+
+	/* Spec 8.1: "The sending program may send the string "rz\r" to
+	   invoke the receiving program from a possible command
+	   mode." */
+	display("rz\r");
+	fflush(stdout);
+
+	/* Spec 8.1: "The sending program may then display a message
+	 * intended for human consumption."  That would happen here,
+	 * if we did it.  */
+
+	/* throw away any input already received. This doesn't harm
+	 * as we invite the receiver to send it's data again, and
+	 * might be useful if the receiver has already died or
+	 * if there is dirt left if the line
+	 */
+	struct timeval t;
+	unsigned char throwaway;
+	fd_set f;
+
+	purgeline(zr, sz->io_mode_fd);
+
+	t.tv_sec = 0;
+	t.tv_usec = 0;
+
+	FD_ZERO(&f);
+	FD_SET(sz->io_mode_fd,&f);
+
+	while (select(1,&f,NULL,NULL,&t)) {
+		if (0==read(sz->io_mode_fd,&throwaway,1)) /* EOF ... */
+			break;
+	}
+
+	purgeline(zr, sz->io_mode_fd);
+	zm_store_header(0L);
+
+	/* Spec 8.1: "Then the sender may send a ZRQINIT. The ZRQINIT
+	   header causes a previously started receive program to send
+	   its ZRINIT header without delay." */
+	zm_send_hex_header(zm, ZRQINIT, Txhdr);
+	sz->zrqinits_sent++;
+	if (sz->tcp_flag==1) {
+		sz->totalleft+=256; /* tcp never needs more */
+		sz->filesleft++;
+	}
+	fflush(stdout);
+
+	/* This is the main loop.  */
+	if (wcsend(sz, zr, zm, file_count, file_list)==ERROR) {
+		sz->exitcode=0200;
+		canit(zr, STDOUT_FILENO);
+	}
+	fflush(stdout);
+	io_mode(sz->io_mode_fd, 0);
+	int dm = 0;
+	if (sz->exitcode)
+		dm=sz->exitcode;
+	else if (sz->errcnt)
+		dm=1;
+	else
+		dm=0;
+	if (dm)
+		log_info(_("Transfer incomplete"));
+	else
+		log_info(_("Transfer complete"));
+	exit(dm);
+	/*NOTREACHED*/
+
+
 	return 0u;
 }
 
@@ -836,6 +959,8 @@ send_pseudo(sz_t *sz, zreadline_t *zr,  zm_t *zm, const char *name, const char *
 	return ret;
 }
 
+/* This routine tries to send multiple files.  The file count and
+   filenames are in ARGC and ARGP. */
 static int
 wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 {
@@ -862,6 +987,7 @@ wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 		dup2(sz->tcp_socket,1);
 	}
 
+	/* Begin the main loop. */
 	for (n = 0; n < argc; ++n) {
 		sz->totsecs = 0;
 		/* The files are transmitted one at a time, here. */
@@ -893,6 +1019,9 @@ wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 	return OK;
 }
 
+
+/* This routine should send one file from a list of files.  The
+ filename is ONAME. REMOTENAME can be NULL. */
 static int
 wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotename)
 {
@@ -900,6 +1029,10 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 	char name[PATH_MAX+1];
 	struct zm_fileinfo zi;
 	int dont_mmap_this=0;
+
+	/* First we do many checks to ensure that the filename is
+	 * valid and that the user is permitted to send these
+	 * files. */
 	if (sz->restricted) {
 		/* restrict pathnames to current tree or uucppublic */
 		if ( strstr(oname, "../")
@@ -914,6 +1047,10 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 		}
 	}
 
+	/* [mlg] I guess it was a feature that a filename of '-'
+	 * would mean that the file data could be piped in
+	 * and the name of the file to be transmitted was from the
+	 * ONAME env var or a temp name was generated. */
 	if (0==strcmp(oname,"-")) {
 		char *p=getenv("ONAME");
 		if (p) {
@@ -939,6 +1076,9 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 		return OK;
 	}
 
+	/* Here we finally start filling in information about the
+         * file in a ZI structure.  We need this for the ZMODEM
+	 * file header when we send it. */
 	if (remotename) {
 		/* disqualify const */
 		union {
@@ -959,6 +1099,8 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 	timing(1,NULL);
 
 	++sz->filcnt;
+	/* Now that the file information is validated and is in a ZI
+	 * structure, we try to transmit the file. */
 	switch (wctxpn(sz, zr, zm, &zi)) {
 	case ERROR:
 		return ERROR;
@@ -971,12 +1113,18 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 		return ERROR;
 	}
 
+	/* Here we make a log message the transmission of a single
+	 * file. */
 	long bps;
-	double d=timing(0,NULL);	if (d==0) /* can happen if timing() uses time() */
+	double d=timing(0,NULL);
+	if (d==0) /* can happen if timing() uses time() */
 		d=0.5;
 	bps=zi.bytes_sent/d;
 	log_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
 		  (long) zi.bytes_sent,bps);
+	if (sz->complete_cb)
+	  sz->complete_cb(zi.fname, 0, zi.bytes_sent, zi.modtime);
+
 	return 0;
 }
 
@@ -994,6 +1142,9 @@ wctxpn(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	char name2[PATH_MAX+1];
 	struct stat f;
 
+	/* The getnak process is how the sender knows which protocol
+	 * is it allowed to use.  Hopefully the receiver allows
+	 * ZModem.  If it doesn't, we may fall back to YModem. */
 	if (!zm->zmodem_requested)
 		if (getnak(sz, zr, zm)) {
 			log_debug("getnak failed");
@@ -1043,8 +1194,12 @@ wctxpn(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		sz->txbuf[127] = (f.st_size + 127) >>7;
 		sz->txbuf[126] = (f.st_size + 127) >>15;
 	}
+
+	/* We'll send the file by ZModem, if the getnak process succeeded.  */
 	if (zm->zmodem_requested)
 		return zsendfile(sz, zr, zm, zi,sz->txbuf, 1+strlen(p)+(p-sz->txbuf));
+
+	/* We'll have to send the file by YModem, I guess.  */
 	if (wcputsec(sz, zr, zm, sz->txbuf, 0, 128)==ERROR) {
 		log_debug("wcputsec failed");
 		return ERROR;
@@ -1052,6 +1207,9 @@ wctxpn(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	return OK;
 }
 
+
+/* [mlg] Somewhere in this logic, this procedure tries to force the receiver
+ * into ZModem mode? */
 static int
 getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 {
@@ -1070,6 +1228,7 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 			 * sequence ZPAD ZPAD ZDLE ZHEX." */
 			if (getzrxinit(sz, zr, zm))
 				return ERROR;
+
 			return FALSE;
 		case TIMEOUT:
 			/* 30 seconds are enough */
@@ -1080,9 +1239,11 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 			/* don't send a second ZRQINIT _directly_ after the
 			 * first one. Never send more then 4 ZRQINIT, because
 			 * omen rz stops if it saw 5 of them */
-			if ((sz->zrqinits_sent>1 || tries>1) && sz->zrqinits_sent<4) {
-				/* if we already sent a ZRQINIT we are using zmodem
-				 * protocol and may send further ZRQINITs
+			if ((sz->zrqinits_sent>1 || tries>1)
+			    && sz->zrqinits_sent<4) {
+				/* if we already sent a ZRQINIT we are
+				 * using zmodem protocol and may send
+				 * further ZRQINITs
 				 */
 				zm_store_header(0L);
 				zm_send_hex_header(zm, ZRQINIT, Txhdr);
@@ -1090,7 +1251,8 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 			}
 			continue;
 		case WANTG:
-			io_mode(sz->io_mode_fd, 2);	/* Set cbreak, XON/XOFF, etc. */
+			/* Set cbreak, XON/XOFF, etc. */
+			io_mode(sz->io_mode_fd, 2);
 			sz->optiong = TRUE;
 			sz->blklen=1024;
 		case WANTCRC:
@@ -1103,7 +1265,8 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 			 * transfer is indicated.  */
 			return FALSE;
 		case CAN:
-			if ((firstch = zreadline_pf(zr, 20)) == CAN && sz->lastrx == CAN)
+			if ((firstch = zreadline_pf(zr, 20)) == CAN
+			    && sz->lastrx == CAN)
 				return TRUE;
 		default:
 			break;
@@ -1675,7 +1838,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	junkcount = 0;
   somemore:
 	/* Note that this whole next block is a
-	 * setjmp block for error recovery.  The 
+	 * setjmp block for error recovery.  The
 	 * normal code path follows it. */
 	if (setjmp (sz->intrjmp)) {
 	  if (sz->play_with_sigint)
@@ -1725,11 +1888,11 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 
 	/* Spec 8.2: "A ZRPOS header from the receiver initiates
 	 * transmittion of the file data starting at the offset in the
-	 * file specified by the ZRPOS header.  */	
+	 * file specified by the ZRPOS header.  */
 	/* Spec 8.2: [in response to ZRPOS] the sender sends a ZDATA
 	 * binary header (with file position) followed by one or more
 	 * data subpackets."  */
-	
+
 	sz->txwcnt = 0;
 	zm_store_header (zi->bytes_sent);
 	zm_send_binary_header (zm, ZDATA, Txhdr);
@@ -1788,7 +1951,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 			e = ZCRCG;
 			log_trace("e=ZCRCG");
 		}
-		if ((sz->min_bps || sz->stop_time)
+		if ((sz->min_bps || sz->stop_time || sz->tick_cb)
 			&& (not_printed > (sz->min_bps ? 3 : 7)
 				|| zi->bytes_sent > last_bps / 2 + last_txpos)) {
 			int minleft = 0;
@@ -1823,6 +1986,14 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 			log_debug (_("Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d  "),
 				  (long) zi->bytes_sent, (long) zi->bytes_total,
 				  last_bps, minleft, secleft);
+			if (sz->tick_cb) {
+				bool more = sz->tick_cb(zi->fname, (long) zi->bytes_sent, (long) zi->bytes_total,
+							last_bps, minleft, secleft);
+				if (!more) {
+					log_info(_("zsendfdata: tick callback returns FALSE"));
+					return ERROR;
+				}
+			}
 			last_txpos = zi->bytes_sent;
 		} else
 			not_printed++;

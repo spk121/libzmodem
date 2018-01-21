@@ -614,6 +614,47 @@ size_t zmodem_receive(const char *directory,
 		      uint64_t min_bps,
 		      uint32_t flags)
 {
+	log_set_level(LOG_ERROR);
+	zreadline_t *zr = zreadline_init(0, /* fd */
+				  8192, /* readnum */
+				  16384, /* bufsize */
+				  1,	 /* no_timeout */
+				  0);	 /* bytes_per_error */
+	zm_t *zm = zm_init(100,		 /* rxtimeout */
+			   0,		 /* znulls */
+			   0,		 /* eflag */
+			   2400,	 /* baudrate */
+			   0,		 /* zctlesc */
+			   1400);	 /* zrwindow */
+	rz_t *rz = rz_init(0,		 /* under_rsh */
+			   1,		 /* restricted */
+			   0,		 /* lzmanag */
+			   0,		 /* nflag */
+			   0,		 /* junk_path */
+			   0,		 /* min_bps */
+			   120,		 /* min_bps_tim */
+			   0,		 /* stop_time */
+			   0,		 /* try_resume */
+			   1,		 /* makelcpathname */
+			   0,		 /* rxclob */
+			   0,		 /* o_sync */
+			   0,		 /* tcp_flag */
+			   0);		 /* topipe */
+	zm->baudrate = io_mode(0,1);
+	int exitcode = 0;
+	if (wcreceive(rz, zr, zm)==ERROR) {
+		exitcode=0200;
+		canit(zr, STDOUT_FILENO);
+	}
+	io_mode(0,0);
+	if (exitcode && !zm->zmodem_requested)
+		canit(zr, STDOUT_FILENO);
+	if (exitcode)
+		log_info(_("Transfer incomplete"));
+	else
+		log_info(_("Transfer complete"));
+	exit(exitcode);
+
 	return 0u;
 }
 
@@ -1337,10 +1378,10 @@ tryz(rz_t *rz, zreadline_t *zr, zm_t *zm)
 	   transfers...  The receive program resendts its header at
 	   intervals for a suitable period of time (40 seconds
 	   total)...."
-	   
+
 	   On startup rz->tryzhdrtype is, by default, set to ZRINIT
 	*/
-	
+
 	for (n=zm->zmodem_requested?15:5;
 		 (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {
 		/* Set buffer length (0) and capability flags */
@@ -1370,7 +1411,7 @@ again:
 			/* Spec 8.1: "[after sending ZRINIT] if the
 			 * receiving program receives a ZRQINIT
 			 * header, it resends the ZRINIT header." */
-			
+
 			/* getting one ZRQINIT is totally ok. Normally a ZFILE follows
 			 * (and might be in our buffer, so don't purge it). But if we
 			 * get more ZRQINITs than the sender has started up before us
@@ -1412,7 +1453,7 @@ again:
 			 * a HEX header is used, and the receiver
 			 * activates the specified ESC modes before
 			 * reading the following data subpacket.  */
-			
+
 			/* this once was:
 			 * Zctlesc = TESCCTL & Rxhdr[ZF0];
 			 * trouble: if rz get --escape flag:

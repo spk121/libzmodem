@@ -101,7 +101,6 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 	}
 	else
 		log_trace("Calling read: Readnum=%d ", zr->readline_readnum);
-
 	zr->readline_ptr = zr->readline_buffer;
 	zr->readline_left = read(zr->readline_fd,
 				 zr->readline_ptr,

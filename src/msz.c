@@ -8,34 +8,47 @@
 #include "zmodem.h"
 
 static
-bool tick_cb(const char *filename, size_t bytes_received)
+bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
 {
+  static long last_sec_left = 0;
+  if (last_sec_left != sec_left && sec_left != 0) {
+    fprintf(stderr, "%s: Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
+	    fname, bytes_sent, bytes_total,
+	    last_bps, min_left, sec_left);
+    last_sec_left = sec_left;
+  }
+  usleep(100000);
   return true;
 }
 
 void complete_cb(const char *filename, int result, size_t size, time_t date)
 {
   if (result == RZSZ_NO_ERROR)
-    fprintf(stderr, "'%s': success\n", filename);
+    fprintf(stderr, "'%s (%zu bytes)': success\n", filename, size);
   else
     fprintf(stderr, "'%s': failure\n", filename);
 }
+
 int
 main(int argc, char *argv[])
 {
   int c;
-  bool bps_flag = false;;
+  bool bps_flag = false;
+  bool hold_flag = false;
   uint64_t bps = 0u;
   int n_filenames = 0;
   const char **filenames = NULL;
 
-  while ((c = getopt(argc, argv, "b:") != -1))
+  while ((c = getopt(argc, argv, "b:h")) != -1)
     switch(c)
       {
       case 'b':
 	bps = strtoul(optarg, NULL, 10);
 	if (bps > 0)
 	  bps_flag = true;
+	break;
+      case 'h':
+	hold_flag = true;
 	break;
       case '?':
 	if (optopt == 'b')
@@ -78,6 +91,13 @@ main(int argc, char *argv[])
       fprintf(stderr, "No files to send.\n");
       free (filenames);
       return 0;
+    }
+
+  if (hold_flag == true)
+    {
+      fprintf(stderr, "Waiting for gdb\n");
+      while (hold_flag == true)
+	sleep(1);
     }
   size_t bytes = zmodem_send(n_filenames, filenames,
 			     tick_cb,
