@@ -115,6 +115,13 @@ struct rz_ {
 				 * running under a restricted
 				 * environment. When true, files save
 				 * as 'rw' not 'rwx' */
+
+	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total,
+			long last_bps, int min_left, int sec_left);
+	void (*complete_cb)(const char *filename, int result, size_t size, time_t date);
+	bool (*approver_cb)(const char *filename, size_t size, time_t date);
+
+
 };
 
 typedef struct rz_ rz_t;
@@ -124,7 +131,11 @@ rz_t *rz_init(int under_rsh, int restricted, char lzmanag,
 	      unsigned long min_bps, long min_bps_time,
 	      time_t stop_time, int try_resume,
 	      int makelcpathname, int rxclob,
-	      int o_sync, int tcp_flag, int topipe
+	      int o_sync, int tcp_flag, int topipe,
+	      bool tick_cb(const char *fname, long bytes_sent, long bytes_total,
+			   long last_bps, int min_left, int sec_left),
+	      void complete_cb(const char *filename, int result, size_t size, time_t date),
+	      bool approver_cb(const char *filename, size_t size, time_t date)
 );
 
 
@@ -156,7 +167,12 @@ rz_init(int under_rsh, int restricted, char lzmanag,
 	int nflag, int junk_path,
 	unsigned long min_bps, long min_bps_time,
 	time_t stop_time, int try_resume,
-	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe)
+	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe,
+	bool tick_cb(const char *fname, long bytes_sent, long bytes_total,
+		     long last_bps, int min_left, int sec_left),
+	void complete_cb(const char *filename, int result, size_t size, time_t date),
+	bool approver_cb(const char *filename, size_t size, time_t date)
+	)
 {
 	rz_t *rz = (rz_t *)malloc(sizeof(rz_t));
 	memset (rz, 0, sizeof(rz_t));
@@ -184,6 +200,9 @@ rz_init(int under_rsh, int restricted, char lzmanag,
 	rz->tcp_socket = -1;
 	rz->rxclob = FALSE;
 	rz->skip_if_not_found = FALSE;
+	rz->tick_cb = tick_cb;
+	rz->complete_cb = complete_cb;
+	rz->approver_cb = approver_cb;
 	return rz;
 
 }
@@ -479,7 +498,9 @@ main(int argc, char *argv[])
 			   Rxclob,
 			   o_sync,
 			   tcp_flag,
-			   Topipe
+			   Topipe,
+			   tick_cb,
+			   complete_cb
 
 		);
 
@@ -608,9 +629,9 @@ usage(int exitcode, const char *what)
  */
 
 size_t zmodem_receive(const char *directory,
-		      bool (*approver)(const char *filename, size_t size, time_t date),
-		      void (*tick)(const char *filename, size_t bytes_received),
-		      void (*complete)(const char *filename, int result, size_t size, time_t date),
+		      bool approver_cb(const char *filename, size_t size, time_t date),
+		      bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
+		      void complete_cb(const char *filename, int result, size_t size, time_t date),
 		      uint64_t min_bps,
 		      uint32_t flags)
 {
@@ -639,7 +660,11 @@ size_t zmodem_receive(const char *directory,
 			   0,		 /* rxclob */
 			   0,		 /* o_sync */
 			   0,		 /* tcp_flag */
-			   0);		 /* topipe */
+			   0,		 /* topipe */
+			   tick_cb,
+			   complete_cb,
+			   approver_cb
+		);
 	zm->baudrate = io_mode(0,1);
 	int exitcode = 0;
 	if (wcreceive(rz, zr, zm)==ERROR) {
@@ -1138,6 +1163,13 @@ procheader(rz_t *rz, zreadline_t *zr, zm_t *zm, char *name, struct zm_fileinfo *
 	if (!zm->zmodem_requested && rz->makelcpathname && !IsAnyLower(name_static)
 	  && !(zi->mode&UNIXFILE))
 		uncaps(name_static);
+
+	if (rz->approver_cb)
+		if (!rz->approver_cb(name_static, zi->bytes_total, zi->modtime)) {
+			log_info("%s: rejected by approver callback", rz->pathname);
+			return ERROR;
+		}
+
 	if (rz->topipe > 0) {
 		if (rz->pathname)
 			free(rz->pathname);
@@ -1643,6 +1675,8 @@ nxthdr:
 				return ERROR;
 			}
 			log_debug("rzfile: normal EOF");
+			if (rz->complete_cb)
+				rz->complete_cb(zi->fname, 0, zi->bytes_sent, zi->modtime);
 			return c;
 		case ERROR:	/* Too much garbage in header search error */
 			if ( --n < 0) {
@@ -1689,8 +1723,9 @@ nxthdr:
 				zmputs(rz->attn);  continue;
 			}
 moredata:
-			if ((rz->min_bps || rz->stop_time) && (not_printed > (rz->min_bps ? 3 : 7)
-						       || zi->bytes_received > last_bps / 2 + last_rxbytes)) {
+			if ((rz->min_bps || rz->stop_time || rz->tick_cb)
+			    && (not_printed > (rz->min_bps ? 3 : 7)
+				|| zi->bytes_received > last_bps / 2 + last_rxbytes)) {
 				int minleft =  0;
 				int secleft =  0;
 				time_t now;
@@ -1728,6 +1763,10 @@ moredata:
 				log_info(_("\rBytes received: %7ld/%7ld   BPS:%-6ld ETA %02d:%02d  "),
 					 (long) zi->bytes_received, (long) zi->bytes_total,
 					 last_bps, minleft, secleft);
+				if (rz->tick_cb)
+					rz->tick_cb(zi->fname, zi->bytes_received,
+						    zi->bytes_total, last_bps, minleft,
+						    secleft);
 				last_rxbytes=zi->bytes_received;
 				not_printed=0;
 			} else

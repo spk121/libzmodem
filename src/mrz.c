@@ -7,19 +7,36 @@
 #include <sys/stat.h>
 #include "zmodem.h"
 
-static
-bool tick_cb(const char *filename, size_t bytes_received)
+static bool
+approver_cb(const char *filename, size_t size, time_t date)
 {
+  fprintf(stderr, "Sender requests to send %s: %zu bytes\n", filename, size);
   return true;
 }
+
+static
+bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
+{
+  static long last_sec_left = 0;
+  if (last_sec_left != sec_left && sec_left != 0) {
+    fprintf(stderr, "%s: Bytes Received:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
+	    fname, bytes_sent, bytes_total,
+	    last_bps, min_left, sec_left);
+    last_sec_left = sec_left;
+  }
+  usleep(10000);
+  return true;
+}
+
 
 void complete_cb(const char *filename, int result, size_t size, time_t date)
 {
   if (result == RZSZ_NO_ERROR)
     fprintf(stderr, "'%s': received\n", filename);
   else
-    fprintf(stderr, "'%s': failure\n", filename);
+    fprintf(stderr, "'%s': failed to receive\n", filename);
 }
+
 int
 main(int argc, char *argv[])
 {
@@ -47,7 +64,7 @@ main(int argc, char *argv[])
 	abort ();
       }
   size_t bytes = zmodem_receive(NULL, /* use current directory */
-				NULL, /* receive everything */
+				approver_cb, /* receive everything */
 				tick_cb,
 				complete_cb,
 				bps_flag ? bps : 0,

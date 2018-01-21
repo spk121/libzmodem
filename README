@@ -1,31 +1,52 @@
-LIBZMODEM - a library that sends and receives via ZModem
+================================================================
 
+			      LIBZMODEM
+	     A library that sends and receives via ZModem
 
-Hi.  Mike Gran here.  This project, if and when complete, will be
-a library that I can link to a program that will send and receive
-files from stdout/stdin using the ZModem protocol.
+Hi.  Mike Gran here.  This project is a a library that I can link to a
+program that will send and receive files from stdout/stdin using the
+ZModem protocol.
 
-This project is *PRE-ALPHA*.  It does not yet compile to a library
-that can be used to provide ZModem transfer.
+This project is *BETA*.  It compiles to a static library that can be
+used to provide ZModem transfer.  The functionality is solid, but, the
+code is poorly organized.
 
-When complete, the API will be described in the rzsz.h header file.
+The library is libzmodem.a
+
+The API is described in the src/zmodem.h header file.
+
+Two sample applications are make using the library: mrz is a ZMmodem
+receiver, and msz is a ZModem sender.
 
 It derives from the lrzsz project, which is code for executables that
 send and receive files via XModem, YModem, or ZModem.  Specifically,
 this is Mike Gran's fork of jnavila's fork of Uwe Ohse's fork of Chuck
 Forsberg's rzsz.
 
-To become a library, the rz and sz executables need to become linkable
-libraries and to be modified in three ways.
-
-* all logging and screen I/O need to be redirected
-* all hard exits need to become error codes
-* the operations need to become interruptable and restartable
-
-Mike Gran's fork lives at https://github.com/spk121/libzmodem
+The home for libzmodem's code is https://github.com/spk121/libzmodem
 
 If, for some reason, you want to contact Mike, try
 <mike@lonelycactus.com>.
+
+================================================================
+
+				 TODO
+
+2018/01/21
+
+There are still some globals to eliminate.
+
+Dozens of options need to be eliminated and pushed to the callback API
+functions.
+
+There needs to be a better strategy to communicate failures.  All
+failures should be error codes, not log information.
+
+It needs to be threadsafe.
+
+================================================================
+
+			       HISTORY
 
 jnavila's fork fixed up some problems with Hyperterm.
 
@@ -38,25 +59,24 @@ uwe's original README begins below.  Beyond here, the "me" is uwe.
 ----------------------------------------
 
 lrzsz is a X/Y/ZModem package built from the public-domain version of
-Chuck Forsberg´s rzsz package. This package contains NO code from later
-releases of rzsz which would preclude it from being released under the
-GPL.
-It has been heavily modified by me and others.
+Chuck Forsberg´s rzsz package. This package contains NO code from
+later releases of rzsz which would preclude it from being released
+under the GPL.  It has been heavily modified by me and others.
 
-Please note that credit should be given to Chuck Forsberg (rzsz) and Stephen
-Satchell/Satchell Evaluations (crc routines) for this package. Any later
-modifications were minor and merely introduced to increase performance,
-reliability or compatability.
+Please note that credit should be given to Chuck Forsberg (rzsz) and
+Stephen Satchell/Satchell Evaluations (crc routines) for this
+package. Any later modifications were minor and merely introduced to
+increase performance, reliability or compatability.
 
-There is a mailing list for lrzsz: <uwe-lrzsz@bulkmail.ohse.de>. 
-To subscribe send a mail to <uwe-lrzsz-subscribe@bulkmail.ohse.de>.
+There is a mailing list for lrzsz: <uwe-lrzsz@bulkmail.ohse.de>.  To
+subscribe send a mail to <uwe-lrzsz-subscribe@bulkmail.ohse.de>.
 
-I prefer to get bug reports sent using the `lrzszbug' shell script which
-you can find in the `src' subdirectory (this script is not installed together
-with the programs because i don't expect many bug reports). Nethertheless
-you can still send bug reports to <bugs@bulkmail.ohse.de> as normal
-electronic mails. Bugs received at this address may be forwarded to the
-mailing list.
+I prefer to get bug reports sent using the `lrzszbug' shell script
+which you can find in the `src' subdirectory (this script is not
+installed together with the programs because i don't expect many bug
+reports). Nethertheless you can still send bug reports to
+<bugs@bulkmail.ohse.de> as normal electronic mails. Bugs received at
+this address may be forwarded to the mailing list.
 
 Please read:
 - INSTALL for installation instructions
@@ -88,4 +108,3 @@ or
 
 
 Uwe Ohse
-

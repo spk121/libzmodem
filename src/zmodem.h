@@ -56,7 +56,7 @@
    transfered. */
 size_t zmodem_receive(const char *directory,
 		      bool (*approver)(const char *filename, size_t size, time_t date),
-		      void (*tick)(const char *filename, size_t bytes_received),
+		      bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		      void (*complete)(const char *filename, int result, size_t size, time_t date),
 		      uint64_t min_bps,
 		      uint32_t flags);

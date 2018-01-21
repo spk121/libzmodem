@@ -17,16 +17,16 @@ bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps
 	    last_bps, min_left, sec_left);
     last_sec_left = sec_left;
   }
-  usleep(100000);
+  usleep(10000);
   return true;
 }
 
 void complete_cb(const char *filename, int result, size_t size, time_t date)
 {
   if (result == RZSZ_NO_ERROR)
-    fprintf(stderr, "'%s (%zu bytes)': success\n", filename, size);
+    fprintf(stderr, "'%s (%zu bytes)': successful send\n", filename, size);
   else
-    fprintf(stderr, "'%s': failure\n", filename);
+    fprintf(stderr, "'%s': failed to send\n", filename);
 }
 
 int
