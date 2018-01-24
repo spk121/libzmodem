@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Result codes */
 #define RZSZ_NO_ERROR (0)
 #define RZSZ_ERROR (1)
@@ -106,4 +110,9 @@ size_t zmodem_send(int file_count,
 		   void (*complete)(const char *filename, int result, size_t size, time_t date),
 		   uint64_t min_bps,
 		   uint32_t flags);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
