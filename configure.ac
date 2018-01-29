@@ -36,8 +36,8 @@ dnl Checks for library functions.
 dnl special tests
 
 dnl AM_GNU_GETTEXT([no-libtool])
-AM_GNU_GETTEXT([external],[],[])
-AM_GNU_GETTEXT_VERSION([0.19.8])
+dnl AM_GNU_GETTEXT([external],[],[])
+dnl AM_GNU_GETTEXT_VERSION([0.19.8])
 
 if test x"$DEJAGNU" = x
 then
@@ -45,5 +45,5 @@ then
 fi
 AC_SUBST(DEJAGNU)
 
-AC_CONFIG_FILES([Makefile testsuite/Makefile man/Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile testsuite/Makefile src/Makefile])
 AC_OUTPUT

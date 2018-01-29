@@ -22,3 +22,5 @@ libzmodem_la_SOURCES = \
 pkginclude_HEADERS = zmodem.h
 
 AM_CFLAGS = -Wall -Wextra -Wconversion
+
+include flymake.mk

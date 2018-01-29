@@ -1,4 +1,4 @@
-SUBDIRS = src man testsuite
+SUBDIRS = src testsuite
 EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
 	fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
