@@ -41,8 +41,7 @@ static int
 readline_internal(zreadline_t *zr, unsigned int timeout);
 
 zreadline_t *
-zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
-	int bytes_per_error)
+zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout)
 {
 	zreadline_t *zr = (zreadline_t *) malloc (sizeof(zreadline_t));
 	memset (zr, 0, sizeof(zreadline_t));
@@ -54,12 +53,11 @@ zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 		exit(1);
 	}
 	zr->no_timeout = no_timeout;
-	zr->bytes_per_error = bytes_per_error;
 	return zr;
 }
 
 int
-zreadline_pf(zreadline_t *zr, int timeout)
+zreadline_getc(zreadline_t *zr, int timeout)
 {
 	zr->readline_left --;
 	if (zr->readline_left >= 0) {
@@ -107,18 +105,6 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 				 zr->readline_readnum);
 	if (!zr->no_timeout)
 		alarm(0);
-	if (zr->readline_left > 0 && zr->bytes_per_error) {
-		static long ct=0;
-		static int mod=1;
-		ct += zr->readline_left;
-		while (ct > zr->bytes_per_error) {
-			zr->readline_ptr[ct % zr->bytes_per_error] ^= mod;
-			ct -= zr->bytes_per_error;
-			mod++;
-			if (mod==256)
-				mod=1;
-		}
-	}
 	if (zr->readline_left == -1)
 		log_trace("Read failure :%s\n", strerror(errno));
 	else
