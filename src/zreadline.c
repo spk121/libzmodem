@@ -133,8 +133,19 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 
 
 void
-zreadline_purge(zreadline_t *zr)
+zreadline_flush(zreadline_t *zr)
 {
 	zr->readline_left=0;
 	return;
 }
+
+void
+zreadline_flushline(zreadline_t *zr)
+{
+  zr->readline_left = 0;
+  lseek(zr->readline_fd, 0, SEEK_END);
+}
+
+
+
+

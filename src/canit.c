@@ -19,16 +19,11 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
   02111-1307, USA.
 */
-#include "zglobal.h"
 
-#define SS_NORMAL 0
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <setjmp.h>
-#include <ctype.h>
-#include <errno.h>
-#include <getopt.h>
+
+#include "canit.h"
+
+#include <unistd.h> // for write
 
 /* send cancel string to get the other end to shut up */
 void
@@ -38,9 +33,15 @@ canit (zreadline_t *zr, int fd)
 	{
 		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0
 	};
-	purgeline(zr, fd);
+	zreadline_flushline(zr);
 	write(fd,canistr,strlen(canistr));
 	if (fd==0)
 		write(1,canistr,strlen(canistr));
 }
 
+#ifdef CANIT_MAIN
+int main()
+{
+  canit(NULL, 0);
+}
+#endif
