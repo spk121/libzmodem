@@ -1,4 +1,4 @@
-load_lib "lrzsz.exp"
+load_lib "mrzsz.exp"
 if $tracelevel then {
     strace $tracelevel
 }
@@ -7,15 +7,15 @@ if $tracelevel then {
 # case a: should not work if existing file is younger
 set name sz-newer-fail
 exec mkdir $testdir/$name
-exec cp -p $srcdir/../src/lrz.c $testdir/LRZ
+exec cp -p $srcdir/../src/mrz.c $testdir/MRZ
 # so existing file ist younger.
-exec touch $testdir/$name/LRZ
+exec touch $testdir/$name/MRZ
 set fail_is_ok 1
-set fails [runthem_internal $name $objdir/../src/lsz "-q --newer" \
-	$objdir/../src/lrz "-q" \
-	"$testdir/LRZ" "compare" dummy]
+set fails [runthem_internal $name $objdir/../src/msz "-q --newer" \
+	$objdir/../src/mrz "-q" \
+	"$testdir/MRZ" "compare" dummy]
 unset fail_is_ok
-if {[file size $testdir/$name/LRZ] != 0} {
+if {[file size $testdir/$name/MRZ] != 0} {
 	send_log "file has been overwritten\n"
 	incr fails
 }
@@ -30,15 +30,15 @@ unset fails
 
 set name rz-newer-fail
 exec mkdir $testdir/$name
-exec cp -p $srcdir/../src/lrz.c $testdir/LRZ
+exec cp -p $srcdir/../src/mrz.c $testdir/MRZ
 # so existing file ist younger.
-exec touch $testdir/$name/LRZ
+exec touch $testdir/$name/MRZ
 set fail_is_ok 1
-set fails [runthem_internal $name $objdir/../src/lsz "-q" \
-	$objdir/../src/lrz "-q --newer" \
-	"$testdir/LRZ" "compare" dummy]
+set fails [runthem_internal $name $objdir/../src/msz "-q" \
+	$objdir/../src/mrz "-q --newer" \
+	"$testdir/MRZ" "compare" dummy]
 unset fail_is_ok
-if {[file size $testdir/$name/LRZ] != 0} {
+if {[file size $testdir/$name/MRZ] != 0} {
 	send_log "file has been overwritten\n"
 	incr fails
 }
@@ -55,11 +55,11 @@ unset fails
 # case b: should work if existing file is older
 set name sz-newer-ok
 exec mkdir $testdir/$name
-exec cp -p $objdir/../src/lrz $testdir/LRZ
-exec touch -r $srcdir/../src/lrz.c $testdir/$name/LRZ
-set fails [runthem_internal $name $objdir/../src/lsz "-q --newer" \
-	"$objdir/../src/lrz" "-q" \
-	"$testdir/LRZ" "compare" dummy]
+exec cp -p $objdir/../src/mrz $testdir/MRZ
+exec touch -r $srcdir/../src/mrz.c $testdir/$name/MRZ
+set fails [runthem_internal $name $objdir/../src/msz "-q --newer" \
+	"$objdir/../src/mrz" "-q" \
+	"$testdir/MRZ" "compare" dummy]
 if {$fails == 0} {
 	exec rm -rf $testdir/$name
 	pass "$name"
@@ -72,11 +72,11 @@ unset fails
 # case b: should work if existing file is older
 set name rz-newer-ok
 exec mkdir $testdir/$name
-exec cp -p $objdir/../src/lrz $testdir/LRZ
-exec touch -r $srcdir/../src/lrz.c $testdir/$name/LRZ
-set fails [runthem_internal $name $objdir/../src/lsz "-q" \
-	"$objdir/../src/lrz" "-q --newer" \
-	"$testdir/LRZ" "compare" dummy]
+exec cp -p $objdir/../src/mrz $testdir/MRZ
+exec touch -r $srcdir/../src/mrz.c $testdir/$name/MRZ
+set fails [runthem_internal $name $objdir/../src/msz "-q" \
+	"$objdir/../src/mrz" "-q --newer" \
+	"$testdir/MRZ" "compare" dummy]
 if {$fails == 0} {
 	exec rm -rf $testdir/$name
 	pass "$name"
@@ -89,13 +89,13 @@ unset fails
 # check wether --newer-or-longer option works
 set name sz-newer-or-longer
 exec mkdir $testdir/$name
-exec cp -p $srcdir/../src/lrz.c $testdir/LRZ
+exec cp -p $srcdir/../src/mrz.c $testdir/MRZ
 # so existing file ist younger.
-exec touch $testdir/$name/LRZ
-set fails [runthem_internal $name $objdir/../src/lsz "-q --newer-or-longer" \
-	"$objdir/../src/lrz" "-q" \
-	"$testdir/LRZ" "compare" dummy]
-if {[file size $testdir/$name/LRZ] == 0} {
+exec touch $testdir/$name/MRZ
+set fails [runthem_internal $name $objdir/../src/msz "-q --newer-or-longer" \
+	"$objdir/../src/mrz" "-q" \
+	"$testdir/MRZ" "compare" dummy]
+if {[file size $testdir/$name/MRZ] == 0} {
 	send_log "file has not been overwritten\n"
 	incr fails
 }
@@ -110,13 +110,13 @@ unset fails
 
 set name rz-newer-or-longer
 exec mkdir $testdir/$name
-exec cp -p $srcdir/../src/lrz.c $testdir/LRZ
+exec cp -p $srcdir/../src/mrz.c $testdir/MRZ
 # so existing file ist younger.
-exec touch $testdir/$name/LRZ
-set fails [runthem_internal $name $objdir/../src/lsz "-q" \
-	"$objdir/../src/lrz" "-q --newer-or-longer" \
-	"$testdir/LRZ" "compare" dummy]
-if {[file size $testdir/$name/LRZ] == 0} {
+exec touch $testdir/$name/MRZ
+set fails [runthem_internal $name $objdir/../src/msz "-q" \
+	"$objdir/../src/mrz" "-q --newer-or-longer" \
+	"$testdir/MRZ" "compare" dummy]
+if {[file size $testdir/$name/MRZ] == 0} {
 	send_log "file has not been overwritten\n"
 	incr fails
 }

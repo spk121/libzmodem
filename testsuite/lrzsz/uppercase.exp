@@ -1,4 +1,4 @@
-load_lib "lrzsz.exp"
+load_lib "mrzsz.exp"
 if $tracelevel then {
     strace $tracelevel
 }
@@ -7,13 +7,13 @@ if $tracelevel then {
 # no way to check with zmodem - zmodem does no case conversion.
 
 # check --keep-uppercase option
-exec cp $srcdir/../src/lrz.c $testdir/LRZC
-runthem ymodem-keep-uppercase $objdir/../src/lsz "-q --ymodem" \
-	$objdir/../src/lrz "-q --ymodem --keep-uppercase" $testdir/LRZC
+exec cp $srcdir/../src/mrz.c $testdir/MRZC
+runthem ymodem-keep-uppercase $objdir/../src/msz "-q --ymodem" \
+	$objdir/../src/mrz "-q --ymodem --keep-uppercase" $testdir/MRZC
 
 # reverse case ... case conversion works?
 set fail_is_ok 1
-runthem ymodem-try-uppercase $objdir/../src/lsz "-q --ymodem --no-unixmode" \
-	"$objdir/../src/lrz" "--ymodem -q" "$testdir/LRZC"
+runthem ymodem-try-uppercase $objdir/../src/msz "-q --ymodem --no-unixmode" \
+	"$objdir/../src/mrz" "--ymodem -q" "$testdir/MRZC"
 unset fail_is_ok
-exec rm -f $testdir/LRZC
+exec rm -f $testdir/MRZC
