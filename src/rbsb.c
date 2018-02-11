@@ -225,15 +225,5 @@ sendbrk(int fd)
 	tcsendbreak(fd,0);
 }
 
-void
-purgeline(zreadline_t *zr, int fd)
-{
-	zreadline_purge(zr);
-#ifdef TCFLSH
-	ioctl(fd, TCFLSH, 0);
-#else
-	lseek(fd, 0L, 2);
-#endif
-}
 
 /* End of rbsb.c */

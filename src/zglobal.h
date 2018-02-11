@@ -38,7 +38,7 @@
 #include <locale.h>
 #include <unistd.h>
 #include <limits.h>
-
+#include "zreadline.h"
 #if ENABLE_NLS
 #include "gettext.h"
 # define _(Text) gettext (Text)
@@ -131,6 +131,8 @@
 
 #define DEFBYTL 2000000000L	/* default rx file size */
 
+
+
 enum zm_type_enum {
 	ZM_ZMODEM
 };
@@ -154,30 +156,6 @@ extern const char *program_name;        /* the name by which we were called */
 // extern int no_timeout;
 // extern int under_rsh;
 
-struct zreadline_ {
-	char *readline_ptr; /* pointer for removing chars from linbuf */
-	int readline_left; /* number of buffered chars left to read */
-	size_t readline_readnum;
-	int readline_fd;
-	char *readline_buffer;
-	int no_timeout; 	/* when true, readline does not timeout */
-	int bytes_per_error;
-};
-
-typedef struct zreadline_ zreadline_t;
-
-/* /\* zreadline.c *\/ */
-/* #define READLINE_PF(timeout) \ */
-/*     (--readline_left >= 0? (*readline_ptr++ & 0377) : readline_internal(timeout)) */
-
-zreadline_t *
-zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
-	      int bytes_per_error);
-
-void zreadline_purge (zreadline_t *zr);
-void zreadline_setup (zreadline_t *zr, int fd, size_t readnum,
-		      size_t buffer_size, int no_timeout);
-int zreadline_pf(zreadline_t *zr, int timeout);
 
 /* rbsb.c */
 extern int Fromcu;
@@ -188,63 +166,9 @@ int from_cu (void) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int rdchk (int fd);
 int io_mode (int fd, int n) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 void sendbrk (int fd);
-void purgeline (zreadline_t *zr, int fd);
-void canit (zreadline_t *zr, int fd);
 
-
-/* crctab.c */
-extern unsigned short crctab[256];
-#define updcrc(cp, crc) ( crctab[((crc >> 8) & 255)] ^ (crc << 8) ^ cp)
-extern long cr3tab[];
-#define UPDC32(b, c) (cr3tab[((int)c ^ b) & 0xff] ^ ((c >> 8) & 0x00FFFFFF))
 
 /* zm.c */
-#include "_zmodem.h"
-extern int bytes_per_error;  /* generate one error around every x bytes */
-
-/* Globals used by ZMODEM functions */
-extern char Rxhdr[4];      /* Received header */
-extern char Txhdr[4];      /* Transmitted header */
-// extern long Txpos;     /* Transmitted file position */
-// extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
-
-struct zm_ {
-	int rxtimeout;          /* Constant: tenths of seconds to wait for something */
-	int znulls;             /* Constant: Number of nulls to send at beginning of ZDATA hdr */
-	int eflag;              /* Constant: local display of non zmodem characters */
-				/* 0:  no display */
-				/* 1:  display printing characters only */
-				/* 2:  display all non ZMODEM characters */
-	int baudrate;		/* Constant: in bps */
-	int zrwindow;		/* RX window size (controls garbage count) */
-
-	int zctlesc;            /* Variable: TRUE means to encode control characters */
-	int txfcs32;            /* Variable: TRUE means send binary frames with 32 bit FCS */
-
-	int rxtype;		/* State: type of header received */
-	char zsendline_tab[256]; /* State: conversion chart for zmodem escape sequence encoding */
-	char lastsent;		/* State: last byte send */
-	int crc32t;             /* State: display flag indicating 32-bit CRC being sent */
-	int crc32;              /* State: display flag indicating 32 bit CRC being received */
-	int rxframeind;	        /* State: ZBIN, ZBIN32, or ZHEX type of frame received */
-	int zmodem_requested;
-};
-
-typedef struct zm_ zm_t;
-
-zm_t *zm_init(int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow);
-int zm_get_zctlesc(zm_t *zm);
-void zm_set_zctlesc(zm_t *zm, int zctlesc);
-void zm_update_table(zm_t *zm);
-extern void zsendline (zm_t *zm, int c);
-void zm_send_binary_header (zm_t *zm, int type, char *hdr);
-void zm_send_hex_header (zm_t *zm, int type, char *hdr);
-void zm_send_data (zm_t *zm, const char *buf, size_t length, int frameend);
-void zm_send_data32 (zm_t *zm, const char *buf, size_t length, int frameend);
-int zm_receive_data (zreadline_t *zr, zm_t *zm, char *buf, int length, size_t *received);
-int zm_get_header (zreadline_t *zr, zm_t *zm, char *hdr, size_t *);
-void zm_store_header (size_t pos) LRZSZ_ATTRIB_REGPARM(1);
-long zm_reclaim_header (char *hdr) LRZSZ_ATTRIB_REGPARM(1);
 
 int tcp_server (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int tcp_connect (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
