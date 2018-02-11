@@ -39,7 +39,7 @@ main(int argc, char *argv[])
   int n_filenames = 0;
   const char **filenames = NULL;
 
-  while ((c = getopt(argc, argv, "b:h")) != -1)
+  while ((c = getopt(argc, argv, "b:hq:")) != -1)
     switch(c)
       {
       case 'b':

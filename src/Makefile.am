@@ -5,8 +5,8 @@ mrz_LDADD = libzmodem.la
 msz_SOURCES = msz.c
 msz_LDADD = libzmodem.la
 libzmodem_la_SOURCES = \
-	canit.c \
-	crctab.c \
+	canit.c canit.h \
+	crctab.c crctab.h \
 	gettext.h \
 	log.h log.c \
 	lrz.c \

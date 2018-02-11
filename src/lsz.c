@@ -45,6 +45,9 @@
 #include "timing.h"
 #include "log.h"
 #include "zmodem.h"
+#include "canit.h"
+#include "crctab.h"
+#include "zm.h"
 
 #define MAX_BLOCK 8192
 
@@ -243,12 +246,11 @@ size_t zmodem_send(int file_count,
 		   uint32_t flags)
 {
 	log_set_level(LOG_ERROR);
-	zreadline_t *zr = zreadline_init(0, /* fd */
-					 128, /* readnum */
-					 256, /* bufsize */
-					 1,   /* no_timeout */
-					 0);   /* bytes_per_error */
-	zm_t *zm = zm_init(600,	/* rxtimeout */
+	zm_t *zm = zm_init(0, /* fd */
+			   128, /* readnum */
+			   256, /* bufsize */
+			   1, /* no_timeout */
+			   600,	/* rxtimeout */
 			   0, 	/* znulls */
 			   0,	/* eflag */
 			   2400, /* baudrate */
@@ -307,7 +309,7 @@ size_t zmodem_send(int file_count,
 	unsigned char throwaway;
 	fd_set f;
 
-	purgeline(zr, sz->io_mode_fd);
+	zreadline_flushline(zm->zr);
 
 	t.tv_sec = 0;
 	t.tv_usec = 0;
@@ -320,7 +322,7 @@ size_t zmodem_send(int file_count,
 			break;
 	}
 
-	purgeline(zr, sz->io_mode_fd);
+	zreadline_flushline(zm->zr);
 	zm_store_header(0L);
 
 	/* Spec 8.1: "Then the sender may send a ZRQINIT. The ZRQINIT
@@ -335,9 +337,9 @@ size_t zmodem_send(int file_count,
 	fflush(stdout);
 
 	/* This is the main loop.  */
-	if (wcsend(sz, zr, zm, file_count, file_list)==ERROR) {
+	if (wcsend(sz, zm->zr, zm, file_count, file_list)==ERROR) {
 		sz->exitcode=0200;
-		canit(zr, STDOUT_FILENO);
+		canit(zm->zr, STDOUT_FILENO);
 	}
 	fflush(stdout);
 	io_mode(sz->io_mode_fd, 0);
@@ -692,7 +694,7 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 	sz->lastrx = 0;
 	for (;;) {
 		tries++;
-		switch (firstch = zreadline_pf(zr, 100)) {
+		switch (firstch = zreadline_getc(zr, 100)) {
 
 		case ZPAD:
 			/* Spec 7.3.1: "A binary header begins with
@@ -738,7 +740,7 @@ getnak(sz_t *sz, zreadline_t *zr, zm_t *zm)
 			 * transfer is indicated.  */
 			return FALSE;
 		case CAN:
-			if ((firstch = zreadline_pf(zr, 20)) == CAN
+			if ((firstch = zreadline_getc(zr, 20)) == CAN
 			    && sz->lastrx == CAN)
 				return TRUE;
 		default:
@@ -758,7 +760,7 @@ wctx(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	sz->firstsec=TRUE;  thisblklen = sz->blklen;
 	log_debug("wctx:file length=%ld", (long) zi->bytes_total);
 
-	while ((firstch=zreadline_pf(zr, zm->rxtimeout))!=NAK && firstch != WANTCRC
+	while ((firstch=zreadline_getc(zr, zm->rxtimeout))!=NAK && firstch != WANTCRC
 	  && firstch != WANTG && firstch!=TIMEOUT && firstch!=CAN)
 		;
 	if (firstch==CAN) {
@@ -782,11 +784,11 @@ wctx(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 	fclose(sz->input_f);
 	attempts=0;
 	do {
-		purgeline(zr, sz->io_mode_fd);
+		zreadline_flushline(zr);
 		putchar(EOT);
 		fflush(stdout);
 		++attempts;
-	} while ((firstch=(zreadline_pf(zr,zm->rxtimeout)) != ACK) && attempts < RETRYMAX);
+	} while ((firstch=(zreadline_getc(zr,zm->rxtimeout)) != ACK) && attempts < RETRYMAX);
 	if (attempts == RETRYMAX) {
 		log_error(_("No ACK on EOT"));
 		return ERROR;
@@ -831,7 +833,7 @@ wcputsec(sz_t *sz, zreadline_t *zr, zm_t *zm, char *buf, int sectnum, size_t cse
 		if (sz->optiong) {
 			sz->firstsec = FALSE; return OK;
 		}
-		firstch = zreadline_pf(zr, zm->rxtimeout);
+		firstch = zreadline_getc(zr, zm->rxtimeout);
 gotnak:
 		switch (firstch) {
 		case CAN:
@@ -858,7 +860,7 @@ cancan:
 		}
 		for (;;) {
 			sz->lastrx = firstch;
-			if ((firstch = zreadline_pf(zr,zm->rxtimeout)) == TIMEOUT)
+			if ((firstch = zreadline_getc(zr,zm->rxtimeout)) == TIMEOUT)
 				break;
 			if (firstch == NAK || firstch == WANTCRC)
 				goto gotnak;
@@ -1009,7 +1011,6 @@ getzrxinit(sz_t *sz, zreadline_t *zr, zm_t *zm)
 	int timeouts=0;
 
 	zm->rxtimeout=100; /* 10 seconds */
-	/* XXX purgeline(sz->io_mode_fd); this makes _real_ trouble. why? -- uwe */
 
 	for (n=10; --n>=0; ) {
 		/* we might need to send another zrqinit in case the first is
@@ -1025,7 +1026,7 @@ getzrxinit(sz_t *sz, zreadline_t *zr, zm_t *zm)
 		}
 		dont_send_zrqinit=0;
 
-		switch (zm_get_header(zr, zm, Rxhdr, &rxpos)) {
+		switch (zm_get_header(zm, Rxhdr, &rxpos)) {
 		case ZCHALLENGE:	/* Echo receiver's challenge numbr */
 			zm_store_header(rxpos);
 			zm_send_hex_header(zm, ZACK, Txhdr);
@@ -1119,7 +1120,7 @@ sendzsinit(sz_t *sz, zreadline_t *zr, zm_t *zm)
 		else
 			zm_send_binary_header(zm, ZSINIT, Txhdr);
 		ZM_SEND_DATA(Myattn, 1+strlen(Myattn), ZCRCW);
-		c = zm_get_header(zr, zm, Rxhdr, NULL);
+		c = zm_get_header(zm, Rxhdr, NULL);
 		switch (c) {
 		case ZCAN:
 			return ERROR;
@@ -1159,10 +1160,10 @@ zsendfile(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi, const cha
 		zm_send_binary_header(zm, ZFILE, Txhdr);
 		ZM_SEND_DATA(buf, blen, ZCRCW);
 again:
-		c = zm_get_header(zr, zm, Rxhdr, &rxpos);
+		c = zm_get_header(zm, Rxhdr, &rxpos);
 		switch (c) {
 		case ZRINIT:
-			while ((c = zreadline_pf(zr, 50)) > 0)
+			while ((c = zreadline_getc(zr, 50)) > 0)
 				if (c == ZPAD) {
 					goto again;
 				}
@@ -1346,7 +1347,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		 *  rdchk(fdes) returns non 0 if a character is available
 		 */
 		while (rdchk (sz->io_mode_fd)) {
-			switch (zreadline_pf (zr, 1))
+			switch (zreadline_getc (zr, 1))
 			{
 			case CAN:
 			case ZPAD:
@@ -1354,7 +1355,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 				goto gotack;
 			case XOFF:			/* Wait a while for an XON */
 			case XOFF | 0200:
-				zreadline_pf (zr, 100);
+				zreadline_getc (zr, 100);
 			}
 		}
 	}
@@ -1484,7 +1485,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 		 */
 		fflush (stdout);
 		while (rdchk (sz->io_mode_fd)) {
-			switch (zreadline_pf (zr, 1))
+			switch (zreadline_getc (zr, 1))
 			{
 			case CAN:
 			case ZPAD:
@@ -1496,7 +1497,7 @@ zsendfdata (sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi)
 				goto gotack;
 			case XOFF:			/* Wait a while for an XON */
 			case XOFF | 0200:
-				zreadline_pf (zr, 100);
+				zreadline_getc (zr, 100);
 			default:
 				++junkcount;
 			}
@@ -1674,7 +1675,7 @@ getinsync(sz_t *sz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *zi, int flag)
 	size_t rxpos;
 
 	for (;;) {
-		c = zm_get_header(zr, zm, Rxhdr, &rxpos);
+		c = zm_get_header(zm, Rxhdr, &rxpos);
 		switch (c) {
 		case ZCAN:
 		case ZABORT:
@@ -1733,7 +1734,7 @@ saybibi(zreadline_t *zr, zm_t *zm)
 		 * ZFIN header.  The receiver acknowledges this with
 		 * its own ZFIN header."  */
 		zm_send_hex_header(zm, ZFIN, Txhdr);	/*  to make debugging easier */
-		switch (zm_get_header(zr, zm, Rxhdr,NULL)) {
+		switch (zm_get_header(zm, Rxhdr,NULL)) {
 		case ZFIN:
 			/* Spec 8.3: "When the sender receives the
                          * acknowledging header, it sends two

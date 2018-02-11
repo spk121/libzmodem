@@ -44,7 +44,7 @@ main(int argc, char *argv[])
   bool bps_flag = false;
   uint64_t bps = 0u;
 
-  while ((c = getopt(argc, argv, "b:")) != -1)
+  while ((c = getopt(argc, argv, "b:q")) != -1)
     switch(c)
       {
       case 'b':

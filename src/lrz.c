@@ -41,6 +41,9 @@
 #include "timing.h"
 #include "log.h"
 #include "zmodem.h"
+#include "canit.h"
+#include "crctab.h"
+#include "zm.h"
 
 #define MAX_BLOCK 8192
 
@@ -151,7 +154,7 @@ static int procheader (rz_t *rz, zreadline_t *zr, zm_t *zm, char *name, struct z
 static int wcgetsec (rz_t *rz, zreadline_t *zr, size_t *Blklen, char *rxbuf, unsigned int maxtime);
 static int wcrx (rz_t *rz, zreadline_t *zr, struct zm_fileinfo *);
 static int wcrxpn (rz_t *rz, zreadline_t *zr, struct zm_fileinfo *, char *rpn);
-static int wcreceive (rz_t *rz, zreadline_t *zr, zm_t *zm);
+static int wcreceive (rz_t *rz, zm_t *zm);
 static int rzfile (rz_t *rz, zreadline_t *zr, zm_t *zm, struct zm_fileinfo *);
 static void exec2 (const char *s);
 static int closeit (rz_t *rz, struct zm_fileinfo *);
@@ -230,12 +233,11 @@ size_t zmodem_receive(const char *directory,
 		      uint32_t flags)
 {
 	log_set_level(LOG_ERROR);
-	zreadline_t *zr = zreadline_init(0, /* fd */
-				  8192, /* readnum */
-				  16384, /* bufsize */
-				  1,	 /* no_timeout */
-				  0);	 /* bytes_per_error */
-	zm_t *zm = zm_init(100,		 /* rxtimeout */
+	zm_t *zm = zm_init(0, /* fd */
+			   8192, /* readnum */
+			   16384, /* bufsize */
+			   1, /* no_timeout */
+			   100,		 /* rxtimeout */
 			   0,		 /* znulls */
 			   0,		 /* eflag */
 			   2400,	 /* baudrate */
@@ -261,13 +263,13 @@ size_t zmodem_receive(const char *directory,
 		);
 	zm->baudrate = io_mode(0,1);
 	int exitcode = 0;
-	if (wcreceive(rz, zr, zm)==ERROR) {
+	if (wcreceive(rz, zm)==ERROR) {
 		exitcode=0200;
-		canit(zr, STDOUT_FILENO);
+		canit(zm->zr, STDOUT_FILENO);
 	}
 	io_mode(0,0);
 	if (exitcode && !zm->zmodem_requested)
-		canit(zr, STDOUT_FILENO);
+		canit(zm->zr, STDOUT_FILENO);
 	if (exitcode)
 		log_info(_("Transfer incomplete"));
 	else
@@ -279,7 +281,7 @@ size_t zmodem_receive(const char *directory,
 
 
 static int
-wcreceive(rz_t *rz, zreadline_t *zr, zm_t *zm)
+wcreceive(rz_t *rz, zm_t *zm)
 {
 	int c;
 	struct zm_fileinfo zi;
@@ -294,26 +296,26 @@ wcreceive(rz_t *rz, zreadline_t *zr, zm_t *zm)
 
 	log_info(_("%s waiting to receive."), program_name);
 	c = 0;
-	c = tryz(rz, zr, zm);
+	c = tryz(rz, zm->zr, zm);
 	if (c != 0) {
 		if (c == ZCOMPL)
 			return OK;
 		if (c == ERROR)
 			goto fubar;
-		c = rz_receive_files(rz, zr, zm, &zi);
+		c = rz_receive_files(rz, zm->zr, zm, &zi);
 
 		if (c)
 			goto fubar;
 	} else {
 		for (;;) {
 			timing(1,NULL);
-			if (wcrxpn(rz, zr, &zi,rz->secbuf)== ERROR)
+			if (wcrxpn(rz, zm->zr, &zi,rz->secbuf)== ERROR)
 				goto fubar;
 			if (rz->secbuf[0]==0)
 				return OK;
-			if (procheader(rz, zr, zm, rz->secbuf, &zi) == ERROR)
+			if (procheader(rz, zm->zr, zm, rz->secbuf, &zi) == ERROR)
 				goto fubar;
-			if (wcrx(rz, zr, &zi)==ERROR)
+			if (wcrx(rz, zm->zr, &zi)==ERROR)
 				goto fubar;
 
 			double d;
@@ -330,7 +332,7 @@ wcreceive(rz_t *rz, zreadline_t *zr, zm_t *zm)
 	}
 	return OK;
 fubar:
-	canit(zr, STDOUT_FILENO);
+	canit(zm->zr, STDOUT_FILENO);
 	if (rz->topipe && rz->fout) {
 		pclose(rz->fout);  return ERROR;
 	}
@@ -355,21 +357,21 @@ wcrxpn(rz_t *rz, zreadline_t *zr, struct zm_fileinfo *zi, char *rpn)
 	register int c;
 	size_t Blklen=0;		/* record length of received packets */
 
-	zreadline_pf(zr, 1);
+	zreadline_getc(zr, 1);
 
 et_tu:
 	rz->firstsec=TRUE;
 	zi->eof_seen=FALSE;
 	putchar(WANTCRC);
 	fflush(stdout);
-	purgeline(zr, 0); /* Do read next time ... */
+	zreadline_flushline(zr); /* Do read next time ... */
 	while ((c = wcgetsec(rz, zr, &Blklen, rpn, 100)) != 0) {
 		if (c == WCEOT) {
 			log_error( _("Pathname fetch returned EOT"));
 			putchar(ACK);
 			fflush(stdout);
-			purgeline(zr, 0);	/* Do read next time ... */
-			zreadline_pf(zr, 1);
+			zreadline_flushline(zr);	/* Do read next time ... */
+			zreadline_getc(zr, 1);
 			goto et_tu;
 		}
 		return ERROR;
@@ -397,7 +399,7 @@ wcrx(rz_t *rz, zreadline_t *zr, struct zm_fileinfo *zi)
 	for (;;) {
 		putchar(sendchar);	/* send it now, we're ready! */
 		fflush(stdout);
-		purgeline(zr, 0);	/* Do read next time ... */
+		zreadline_flushline(zr);	/* Do read next time ... */
 		sectcurr=wcgetsec(rz, zr, &Blklen, rz->secbuf,
 			(unsigned int) ((sectnum&0177) ? 50 : 130));
 		report(sectcurr);
@@ -419,7 +421,7 @@ wcrx(rz_t *rz, zreadline_t *zr, struct zm_fileinfo *zi)
 				return ERROR;
 			putchar(ACK);
 			fflush(stdout);
-			purgeline(zr, 0);	/* Do read next time ... */
+			zreadline_flushline(zr);	/* Do read next time ... */
 			return OK;
 		}
 		else if (sectcurr==ERROR)
@@ -451,25 +453,25 @@ wcgetsec(rz_t *rz, zreadline_t *zr, size_t *Blklen, char *rxbuf, unsigned int ma
 	rz->lastrx = 0;
 	for (rz->errors = 0; rz->errors < RETRYMAX; rz->errors++) {
 
-		if ((firstch=zreadline_pf(zr, maxtime))==STX) {
+		if ((firstch=zreadline_getc(zr, maxtime))==STX) {
 			*Blklen=1024; goto get2;
 		}
 		if (firstch==SOH) {
 			*Blklen=128;
 get2:
-			sectcurr=zreadline_pf(zr, 1);
-			if ((sectcurr+(oldcrc=zreadline_pf(zr, 1)))==0377) {
+			sectcurr=zreadline_getc(zr, 1);
+			if ((sectcurr+(oldcrc=zreadline_getc(zr, 1)))==0377) {
 				oldcrc=checksum=0;
 				for (p=rxbuf,wcj=*Blklen; --wcj>=0; ) {
-					if ((firstch=zreadline_pf(zr, 1)) < 0)
+					if ((firstch=zreadline_getc(zr, 1)) < 0)
 						goto bilge;
 					oldcrc=updcrc(firstch, oldcrc);
 					checksum += (*p++ = firstch);
 				}
-				if ((firstch=zreadline_pf(zr,1)) < 0)
+				if ((firstch=zreadline_getc(zr,1)) < 0)
 					goto bilge;
 				oldcrc=updcrc(firstch, oldcrc);
-				if ((firstch=zreadline_pf(zr,1)) < 0)
+				if ((firstch=zreadline_getc(zr,1)) < 0)
 					goto bilge;
 				oldcrc=updcrc(firstch, oldcrc);
 				if (oldcrc & 0xFFFF)
@@ -483,7 +485,7 @@ get2:
 				log_error(_("Sector number garbled"));
 		}
 		/* make sure eot really is eot and not just mixmash */
-		else if (firstch==EOT && zreadline_pf(zr,1)==TIMEOUT)
+		else if (firstch==EOT && zreadline_getc(zr,1)==TIMEOUT)
 			return WCEOT;
 		else if (firstch==CAN) {
 			if (rz->lastrx==CAN) {
@@ -507,18 +509,18 @@ humbug:
 		rz->lastrx=0;
 		{
 			int cnt=1000;
-			while(cnt-- && zreadline_pf(zr,1)!=TIMEOUT)
+			while(cnt-- && zreadline_getc(zr,1)!=TIMEOUT)
 				;
 		}
 		if (rz->firstsec) {
 			putchar(WANTCRC);
 			fflush(stdout);
-			purgeline(zr, 0);	/* Do read next time ... */
+			zreadline_flushline(zr);	/* Do read next time ... */
 		} else {
 			maxtime=40;
 			putchar(NAK);
 			fflush(stdout);
-			purgeline(zr, 0);	/* Do read next time ... */
+			zreadline_flushline(zr);	/* Do read next time ... */
 		}
 	}
 	/* try to stop the bubble machine. */
@@ -563,7 +565,7 @@ do_crc_check(zreadline_t *zr, zm_t *zm, FILE *f, size_t remote_bytes, size_t che
 		zm_send_hex_header(zm, ZCRC, Txhdr);
 		while(t2<3) {
 			size_t tmp;
-			c = zm_get_header(zr, zm, Rxhdr, &tmp);
+			c = zm_get_header(zm, Rxhdr, &tmp);
 			rcrc=(unsigned long) tmp;
 			switch (c) {
 			default: /* ignore */
@@ -1031,7 +1033,7 @@ tryz(rz_t *rz, zreadline_t *zr, zm_t *zm)
 		if (rz->tryzhdrtype == ZSKIP)	/* Don't skip too far */
 			rz->tryzhdrtype = ZRINIT;	/* CAF 8-21-87 */
 again:
-		switch (zm_get_header(zr, zm, Rxhdr, NULL)) {
+		switch (zm_get_header(zm, Rxhdr, NULL)) {
 		case ZRQINIT:
 
 			/* Spec 8.1: "[after sending ZRINIT] if the
@@ -1039,7 +1041,7 @@ again:
 			 * header, it resends the ZRINIT header." */
 
 			/* getting one ZRQINIT is totally ok. Normally a ZFILE follows
-			 * (and might be in our buffer, so don't purge it). But if we
+			 * (and might be in our buffer, so don't flush it). But if we
 			 * get more ZRQINITs than the sender has started up before us
 			 * and sent ZRQINITs while waiting.
 			 */
@@ -1063,7 +1065,7 @@ again:
 			rz->zmanag = Rxhdr[ZF1];
 			rz->ztrans = Rxhdr[ZF2];
 			rz->tryzhdrtype = ZRINIT;
-			c = zm_receive_data(zr, zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
+			c = zm_receive_data(zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
 			zm->baudrate = io_mode(0,3);
 			if (c == GOTCRCW)
 				return ZFILE;
@@ -1090,7 +1092,7 @@ again:
 			 * so: sz escapes, but rz doesn't unescape ... not good.
 			 */
 			zm->zctlesc |= (TESCCTL & Rxhdr[ZF0]);
-			if (zm_receive_data(zr, zm, rz->attn, ZATTNLEN, &bytes_in_block) == GOTCRCW) {
+			if (zm_receive_data(zm, rz->attn, ZATTNLEN, &bytes_in_block) == GOTCRCW) {
 				/* Spec 8.1: "[after receiving a
 				 * ZSINIT] the receiver sends a ZACK
 				 * header in response, containing
@@ -1239,7 +1241,7 @@ nxthdr:
 			}
 		}
 	skip_oosb:
-		c = zm_get_header(zr, zm, Rxhdr, NULL);
+		c = zm_get_header(zm, Rxhdr, NULL);
 		switch (c) {
 		default:
 			log_debug("rzfile: zm_get_header returned %d", c);
@@ -1251,7 +1253,7 @@ nxthdr:
 				return ERROR;
 			}
 		case ZFILE:
-			zm_receive_data(zr, zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
+			zm_receive_data(zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
 			continue;
 		case ZEOF:
 			if (zm_reclaim_header(Rxhdr) != (long) zi->bytes_received) {
@@ -1291,7 +1293,7 @@ nxthdr:
 					log_debug("rzfile: out of sync");
 					return ERROR;
 				}
-				switch (c = zm_receive_data(zr, zm, rz->secbuf, MAX_BLOCK,&bytes_in_block))
+				switch (c = zm_receive_data(zm, rz->secbuf, MAX_BLOCK,&bytes_in_block))
 				{
 				case GOTCRCW:
 				case GOTCRCG:
@@ -1365,7 +1367,7 @@ moredata:
 				not_printed=0;
 			} else
 				not_printed++;
-			switch (c = zm_receive_data(zr, zm, rz->secbuf, MAX_BLOCK,&bytes_in_block))
+			switch (c = zm_receive_data(zm, rz->secbuf, MAX_BLOCK,&bytes_in_block))
 			{
 			case ZCAN:
 				log_debug("rzfile: zm_receive_data returned %d", c);
@@ -1502,11 +1504,11 @@ ackbibi(zreadline_t *zr, zm_t *zm)
 	log_debug("ackbibi:");
 	zm_store_header(0L);
 	for (n=3; --n>=0; ) {
-		purgeline(zr, 0);
+		zreadline_flushline(zr);
 		zm_send_hex_header(zm, ZFIN, Txhdr);
-		switch (zreadline_pf(zr,100)) {
+		switch (zreadline_getc(zr,100)) {
 		case 'O':
-			zreadline_pf(zr,1);	/* Discard 2nd 'O' */
+			zreadline_getc(zr,1);	/* Discard 2nd 'O' */
 			log_debug("ackbibi complete");
 			return;
 		case RCDO:

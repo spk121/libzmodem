@@ -1,3 +1,5 @@
+#ifndef LIBZMODEM__ZMODEM_H
+#define LIBZMODEM__ZMODEM_H
 /* zmodem.h - ZMODEM protocol constants
 
   Copyright (C) until 1998 Chuck Forsberg (OMEN Technology Inc)
@@ -125,3 +127,4 @@
 
 
 /* End of ZMODEM.H */
+#endif
