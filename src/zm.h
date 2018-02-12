@@ -4,16 +4,17 @@
 #include <stddef.h>
 
 #include "_zmodem.h"
+
+#define ZCRC_DIFFERS (ERROR+1)
+#define ZCRC_EQUAL (ERROR+2)
+
+
 extern int bytes_per_error;  /* generate one error around every x bytes */
 
-/* Globals used by ZMODEM functions */
-extern char Rxhdr[4];      /* Received header */
-extern char Txhdr[4];      /* Transmitted header */
-// extern long Txpos;     /* Transmitted file position */
-// extern char Attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
-
 struct zm_ {
-  zreadline_t *zr;		/* Buffered, interruptable input. */
+	zreadline_t *zr;	/* Buffered, interruptable input. */
+	char Rxhdr[4];		/* Received header */
+	char Txhdr[4];		/* Transmitted header */
 	int rxtimeout;          /* Constant: tenths of seconds to wait for something */
 	int znulls;             /* Constant: Number of nulls to send at beginning of ZDATA hdr */
 	int eflag;              /* Constant: local display of non zmodem characters */
@@ -43,15 +44,17 @@ int zm_get_zctlesc(zm_t *zm);
 void zm_set_zctlesc(zm_t *zm, int zctlesc);
 void zm_update_table(zm_t *zm);
 extern void zsendline (zm_t *zm, int c);
-void zm_send_binary_header (zm_t *zm, int type, char *hdr);
-void zm_send_hex_header (zm_t *zm, int type, char *hdr);
+void zm_send_binary_header (zm_t *zm, int type);
+void zm_send_hex_header (zm_t *zm, int type);
 void zm_send_data (zm_t *zm, const char *buf, size_t length, int frameend);
 void zm_send_data32 (zm_t *zm, const char *buf, size_t length, int frameend);
-void zm_store_header (size_t pos);
-long zm_reclaim_header (char *hdr);
+void zm_set_send_header (zm_t *zm, size_t pos);
+long zm_reclaim_send_header (zm_t *zm);
+long zm_reclaim_receive_header (zm_t *zm);
 int zm_receive_data (zm_t *zm, char *buf, int length, size_t *received);
-int zm_get_header (zm_t *zm, char *hdr, size_t *);
+int zm_get_header (zm_t *zm, size_t *);
 void zm_ackbibi (zm_t *zm);
 void zm_saybibi(zm_t *zm);
+int zm_do_crc_check(zm_t *zm, FILE *f, size_t remote_bytes, size_t check_bytes);
 
 #endif

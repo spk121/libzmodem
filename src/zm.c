@@ -27,8 +27,8 @@
         zm_get_header(hdr) receive header - binary or hex
         zm_send_data(buf, len, frameend) send data
         zm_receive_data(buf, len, bytes_received) receive data
-        zm_store_header(pos) store position data in Txhdr
-        long zm_reclaim_header(hdr) recover position offset from header
+        zm_set_send_header(pos) store position data in Txhdr
+        long zm_reclaim_header() recover position offset from header
  */
 
 #include "zglobal.h"
@@ -85,11 +85,11 @@ static int zdlread2 (zm_t *zm, int);
 static inline int zgeth1 (zm_t *zm);
 static void zputhex (int c, char *pos);
 static inline int zgethex (zm_t *zm);
-static int zm_read_binary_header (zm_t *zm, char *hdr);
-static int zm_read_binary_header32 (zm_t *zm, char *hdr);
-static int zm_read_hex_header (zm_t *zm, char *hdr);
+static int zm_read_binary_header (zm_t *zm);
+static int zm_read_binary_header32 (zm_t *zm);
+static int zm_read_hex_header (zm_t *zm);
 static int zm_read_data32 (zm_t *zm, char *buf, int length, size_t *);
-static void zm_send_binary_header32 (zm_t *zm, char *hdr, int type);
+static void zm_send_binary_header32 (zm_t *zm, int type);
 static void zsendline_init (zm_t *zm);
 
 /* Return a newly allocated state machine for zm primitives. */
@@ -343,11 +343,11 @@ zsendline_s(zm_t *zm, const char *s, size_t count)
 
 /* Send ZMODEM binary header hdr of type type */
 void
-zm_send_binary_header(zm_t *zm, int type, char *hdr)
+zm_send_binary_header(zm_t *zm, int type)
 {
 	register unsigned short crc;
 
-	log_trace("zm_send_binary_header: %s %lx", frametypes[type+FTOFFSET], zm_reclaim_header(hdr));
+	log_trace("zm_send_binary_header: %s %lx", frametypes[type+FTOFFSET], zm_reclaim_send_header(zm));
 	if (type == ZDATA)
 		for (int n = 0; n < zm->znulls; n ++)
 			putchar(0);
@@ -357,15 +357,15 @@ zm_send_binary_header(zm_t *zm, int type, char *hdr)
 
 	zm->crc32t = zm->txfcs32;
 	if (zm->crc32t)
-		zm_send_binary_header32(zm, hdr, type);
+		zm_send_binary_header32(zm, type);
 	else {
 		putchar(ZBIN);
 		zsendline(zm, type);
 		crc = updcrc(type, 0);
 
 		for (int n = 0; n < 4; n ++) {
-			zsendline(zm, hdr[n]);
-			crc = updcrc((0377 & hdr[n]), crc);
+			zsendline(zm, zm->Txhdr[n]);
+			crc = updcrc((0377 & zm->Txhdr[n]), crc);
 		}
 		crc = updcrc(0,updcrc(0,crc));
 		zsendline(zm, crc>>8);
@@ -378,7 +378,7 @@ zm_send_binary_header(zm_t *zm, int type, char *hdr)
 
 /* Send ZMODEM binary header hdr of type type */
 static void
-zm_send_binary_header32(zm_t *zm, char *hdr, int type)
+zm_send_binary_header32(zm_t *zm, int type)
 {
 	register unsigned long crc;
 
@@ -387,8 +387,8 @@ zm_send_binary_header32(zm_t *zm, char *hdr, int type)
 	crc = 0xFFFFFFFFL; crc = UPDC32(type, crc);
 
 	for (int n = 0; n < 4; n++) {
-		crc = UPDC32((0377 & hdr[n]), crc);
-		zsendline(zm, hdr[n]);
+		crc = UPDC32((0377 & zm->Txhdr[n]), crc);
+		zsendline(zm, zm->Txhdr[n]);
 	}
 	crc = ~crc;
 	for (int n = 0; n < 4; n++) {
@@ -399,13 +399,13 @@ zm_send_binary_header32(zm_t *zm, char *hdr, int type)
 
 /* Send ZMODEM HEX header hdr of type type */
 void
-zm_send_hex_header(zm_t *zm, int type, char *hdr)
+zm_send_hex_header(zm_t *zm, int type)
 {
 	register unsigned short crc;
 	char s[30];
 	size_t len;
 
-	log_trace("zm_send_hex_header: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], zm_reclaim_header(hdr));
+	log_trace("zm_send_hex_header: %s %lx", frametypes[(type & 0x7f)+FTOFFSET], zm_reclaim_send_header(zm));
 	s[0]=ZPAD;
 	s[1]=ZPAD;
 	s[2]=ZDLE;
@@ -416,9 +416,9 @@ zm_send_hex_header(zm_t *zm, int type, char *hdr)
 
 	crc = updcrc((type & 0x7f), 0);
 	for (int n = 0; n < 4; n++) {
-		zputhex(hdr[n], s+len);
+		zputhex(zm->Txhdr[n], s+len);
 		len += 2;
-		crc = updcrc((0377 & hdr[n]), crc);
+		crc = updcrc((0377 & zm->Txhdr[n]), crc);
 	}
 	crc = updcrc(0,updcrc(0,crc));
 	zputhex(crc>>8,s+len);
@@ -670,7 +670,7 @@ crcfoo:
  *   Return ERROR instantly if ZCRCW sequence, for fast error recovery.
  */
 int
-zm_get_header(zm_t *zm, char *hdr, size_t *Rxpos)
+zm_get_header(zm_t *zm, size_t *Rxpos)
 {
 	register int c, cancount;
 	unsigned int max_garbage; /* Max bytes before start of frame */
@@ -747,26 +747,26 @@ splat:
 	case ZBIN:
 		zm->rxframeind = ZBIN;
 		zm->crc32 = FALSE;
-		c =  zm_read_binary_header(zm, hdr);
+		c =  zm_read_binary_header(zm);
 		break;
 	case ZBIN32:
 		zm->crc32 = zm->rxframeind = ZBIN32;
-		c =  zm_read_binary_header32(zm, hdr);
+		c =  zm_read_binary_header32(zm);
 		break;
 	case ZHEX:
 		zm->rxframeind = ZHEX;
 		zm->crc32 = FALSE;
-		c =  zm_read_hex_header(zm, hdr);
+		c =  zm_read_hex_header(zm);
 		break;
 	case CAN:
 		goto gotcan;
 	default:
 		goto agn2;
 	}
-	rxpos = hdr[ZP3] & 0377;
-	rxpos = (rxpos<<8) + (hdr[ZP2] & 0377);
-	rxpos = (rxpos<<8) + (hdr[ZP1] & 0377);
-	rxpos = (rxpos<<8) + (hdr[ZP0] & 0377);
+	rxpos = zm->Rxhdr[ZP3] & 0377;
+	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP2] & 0377);
+	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP1] & 0377);
+	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP0] & 0377);
 fifi:
 	switch (c) {
 	case GOTCAN:
@@ -792,7 +792,7 @@ fifi:
 
 /* Receive a binary style header (type and position) */
 static int
-zm_read_binary_header(zm_t *zm, char *hdr)
+zm_read_binary_header(zm_t *zm)
 {
 	register int c;
 	register unsigned short crc;
@@ -806,7 +806,7 @@ zm_read_binary_header(zm_t *zm, char *hdr)
 		if ((c = zdlread(zm)) & ~0377)
 			return c;
 		crc = updcrc(c, crc);
-		hdr[n] = c;
+		zm->Rxhdr[n] = c;
 	}
 	if ((c = zdlread(zm)) & ~0377)
 		return c;
@@ -824,7 +824,7 @@ zm_read_binary_header(zm_t *zm, char *hdr)
 
 /* Receive a binary style header (type and position) with 32 bit FCS */
 static int
-zm_read_binary_header32(zm_t *zm, char *hdr)
+zm_read_binary_header32(zm_t *zm)
 {
 	register int c;
 	register unsigned long crc;
@@ -841,7 +841,7 @@ zm_read_binary_header32(zm_t *zm, char *hdr)
 		if ((c = zdlread(zm)) & ~0377)
 			return c;
 		crc = UPDC32(c, crc);
-		hdr[n] = c;
+		zm->Rxhdr[n] = c;
 #ifdef DEBUGZ
 		log_trace("zm_read_binary_header32 c=%X  crc=%lX", c, crc);
 #endif
@@ -865,7 +865,7 @@ zm_read_binary_header32(zm_t *zm, char *hdr)
 
 /* Receive a hex style header (type and position) */
 static int
-zm_read_hex_header(zm_t *zm, char *hdr)
+zm_read_hex_header(zm_t *zm)
 {
 	register int c;
 	register unsigned short crc;
@@ -879,7 +879,7 @@ zm_read_hex_header(zm_t *zm, char *hdr)
 		if ((c = zgethex(zm)) < 0)
 			return c;
 		crc = updcrc(c, crc);
-		hdr[n] = c;
+		zm->Rxhdr[n] = c;
 	}
 	if ((c = zgethex(zm)) < 0)
 		return c;
@@ -954,27 +954,43 @@ zsendline_init(zm_t *zm)
 
 /* Store pos in Txhdr */
 void
-zm_store_header(size_t pos)
+zm_set_send_header(zm_t *zm, size_t pos)
 {
 	long lpos=(long) pos;
-	Txhdr[ZP0] = lpos;
-	Txhdr[ZP1] = lpos>>8;
-	Txhdr[ZP2] = lpos>>16;
-	Txhdr[ZP3] = lpos>>24;
+	zm->Txhdr[ZP0] = lpos;
+	zm->Txhdr[ZP1] = lpos>>8;
+	zm->Txhdr[ZP2] = lpos>>16;
+	zm->Txhdr[ZP3] = lpos>>24;
+}
+
+
+/* Recover a long integer from a header */
+long
+zm_reclaim_send_header(zm_t *zm)
+{
+	long l;
+
+	l = (zm->Txhdr[ZP3] & 0377);
+	l = (l << 8) | (zm->Txhdr[ZP2] & 0377);
+	l = (l << 8) | (zm->Txhdr[ZP1] & 0377);
+	l = (l << 8) | (zm->Txhdr[ZP0] & 0377);
+	return l;
 }
 
 /* Recover a long integer from a header */
 long
-zm_reclaim_header(char *hdr)
+zm_reclaim_receive_header(zm_t *zm)
 {
 	long l;
 
-	l = (hdr[ZP3] & 0377);
-	l = (l << 8) | (hdr[ZP2] & 0377);
-	l = (l << 8) | (hdr[ZP1] & 0377);
-	l = (l << 8) | (hdr[ZP0] & 0377);
+	l = (zm->Rxhdr[ZP3] & 0377);
+	l = (l << 8) | (zm->Rxhdr[ZP2] & 0377);
+	l = (l << 8) | (zm->Rxhdr[ZP1] & 0377);
+	l = (l << 8) | (zm->Rxhdr[ZP0] & 0377);
 	return l;
 }
+
+
 
 /*
  * Ack a ZFIN packet, let byegones be byegones
@@ -985,10 +1001,10 @@ zm_ackbibi(zm_t *zm)
 	int n;
 
 	log_debug("ackbibi:");
-	zm_store_header(0L);
+	zm_set_send_header(zm, 0L);
 	for (n=3; --n>=0; ) {
 		zreadline_flushline(zm->zr);
-		zm_send_hex_header(zm, ZFIN, Txhdr);
+		zm_send_hex_header(zm, ZFIN);
 		switch (zreadline_getc(zm->zr,100)) {
 		case 'O':
 			zreadline_getc(zm->zr,1);	/* Discard 2nd 'O' */
@@ -1008,13 +1024,13 @@ void
 zm_saybibi(zm_t *zm)
 {
 	for (;;) {
-		zm_store_header(0L);		/* CAF Was zm_send_binary_header - minor change */
+		zm_set_send_header(zm, 0L);		/* CAF Was zm_send_binary_header - minor change */
 
 		/* Spec 8.3: "The sender closes the session with a
 		 * ZFIN header.  The receiver acknowledges this with
 		 * its own ZFIN header."  */
-		zm_send_hex_header(zm, ZFIN, Txhdr);	/*  to make debugging easier */
-		switch (zm_get_header(zm, Rxhdr,NULL)) {
+		zm_send_hex_header(zm, ZFIN);	/*  to make debugging easier */
+		switch (zm_get_header(zm, NULL)) {
 		case ZFIN:
 			/* Spec 8.3: "When the sender receives the
                          * acknowledging header, it sends two
@@ -1029,6 +1045,65 @@ zm_saybibi(zm_t *zm)
 			return;
 		}
 	}
+}
+
+/*
+ * do ZCRC-Check for open file f.
+ * check at most check_bytes bytes (crash recovery). if 0 -> whole file.
+ * remote file size is remote_bytes.
+ */
+int
+zm_do_crc_check(zm_t *zm, FILE *f, size_t remote_bytes, size_t check_bytes)
+{
+	struct stat st;
+	unsigned long crc;
+	unsigned long rcrc;
+	size_t n;
+	int c;
+	int t1=0,t2=0;
+	if (-1==fstat(fileno(f),&st)) {
+		return ERROR;
+	}
+	if (check_bytes==0 && ((size_t) st.st_size)!=remote_bytes)
+		return ZCRC_DIFFERS; /* shortcut */
+
+	crc=0xFFFFFFFFL;
+	n=check_bytes;
+	if (n==0)
+		n=st.st_size;
+	while (n-- && ((c = getc(f)) != EOF))
+		crc = UPDC32(c, crc);
+	crc = ~crc;
+	clearerr(f);  /* Clear EOF */
+	fseek(f, 0L, 0);
+
+	while (t1<3) {
+		zm_set_send_header(zm, check_bytes);
+		zm_send_hex_header(zm, ZCRC);
+		while(t2<3) {
+			size_t tmp;
+			c = zm_get_header(zm, &tmp);
+			rcrc=(unsigned long) tmp;
+			switch (c) {
+			default: /* ignore */
+				break;
+			case ZFIN:
+				return ERROR;
+			case ZRINIT:
+				return ERROR;
+			case ZCAN:
+				log_info(_("got ZCAN"));
+				return ERROR;
+				break;
+			case ZCRC:
+				if (crc!=rcrc)
+					return ZCRC_DIFFERS;
+				return ZCRC_EQUAL;
+				break;
+			}
+		}
+	}
+	return ERROR;
 }
 
 /* End of zm.c */

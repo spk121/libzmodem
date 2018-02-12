@@ -533,66 +533,6 @@ humbug:
 	return ERROR;
 }
 
-#define ZCRC_DIFFERS (ERROR+1)
-#define ZCRC_EQUAL (ERROR+2)
-/*
- * do ZCRC-Check for open file f.
- * check at most check_bytes bytes (crash recovery). if 0 -> whole file.
- * remote file size is remote_bytes.
- */
-static int
-do_crc_check(zreadline_t *zr, zm_t *zm, FILE *f, size_t remote_bytes, size_t check_bytes)
-{
-	struct stat st;
-	unsigned long crc;
-	unsigned long rcrc;
-	size_t n;
-	int c;
-	int t1=0,t2=0;
-	if (-1==fstat(fileno(f),&st)) {
-		return ERROR;
-	}
-	if (check_bytes==0 && ((size_t) st.st_size)!=remote_bytes)
-		return ZCRC_DIFFERS; /* shortcut */
-
-	crc=0xFFFFFFFFL;
-	n=check_bytes;
-	if (n==0)
-		n=st.st_size;
-	while (n-- && ((c = getc(f)) != EOF))
-		crc = UPDC32(c, crc);
-	crc = ~crc;
-	clearerr(f);  /* Clear EOF */
-	fseek(f, 0L, 0);
-
-	while (t1<3) {
-		zm_store_header(check_bytes);
-		zm_send_hex_header(zm, ZCRC, Txhdr);
-		while(t2<3) {
-			size_t tmp;
-			c = zm_get_header(zm, Rxhdr, &tmp);
-			rcrc=(unsigned long) tmp;
-			switch (c) {
-			default: /* ignore */
-				break;
-			case ZFIN:
-				return ERROR;
-			case ZRINIT:
-				return ERROR;
-			case ZCAN:
-				log_info(_("got ZCAN"));
-				return ERROR;
-				break;
-			case ZCRC:
-				if (crc!=rcrc)
-					return ZCRC_DIFFERS;
-				return ZCRC_EQUAL;
-				break;
-			}
-		}
-	}
-	return ERROR;
-}
 
 /*
  * Process incoming file information header
@@ -699,7 +639,7 @@ rz_procheader(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			}
 			fclose(rz->fout);
 		} else if (rz->zmanag==ZF1_ZMCRC) {
-			int r=do_crc_check(rz->zm->zr, rz->zm, rz->fout,zi->bytes_total,0);
+			int r = zm_do_crc_check(rz->zm, rz->fout, zi->bytes_total,0);
 			if (r==ERROR) {
 				fclose(rz->fout);
 				return ERROR;
@@ -814,7 +754,7 @@ rz_procheader(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			{
 				int can_resume=TRUE;
 				if (rz->zmanag==ZF1_ZMCRC) {
-					int r=do_crc_check(rz->zm->zr, rz->zm, rz->fout,zi->bytes_total,st.st_size);
+					int r = zm_do_crc_check(rz->zm, rz->fout,zi->bytes_total,st.st_size);
 					if (r==ERROR) {
 						fclose(rz->fout);
 						return ZFERR;
@@ -1018,15 +958,15 @@ rz_tryz(rz_t *rz)
 	for (n=rz->zm->zmodem_requested?15:5;
 		 (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {
 		/* Set buffer length (0) and capability flags */
-		zm_store_header(0L);
+		zm_set_send_header(rz->zm, 0L);
 #ifdef CANBREAK
-		Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO|CANBRK;
+		rz->zm->Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO|CANBRK;
 #else
-		Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO;
+		rz->zm->Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO;
 #endif
 		if (rz->zm->zctlesc)
-			Txhdr[ZF0] |= TESCCTL; /* TESCCTL == ESCCTL */
-		zm_send_hex_header(rz->zm, rz->tryzhdrtype, Txhdr);
+			rz->zm->Txhdr[ZF0] |= TESCCTL; /* TESCCTL == ESCCTL */
+		zm_send_hex_header(rz->zm, rz->tryzhdrtype);
 
 		if (rz->tcp_socket==-1 && strlen(rz->tcp_buf) > 0) {
 			/* we need to switch to tcp mode */
@@ -1038,7 +978,7 @@ rz_tryz(rz_t *rz)
 		if (rz->tryzhdrtype == ZSKIP)	/* Don't skip too far */
 			rz->tryzhdrtype = ZRINIT;	/* CAF 8-21-87 */
 again:
-		switch (zm_get_header(rz->zm, Rxhdr, NULL)) {
+		switch (zm_get_header(rz->zm, NULL)) {
 		case ZRQINIT:
 
 			/* Spec 8.1: "[after sending ZRINIT] if the
@@ -1058,23 +998,23 @@ again:
 		case TIMEOUT:
 			continue;
 		case ZFILE:
-			rz->zconv = Rxhdr[ZF0];
+			rz->zconv = rz->zm->Rxhdr[ZF0];
 			if (!rz->zconv)
 				/* resume with sz -r is impossible (at least with unix sz)
 				 * if this is not set */
 				rz->zconv=ZCBIN;
-			if (Rxhdr[ZF1] & ZF1_ZMSKNOLOC) {
-				Rxhdr[ZF1] &= ~(ZF1_ZMSKNOLOC);
+			if (rz->zm->Rxhdr[ZF1] & ZF1_ZMSKNOLOC) {
+				rz->zm->Rxhdr[ZF1] &= ~(ZF1_ZMSKNOLOC);
 				rz->skip_if_not_found=TRUE;
 			}
-			rz->zmanag = Rxhdr[ZF1];
-			rz->ztrans = Rxhdr[ZF2];
+			rz->zmanag = rz->zm->Rxhdr[ZF1];
+			rz->ztrans = rz->zm->Rxhdr[ZF2];
 			rz->tryzhdrtype = ZRINIT;
 			c = zm_receive_data(rz->zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
 			rz->zm->baudrate = io_mode(0,3);
 			if (c == GOTCRCW)
 				return ZFILE;
-			zm_send_hex_header(rz->zm, ZNAK, Txhdr);
+			zm_send_hex_header(rz->zm, ZNAK);
 			goto again;
 		case ZSINIT:
 			/* Spec 8.1: "[after receiving the ZRINIT]
@@ -1088,7 +1028,7 @@ again:
 			 * reading the following data subpacket.  */
 
 			/* this once was:
-			 * Zctlesc = TESCCTL & Rxhdr[ZF0];
+			 * Zctlesc = TESCCTL & zm->Rxhdr[ZF0];
 			 * trouble: if rz get --escape flag:
 			 * - it sends TESCCTL to sz,
 			 *   get a ZSINIT _without_ TESCCTL (yeah - sender didn't know),
@@ -1096,22 +1036,22 @@ again:
 			 * - sender receives TESCCTL and uses "|=..."
 			 * so: sz escapes, but rz doesn't unescape ... not good.
 			 */
-			rz->zm->zctlesc |= (TESCCTL & Rxhdr[ZF0]);
+			rz->zm->zctlesc |= (TESCCTL & rz->zm->Rxhdr[ZF0]);
 			if (zm_receive_data(rz->zm, rz->attn, ZATTNLEN, &bytes_in_block) == GOTCRCW) {
 				/* Spec 8.1: "[after receiving a
 				 * ZSINIT] the receiver sends a ZACK
 				 * header in response, containing
 				 * either the serial number of the
 				 * receiving program, or 0." */
-				zm_store_header(1L);
-				zm_send_hex_header(rz->zm, ZACK, Txhdr);
+				zm_set_send_header(rz->zm, 1L);
+				zm_send_hex_header(rz->zm, ZACK);
 				goto again;
 			}
-			zm_send_hex_header(rz->zm, ZNAK, Txhdr);
+			zm_send_hex_header(rz->zm, ZNAK);
 			goto again;
 		case ZFREECNT:
-			zm_store_header(getfree());
-			zm_send_hex_header(rz->zm, ZACK, Txhdr);
+			zm_set_send_header(rz->zm, getfree());
+			zm_send_hex_header(rz->zm, ZACK);
 			goto again;
 		case ZCOMPL:
 			goto again;
@@ -1217,8 +1157,8 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 	}
 
 	for (;;) {
-		zm_store_header(zi->bytes_received);
-		zm_send_hex_header(rz->zm, ZRPOS, Txhdr);
+		zm_set_send_header(rz->zm, zi->bytes_received);
+		zm_send_hex_header(rz->zm, ZRPOS);
 		goto skip_oosb;
 nxthdr:
 		if (anker) {
@@ -1246,7 +1186,7 @@ nxthdr:
 			}
 		}
 	skip_oosb:
-		c = zm_get_header(rz->zm, Rxhdr, NULL);
+		c = zm_get_header(rz->zm, NULL);
 		switch (c) {
 		default:
 			log_debug("rz_receive_file: zm_get_header returned %d", c);
@@ -1261,7 +1201,7 @@ nxthdr:
 			zm_receive_data(rz->zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
 			continue;
 		case ZEOF:
-			if (zm_reclaim_header(Rxhdr) != (long) zi->bytes_received) {
+			if (zm_reclaim_receive_header(rz->zm) != (long) zi->bytes_received) {
 				/*
 				 * Ignore eof if it's at wrong place - force
 				 *  a timeout because the eof might have gone
@@ -1291,9 +1231,9 @@ nxthdr:
 			log_debug("rz_receive_file: Sender SKIPPED file");
 			return c;
 		case ZDATA:
-			if (zm_reclaim_header(Rxhdr) != (long) zi->bytes_received) {
+			if (zm_reclaim_receive_header(rz->zm) != (long) zi->bytes_received) {
 				oosb_t *neu;
-				size_t pos=zm_reclaim_header(Rxhdr);
+				size_t pos=zm_reclaim_receive_header(rz->zm);
 				if ( --n < 0) {
 					log_debug("rz_receive_file: out of sync");
 					return ERROR;
@@ -1394,15 +1334,15 @@ moredata:
 				n = 20;
 				rz_putsec(rz, zi, rz->secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
-				zm_store_header(zi->bytes_received);
-				zm_send_hex_header(rz->zm, ZACK | 0x80, Txhdr);
+				zm_set_send_header(rz->zm, zi->bytes_received);
+				zm_send_hex_header(rz->zm, ZACK | 0x80);
 				goto nxthdr;
 			case GOTCRCQ:
 				n = 20;
 				rz_putsec(rz, zi, rz->secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
-				zm_store_header(zi->bytes_received);
-				zm_send_hex_header(rz->zm, ZACK, Txhdr);
+				zm_set_send_header(rz->zm, zi->bytes_received);
+				zm_send_hex_header(rz->zm, ZACK);
 				goto moredata;
 			case GOTCRCG:
 				n = 20;

@@ -181,6 +181,7 @@ static int sz_getinsync (sz_t *sz, struct zm_fileinfo *, int flag);
 static void sz_countem (sz_t *sz, int argc, char **argv);
 static int sz_wcsend (sz_t *sz, int argc, char *argp[]);
 static int sz_wcputsec (sz_t *sz, char *buf, int sectnum, size_t cseclen);
+static int sz_send_pseudo(sz_t *sz, const char *name, const char *data);
 
 #define ZM_SEND_DATA(x,y,z)						\
 	do { if (sz->zm->crc32t) {zm_send_data32(sz->zm,x,y,z); } else {zm_send_data(sz->zm,x,y,z);}} while(0)
@@ -325,12 +326,12 @@ size_t zmodem_send(int file_count,
 	}
 
 	zreadline_flushline(sz->zm->zr);
-	zm_store_header(0L);
+	zm_set_send_header(sz->zm, 0L);
 
 	/* Spec 8.1: "Then the sender may send a ZRQINIT. The ZRQINIT
 	   header causes a previously started receive program to send
 	   its ZRINIT header without delay." */
-	zm_send_hex_header(sz->zm, ZRQINIT, Txhdr);
+	zm_send_hex_header(sz->zm, ZRQINIT);
 	sz->zrqinits_sent++;
 	if (sz->tcp_flag==1) {
 		sz->totalleft+=256; /* tcp never needs more */
@@ -364,7 +365,7 @@ size_t zmodem_send(int file_count,
 }
 
 static int
-send_pseudo(sz_t *sz, zreadline_t *zr,  zm_t *zm, const char *name, const char *data)
+sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 {
 	char *tmp;
 	const char *p;
@@ -392,7 +393,7 @@ send_pseudo(sz_t *sz, zreadline_t *zr,  zm_t *zm, const char *name, const char *
 	do {
 		if (lfd++==10) {
 			free(tmp);
-			log_info (_ ("send_pseudo %s: cannot open tmpfile %s: %s"),
+			log_info (_ ("sz_send_pseudo %s: cannot open tmpfile %s: %s"),
 					 name, tmp, strerror (errno));
 			return 1;
 		}
@@ -404,14 +405,14 @@ send_pseudo(sz_t *sz, zreadline_t *zr,  zm_t *zm, const char *name, const char *
 		if (fd!=-1) {
 			struct stat st;
 			if (0!=lstat(tmp,&st)) {
-				log_info (_ ("send_pseudo %s: cannot lstat tmpfile %s: %s"),
+				log_info (_ ("sz_send_pseudo %s: cannot lstat tmpfile %s: %s"),
 						 name, tmp, strerror (errno));
 				unlink(tmp);
 				close(fd);
 				fd=-1;
 			} else {
 				if (S_ISLNK(st.st_mode)) {
-					log_info (_ ("send_pseudo %s: avoiding symlink trap"),name);
+					log_info (_ ("sz_send_pseudo %s: avoiding symlink trap"),name);
 					unlink(tmp);
 					close(fd);
 					fd=-1;
@@ -421,14 +422,14 @@ send_pseudo(sz_t *sz, zreadline_t *zr,  zm_t *zm, const char *name, const char *
 	} while (fd==-1);
 	if (write(fd,data,strlen(data))!=(signed long) strlen(data)
 		|| close(fd)!=0) {
-		log_info (_ ("send_pseudo %s: cannot write to tmpfile %s: %s"),
+		log_info (_ ("sz_send_pseudo %s: cannot write to tmpfile %s: %s"),
 				 name, tmp, strerror (errno));
 		free(tmp);
 		return 1;
 	}
 
 	if (sz_wcs (sz, tmp, name) == ERROR) {
-		log_info (_ ("send_pseudo %s: failed"),name);
+		log_info (_ ("sz_send_pseudo %s: failed"),name);
 		ret=1;
 	}
 	unlink (tmp);
@@ -453,7 +454,7 @@ sz_wcsend (sz_t *sz, int argc, char *argp[])
 
 		/* tell receiver to receive via tcp */
 		d=tcp_server(buf);
-		if (send_pseudo(sz, sz->zm->zr, sz->zm, "/$tcp$.t",buf)) {
+		if (sz_send_pseudo(sz, "/$tcp$.t",buf)) {
 			log_fatal(_("tcp protocol init failed"));
 			exit(1);
 		}
@@ -722,8 +723,8 @@ sz_getnak(sz_t *sz)
 				 * using zmodem protocol and may send
 				 * further ZRQINITs
 				 */
-				zm_store_header(0L);
-				zm_send_hex_header(sz->zm, ZRQINIT, Txhdr);
+				zm_set_send_header(sz->zm, 0L);
+				zm_send_hex_header(sz->zm, ZRQINIT);
 				sz->zrqinits_sent++;
 			}
 			continue;
@@ -1023,19 +1024,19 @@ sz_getzrxinit(sz_t *sz)
 		 */
 		if (sz->zrqinits_sent<4 && n!=10 && !dont_send_zrqinit) {
 			sz->zrqinits_sent++;
-			zm_store_header(0L);
-			zm_send_hex_header(sz->zm, ZRQINIT, Txhdr);
+			zm_set_send_header(sz->zm, 0L);
+			zm_send_hex_header(sz->zm, ZRQINIT);
 		}
 		dont_send_zrqinit=0;
 
-		switch (zm_get_header(sz->zm, Rxhdr, &rxpos)) {
+		switch (zm_get_header(sz->zm, &rxpos)) {
 		case ZCHALLENGE:	/* Echo receiver's challenge numbr */
-			zm_store_header(rxpos);
-			zm_send_hex_header(sz->zm, ZACK, Txhdr);
+			zm_set_send_header(sz->zm, rxpos);
+			zm_send_hex_header(sz->zm, ZACK);
 			continue;
 		case ZRINIT:
-			sz->rxflags = 0377 & Rxhdr[ZF0];
-			sz->rxflags2 = 0377 & Rxhdr[ZF1];
+			sz->rxflags = 0377 & sz->zm->Rxhdr[ZF0];
+			sz->rxflags2 = 0377 & sz->zm->Rxhdr[ZF1];
 			sz->zm->txfcs32 = (sz->wantfcs32 && (sz->rxflags & CANFC32));
 			{
 				int old=sz->zm->zctlesc;
@@ -1044,7 +1045,7 @@ sz_getzrxinit(sz_t *sz)
 				if (sz->zm->zctlesc && !old)
 					zm_update_table(sz->zm);
 			}
-			sz->rxbuflen = (0377 & Rxhdr[ZP0])+((0377 & Rxhdr[ZP1])<<8);
+			sz->rxbuflen = (0377 & sz->zm->Rxhdr[ZP0])+((0377 & sz->zm->Rxhdr[ZP1])<<8);
 			if ( !(sz->rxflags & CANFDX))
 				sz->txwindow = 0;
 			log_debug("Rxbuflen=%d Tframlen=%d", sz->rxbuflen, sz->tframlen);
@@ -1095,10 +1096,10 @@ sz_getzrxinit(sz_t *sz)
 				continue; /* force one other ZRQINIT to be sent */
 			return ERROR;
 		case ZRQINIT:
-			if (Rxhdr[ZF0] == ZCOMMAND)
+			if (sz->zm->Rxhdr[ZF0] == ZCOMMAND)
 				continue;
 		default:
-			zm_send_hex_header(sz->zm, ZNAK, Txhdr);
+			zm_send_hex_header(sz->zm, ZNAK);
 			continue;
 		}
 	}
@@ -1115,15 +1116,15 @@ sz_sendzsinit(sz_t *sz)
 		return OK;
 	sz->errors = 0;
 	for (;;) {
-		zm_store_header(0L);
+		zm_set_send_header(sz->zm, 0L);
 		if (sz->zm->zctlesc) {
-			Txhdr[ZF0] |= TESCCTL;
-			zm_send_hex_header(sz->zm, ZSINIT, Txhdr);
+			sz->zm->Txhdr[ZF0] |= TESCCTL;
+			zm_send_hex_header(sz->zm, ZSINIT);
 		}
 		else
-			zm_send_binary_header(sz->zm, ZSINIT, Txhdr);
+			zm_send_binary_header(sz->zm, ZSINIT);
 		ZM_SEND_DATA(Myattn, 1+strlen(Myattn), ZCRCW);
-		c = zm_get_header(sz->zm, Rxhdr, NULL);
+		c = zm_get_header(sz->zm, NULL);
 		switch (c) {
 		case ZCAN:
 			return ERROR;
@@ -1154,16 +1155,16 @@ sz_zsendfile(sz_t *sz, struct zm_fileinfo *zi, const char *buf, size_t blen)
 		 * with ZMODEM Conversion, Management, and Transport
 		 * options followed by a ZCRCW data subpacket
 		 * containing the file name, ...." */
-		Txhdr[ZF0] = sz->lzconv;	/* file conversion request */
-		Txhdr[ZF1] = sz->lzmanag;	/* file management request */
+		sz->zm->Txhdr[ZF0] = sz->lzconv;	/* file conversion request */
+		sz->zm->Txhdr[ZF1] = sz->lzmanag;	/* file management request */
 		if (sz->lskipnocor)
-			Txhdr[ZF1] |= ZF1_ZMSKNOLOC;
-		Txhdr[ZF2] = 0;	/* file transport compression request */
-		Txhdr[ZF3] = 0; /* extended options */
-		zm_send_binary_header(sz->zm, ZFILE, Txhdr);
+			sz->zm->Txhdr[ZF1] |= ZF1_ZMSKNOLOC;
+		sz->zm->Txhdr[ZF2] = 0;	/* file transport compression request */
+		sz->zm->Txhdr[ZF3] = 0; /* extended options */
+		zm_send_binary_header(sz->zm, ZFILE);
 		ZM_SEND_DATA(buf, blen, ZCRCW);
 again:
-		c = zm_get_header(sz->zm, Rxhdr, &rxpos);
+		c = zm_get_header(sz->zm, &rxpos);
 		switch (c) {
 		case ZRINIT:
 			while ((c = zreadline_getc(sz->zm->zr, 50)) > 0)
@@ -1234,8 +1235,8 @@ again:
 				clearerr(sz->input_f);	/* Clear EOF */
 				fseek(sz->input_f, 0L, 0);
 			}
-			zm_store_header(crc);
-			zm_send_binary_header(sz->zm, ZCRC, Txhdr);
+			zm_set_send_header(sz->zm, crc);
+			zm_send_binary_header(sz->zm, ZCRC);
 			goto again;
 		case ZSKIP:
 		/* Spec 8.2: "[after deciding if the file name, file
@@ -1371,8 +1372,8 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 	 * data subpackets."  */
 
 	sz->txwcnt = 0;
-	zm_store_header (zi->bytes_sent);
-	zm_send_binary_header (sz->zm, ZDATA, Txhdr);
+	zm_set_send_header (sz->zm, zi->bytes_sent);
+	zm_send_binary_header (sz->zm, ZDATA);
 
 	do {
 		size_t n;
@@ -1531,8 +1532,8 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 		/* Spec 8.2: [after sending a file] The sender sends a
 		 * ZEOF header with the file ending offset equal to
 		 * the number of characters in the file. */
-		zm_store_header (zi->bytes_sent);
-		zm_send_binary_header (sz->zm, ZEOF, Txhdr);
+		zm_set_send_header (sz->zm, zi->bytes_sent);
+		zm_send_binary_header (sz->zm, ZEOF);
 		switch (sz_getinsync (sz, zi, 0)) {
 		case ZACK:
 			continue;
@@ -1678,7 +1679,7 @@ sz_getinsync(sz_t *sz, struct zm_fileinfo *zi, int flag)
 	size_t rxpos;
 
 	for (;;) {
-		c = zm_get_header(sz->zm, Rxhdr, &rxpos);
+		c = zm_get_header(sz->zm, &rxpos);
 		switch (c) {
 		case ZCAN:
 		case ZABORT:
@@ -1719,7 +1720,7 @@ sz_getinsync(sz_t *sz, struct zm_fileinfo *zi, int flag)
 		case ERROR:
 		default:
 			sz->error_count++;
-			zm_send_binary_header(sz->zm, ZNAK, Txhdr);
+			zm_send_binary_header(sz->zm, ZNAK);
 			continue;
 		}
 	}
