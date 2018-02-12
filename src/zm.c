@@ -1003,4 +1003,32 @@ zm_ackbibi(zm_t *zm)
 	}
 }
 
+/* Say "bibi" to the receiver, try to do it cleanly */
+void
+zm_saybibi(zm_t *zm)
+{
+	for (;;) {
+		zm_store_header(0L);		/* CAF Was zm_send_binary_header - minor change */
+
+		/* Spec 8.3: "The sender closes the session with a
+		 * ZFIN header.  The receiver acknowledges this with
+		 * its own ZFIN header."  */
+		zm_send_hex_header(zm, ZFIN, Txhdr);	/*  to make debugging easier */
+		switch (zm_get_header(zm, Rxhdr,NULL)) {
+		case ZFIN:
+			/* Spec 8.3: "When the sender receives the
+                         * acknowledging header, it sends two
+                         * characters, "OO" (Over and Out) and exits
+                         * to the operating system or application that
+                         * invoked it." */
+			putchar('O');
+			putchar('O');
+			fflush(stdout);
+		case ZCAN:
+		case TIMEOUT:
+			return;
+		}
+	}
+}
+
 /* End of zm.c */
