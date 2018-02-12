@@ -43,7 +43,7 @@ zm_t *zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 int zm_get_zctlesc(zm_t *zm);
 void zm_set_zctlesc(zm_t *zm, int zctlesc);
 void zm_update_table(zm_t *zm);
-extern void zsendline (zm_t *zm, int c);
+void zm_put_escaped_char (zm_t *zm, int c);
 void zm_send_binary_header (zm_t *zm, int type);
 void zm_send_hex_header (zm_t *zm, int type);
 void zm_send_data (zm_t *zm, const char *buf, size_t length, int frameend);

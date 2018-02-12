@@ -79,18 +79,19 @@ static const char *frametypes[] = {
 
 #define badcrc _("Bad CRC")
 /* static char *badcrc = "Bad CRC"; */
-static inline int noxrd7 (zm_t *zm);
-static inline int zdlread (zm_t *zm);
-static int zdlread2 (zm_t *zm, int);
-static inline int zgeth1 (zm_t *zm);
+static int zm_get_ascii_char (zm_t *zm);
+static int zm_get_escaped_char (zm_t *zm);
+static int zm_get_escaped_char_internal (zm_t *zm, int);
+static int zm_get_hex_encoded_byte (zm_t *zm);
 static void zputhex (int c, char *pos);
-static inline int zgethex (zm_t *zm);
 static int zm_read_binary_header (zm_t *zm);
 static int zm_read_binary_header32 (zm_t *zm);
 static int zm_read_hex_header (zm_t *zm);
 static int zm_read_data32 (zm_t *zm, char *buf, int length, size_t *);
 static void zm_send_binary_header32 (zm_t *zm, int type);
 static void zsendline_init (zm_t *zm);
+static void zm_put_escaped_string(zm_t *zm, char *str, size_t len);
+
 
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
@@ -132,19 +133,20 @@ zm_update_table(zm_t *zm)
  *  Eat parity, XON and XOFF characters.
  */
 static inline int
-noxrd7(zm_t *zm)
+zm_get_ascii_char(zm_t *zm)
 {
 	register int c;
 
 	for (;;) {
 		if ((c = zreadline_getc(zm->zr, zm->rxtimeout)) < 0)
 			return c;
-		switch (c &= 0177) {
+		c &= 0x7F;
+		switch (c) {
 		case XON:
 		case XOFF:
 			continue;
 		default:
-			if (zm->zctlesc && !(c & 0140))
+			if (zm->zctlesc && (c < ' '))
 				continue;
 		case '\r':
 		case '\n':
@@ -154,19 +156,19 @@ noxrd7(zm_t *zm)
 	}
 }
 
-static inline int
-zgeth1(zm_t *zm)
+static int
+zm_get_hex_encoded_byte(zm_t *zm)
 {
 	register int c, n;
 
-	if ((c = noxrd7(zm)) < 0)
+	if ((c = zm_get_ascii_char(zm)) < 0)
 		return c;
 	n = c - '0';
 	if (n > 9)
 		n -= ('a' - ':');
 	if (n & ~0xF)
 		return ERROR;
-	if ((c = noxrd7(zm)) < 0)
+	if ((c = zm_get_ascii_char(zm)) < 0)
 		return c;
 	c -= '0';
 	if (c > 9)
@@ -174,17 +176,7 @@ zgeth1(zm_t *zm)
 	if (c & ~0xF)
 		return ERROR;
 	c += (n<<4);
-	return c;
-}
-
-/* Decode two lower case hex digits into an 8 bit byte value */
-static inline int
-zgethex(zm_t *zm)
-{
-	register int c;
-
-	c = zgeth1(zm);
-	log_trace("zgethex: %02X", c);
+	log_trace("zm_get_hex_encoded_byte: %02X", c);
 	return c;
 }
 
@@ -193,17 +185,17 @@ zgethex(zm_t *zm)
  *  including CAN*5 which represents a quick abort
  */
 static inline int
-zdlread(zm_t *zm)
+zm_get_escaped_char(zm_t *zm)
 {
 	int c;
 	/* Quick check for non control characters */
 	if ((c = zreadline_getc(zm->zr, zm->rxtimeout)) & 0140)
 		return c;
-	return zdlread2(zm, c);
+	return zm_get_escaped_char_internal(zm, c);
 }
 /* no, i don't like gotos. -- uwe */
 static int
-zdlread2(zm_t *zm, int c)
+zm_get_escaped_char_internal(zm_t *zm, int c)
 {
 	goto jump_over; /* bad style */
 
@@ -270,8 +262,8 @@ again2:
  * Send character c with ZMODEM escape sequence encoding.
  *  Escape XON, XOFF. Escape CR following @ (Telenet net escape)
  */
-inline void
-zsendline(zm_t *zm, int c)
+void
+zm_put_escaped_char(zm_t *zm, int c)
 {
 
 	switch(zm->zsendline_tab[(unsigned) (c&=0377)])
@@ -296,8 +288,8 @@ zsendline(zm_t *zm, int c)
 	}
 }
 
-static inline void
-zsendline_s(zm_t *zm, const char *s, size_t count)
+static void
+zm_put_escaped_string (zm_t *zm, const char *s, size_t count)
 {
 	const char *end=s+count;
 	while(s!=end) {
@@ -360,16 +352,16 @@ zm_send_binary_header(zm_t *zm, int type)
 		zm_send_binary_header32(zm, type);
 	else {
 		putchar(ZBIN);
-		zsendline(zm, type);
+		zm_put_escaped_char(zm, type);
 		crc = updcrc(type, 0);
 
 		for (int n = 0; n < 4; n ++) {
-			zsendline(zm, zm->Txhdr[n]);
+			zm_put_escaped_char(zm, zm->Txhdr[n]);
 			crc = updcrc((0377 & zm->Txhdr[n]), crc);
 		}
 		crc = updcrc(0,updcrc(0,crc));
-		zsendline(zm, crc>>8);
-		zsendline(zm, crc);
+		zm_put_escaped_char(zm, crc>>8);
+		zm_put_escaped_char(zm, crc);
 	}
 	if (type != ZDATA)
 		fflush(stdout);
@@ -383,16 +375,16 @@ zm_send_binary_header32(zm_t *zm, int type)
 	register unsigned long crc;
 
 	putchar(ZBIN32);
-	zsendline(zm, type);
+	zm_put_escaped_char(zm, type);
 	crc = 0xFFFFFFFFL; crc = UPDC32(type, crc);
 
 	for (int n = 0; n < 4; n++) {
 		crc = UPDC32((0377 & zm->Txhdr[n]), crc);
-		zsendline(zm, zm->Txhdr[n]);
+		zm_put_escaped_char(zm, zm->Txhdr[n]);
 	}
 	crc = ~crc;
 	for (int n = 0; n < 4; n++) {
-		zsendline(zm, (int)crc);
+		zm_put_escaped_char(zm, (int)crc);
 		crc >>= 8;
 	}
 }
@@ -452,7 +444,7 @@ zm_send_data(zm_t *zm, const char *buf, size_t length, int frameend)
 		Zendnames[(frameend-ZCRCE)&3]);
 	crc = 0;
 	for (size_t i = 0; i < length; i++) {
-		zsendline(zm, buf[i]);
+		zm_put_escaped_char(zm, buf[i]);
 		crc = updcrc((0377 & buf[i]), crc);
 	}
 	putchar(ZDLE);
@@ -460,8 +452,8 @@ zm_send_data(zm_t *zm, const char *buf, size_t length, int frameend)
 	crc = updcrc(frameend, crc);
 
 	crc = updcrc(0,updcrc(0,crc));
-	zsendline(zm, crc>>8);
-	zsendline(zm, crc);
+	zm_put_escaped_char(zm, crc>>8);
+	zm_put_escaped_char(zm, crc);
 	if (frameend == ZCRCW) {
 		putchar(XON);
 		fflush(stdout);
@@ -476,7 +468,7 @@ zm_send_data32(zm_t *zm, const char *buf, size_t length, int frameend)
 	log_trace("zsdat32: %zu %s", length, Zendnames[(frameend-ZCRCE)&3]);
 
 	crc = 0xFFFFFFFFL;
-	zsendline_s(zm, buf,length);
+	zm_put_escaped_string(zm, buf, length);
 	for (size_t i = 0; i < length; i++) {
 		c = buf[i] & 0377;
 		crc = UPDC32(c, crc);
@@ -491,7 +483,7 @@ zm_send_data32(zm_t *zm, const char *buf, size_t length, int frameend)
 		if (c & 0140)
 			putchar(zm->lastsent = c);
 		else
-			zsendline(zm, c);
+			zm_put_escaped_char(zm, c);
 		crc >>= 8;
 	}
 	if (frameend == ZCRCW) {
@@ -556,7 +548,7 @@ zm_receive_data(zm_t *zm, char *buf, int length, size_t *bytes_received)
 
 	crc = 0;
 	for (int i = 0; i < length + 1; i ++) {
-		if ((c = zdlread(zm)) & ~0377) {
+		if ((c = zm_get_escaped_char(zm)) & ~0377) {
 crcfoo:
 			switch (c) {
 			case GOTCRCE:
@@ -567,10 +559,10 @@ crcfoo:
 					d = c;
 					c &= 0377;
 					crc = updcrc(c, crc);
-					if ((c = zdlread(zm)) & ~0377)
+					if ((c = zm_get_escaped_char(zm)) & ~0377)
 						goto crcfoo;
 					crc = updcrc(c, crc);
-					if ((c = zdlread(zm)) & ~0377)
+					if ((c = zm_get_escaped_char(zm)) & ~0377)
 						goto crcfoo;
 					crc = updcrc(c, crc);
 					if (crc & 0xFFFF) {
@@ -610,7 +602,7 @@ zm_read_data32(zm_t *zm, char *buf, int length, size_t *bytes_received)
 
 	crc = 0xFFFFFFFFL;
 	for (int i = 0; i < length + 1; i ++) {
-		if ((c = zdlread(zm)) & ~0377) {
+		if ((c = zm_get_escaped_char(zm)) & ~0377) {
 crcfoo:
 			switch (c) {
 			case GOTCRCE:
@@ -620,16 +612,16 @@ crcfoo:
 				d = c;
 				c &= 0377;
 				crc = UPDC32(c, crc);
-				if ((c = zdlread(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0377)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
-				if ((c = zdlread(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0377)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
-				if ((c = zdlread(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0377)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
-				if ((c = zdlread(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0377)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
 				if (crc != 0xDEBB20E3) {
@@ -728,7 +720,7 @@ agn2:
 	}
 	cancount = 5;
 splat:
-	switch (c = noxrd7(zm)) {
+	switch (c = zm_get_ascii_char(zm)) {
 	case ZPAD:
 		goto splat;
 	case RCDO:
@@ -740,7 +732,7 @@ splat:
 		break;
 	}
 
-	switch (c = noxrd7(zm)) {
+	switch (c = zm_get_ascii_char(zm)) {
 	case RCDO:
 	case TIMEOUT:
 		goto fifi;
@@ -797,21 +789,21 @@ zm_read_binary_header(zm_t *zm)
 	register int c;
 	register unsigned short crc;
 
-	if ((c = zdlread(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0377)
 		return c;
 	zm->rxtype = c;
 	crc = updcrc(c, 0);
 
 	for (int n = 0; n < 4; n++) {
-		if ((c = zdlread(zm)) & ~0377)
+		if ((c = zm_get_escaped_char(zm)) & ~0377)
 			return c;
 		crc = updcrc(c, crc);
 		zm->Rxhdr[n] = c;
 	}
-	if ((c = zdlread(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0377)
 		return c;
 	crc = updcrc(c, crc);
-	if ((c = zdlread(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0377)
 		return c;
 	crc = updcrc(c, crc);
 	if (crc & 0xFFFF) {
@@ -829,7 +821,7 @@ zm_read_binary_header32(zm_t *zm)
 	register int c;
 	register unsigned long crc;
 
-	if ((c = zdlread(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0377)
 		return c;
 	zm->rxtype = c;
 	crc = 0xFFFFFFFFL; crc = UPDC32(c, crc);
@@ -838,7 +830,7 @@ zm_read_binary_header32(zm_t *zm)
 #endif
 
 	for (int n = 0; n < 4; n++) {
-		if ((c = zdlread(zm)) & ~0377)
+		if ((c = zm_get_escaped_char(zm)) & ~0377)
 			return c;
 		crc = UPDC32(c, crc);
 		zm->Rxhdr[n] = c;
@@ -847,7 +839,7 @@ zm_read_binary_header32(zm_t *zm)
 #endif
 	}
 	for (int n = 0; n < 4; n ++) {
-		if ((c = zdlread(zm)) & ~0377)
+		if ((c = zm_get_escaped_char(zm)) & ~0377)
 			return c;
 		crc = UPDC32(c, crc);
 #ifdef DEBUGZ
@@ -870,21 +862,21 @@ zm_read_hex_header(zm_t *zm)
 	register int c;
 	register unsigned short crc;
 
-	if ((c = zgethex(zm)) < 0)
+	if ((c = zm_get_hex_encoded_byte(zm)) < 0)
 		return c;
 	zm->rxtype = c;
 	crc = updcrc(c, 0);
 
 	for (int n = 0; n < 4; n ++) {
-		if ((c = zgethex(zm)) < 0)
+		if ((c = zm_get_hex_encoded_byte(zm)) < 0)
 			return c;
 		crc = updcrc(c, crc);
 		zm->Rxhdr[n] = c;
 	}
-	if ((c = zgethex(zm)) < 0)
+	if ((c = zm_get_hex_encoded_byte(zm)) < 0)
 		return c;
 	crc = updcrc(c, crc);
-	if ((c = zgethex(zm)) < 0)
+	if ((c = zm_get_hex_encoded_byte(zm)) < 0)
 		return c;
 	crc = updcrc(c, crc);
 	if (crc & 0xFFFF) {
