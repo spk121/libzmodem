@@ -47,6 +47,8 @@ char Attn[ZATTNLEN+1];	/* Attention string rx sends to tx on err */
 
 int bytes_per_error=0;
 
+#define ISPRINT(x) ((unsigned)(x) & 0x60u)
+
 static const char *frametypes[] = {
 	"Carrier Lost",		/* -3 */
 	"TIMEOUT",		/* -2 */
@@ -187,9 +189,10 @@ zm_get_hex_encoded_byte(zm_t *zm)
 static inline int
 zm_get_escaped_char(zm_t *zm)
 {
-	int c;
+	int c = zreadline_getc(zm->zr, zm->rxtimeout);
+
 	/* Quick check for non control characters */
-	if ((c = zreadline_getc(zm->zr, zm->rxtimeout)) & 0140)
+	if (ISPRINT(c))
 		return c;
 	return zm_get_escaped_char_internal(zm, c);
 }
@@ -201,24 +204,26 @@ zm_get_escaped_char_internal(zm_t *zm, int c)
 
 again:
 	/* Quick check for non control characters */
-	if ((c = zreadline_getc(zm->zr, zm->rxtimeout)) & 0140)
+	c = zreadline_getc(zm->zr, zm->rxtimeout);
+	if (ISPRINT(c))
 		return c;
 jump_over:
 	switch (c) {
 	case ZDLE:
 		break;
 	case XON:
-	case (XON|0200):
+	case (XON|0x80):
 	case XOFF:
-	case (XOFF|0200):
+	case (XOFF|0x80):
 		goto again;
 	default:
-		if (zm->zctlesc && !(c & 0140)) {
+		if (zm->zctlesc && !ISPRINT(c)) {
 			goto again;
 		}
 		return c;
 	}
 again2:
+	/* We only end up here if the previous char was ZDLE. */
 	if ((c = zreadline_getc(zm->zr, zm->rxtimeout)) < 0)
 		return c;
 	if (c == CAN && (c = zreadline_getc(zm->zr, zm->rxtimeout)) < 0)
@@ -236,20 +241,23 @@ again2:
 	case ZCRCW:
 		return (c | GOTOR);
 	case ZRUB0:
-		return 0177;
+		return 0x7F;
 	case ZRUB1:
-		return 0377;
+		return 0xFF;
 	case XON:
-	case (XON|0200):
+	case (XON|0x80):
 	case XOFF:
-	case (XOFF|0200):
+	case (XOFF|0x80):
 		goto again2;
 	default:
-		if (zm->zctlesc && ! (c & 0140)) {
+		if (zm->zctlesc && ! ISPRINT(c)) {
 			goto again2;
 		}
-		if ((c & 0140) ==  0100)
-			return (c ^ 0100);
+		/* What is this logic?  This seems like it is trying
+		 * to be an downcase operation?  If so, it is
+		 * wrong. --MLG */
+		if ((c & 0x60) ==  0x40)
+			return (c ^ 0x40);
 		break;
 	}
 	log_debug(_("Bad escape sequence %x"), c);
@@ -266,7 +274,7 @@ void
 zm_put_escaped_char(zm_t *zm, int c)
 {
 
-	switch(zm->zsendline_tab[(unsigned) (c&=0377)])
+	switch(zm->zsendline_tab[(unsigned) (c&=0xFF)])
 	{
 	case 0:
 		putchar(zm->lastsent = c);
@@ -277,7 +285,7 @@ zm_put_escaped_char(zm_t *zm, int c)
 		putchar(zm->lastsent = c);
 		break;
 	case 2:
-		if ((zm->lastsent & 0177) != '@') {
+		if ((zm->lastsent & 0x7F) != '@') {
 			putchar(zm->lastsent = c);
 		} else {
 			putchar(ZDLE);
@@ -296,7 +304,7 @@ zm_put_escaped_string (zm_t *zm, const char *s, size_t count)
 		int last_esc=0;
 		const char *t=s;
 		while (t!=end) {
-			last_esc = zm->zsendline_tab[(unsigned) ((*t) & 0377)];
+			last_esc = zm->zsendline_tab[(unsigned) ((*t) & 0xFF)];
 			if (last_esc)
 				break;
 			t++;
@@ -318,7 +326,7 @@ zm_put_escaped_string (zm_t *zm, const char *s, size_t count)
 				putchar(zm->lastsent = c);
 				break;
 			case 2:
-				if ((zm->lastsent & 0177) != '@') {
+				if ((zm->lastsent & 0x7F) != '@') {
 					putchar(zm->lastsent = c);
 				} else {
 					putchar(ZDLE);
@@ -357,7 +365,7 @@ zm_send_binary_header(zm_t *zm, int type)
 
 		for (int n = 0; n < 4; n ++) {
 			zm_put_escaped_char(zm, zm->Txhdr[n]);
-			crc = updcrc((0377 & zm->Txhdr[n]), crc);
+			crc = updcrc((0xFF & zm->Txhdr[n]), crc);
 		}
 		crc = updcrc(0,updcrc(0,crc));
 		zm_put_escaped_char(zm, crc>>8);
@@ -379,7 +387,7 @@ zm_send_binary_header32(zm_t *zm, int type)
 	crc = 0xFFFFFFFFL; crc = UPDC32(type, crc);
 
 	for (int n = 0; n < 4; n++) {
-		crc = UPDC32((0377 & zm->Txhdr[n]), crc);
+		crc = UPDC32((0xFF & zm->Txhdr[n]), crc);
 		zm_put_escaped_char(zm, zm->Txhdr[n]);
 	}
 	crc = ~crc;
@@ -410,7 +418,7 @@ zm_send_hex_header(zm_t *zm, int type)
 	for (int n = 0; n < 4; n++) {
 		zputhex(zm->Txhdr[n], s+len);
 		len += 2;
-		crc = updcrc((0377 & zm->Txhdr[n]), crc);
+		crc = updcrc((0xFF & zm->Txhdr[n]), crc);
 	}
 	crc = updcrc(0,updcrc(0,crc));
 	zputhex(crc>>8,s+len);
@@ -445,7 +453,7 @@ zm_send_data(zm_t *zm, const char *buf, size_t length, int frameend)
 	crc = 0;
 	for (size_t i = 0; i < length; i++) {
 		zm_put_escaped_char(zm, buf[i]);
-		crc = updcrc((0377 & buf[i]), crc);
+		crc = updcrc((0xFF & buf[i]), crc);
 	}
 	putchar(ZDLE);
 	putchar(frameend);
@@ -470,7 +478,7 @@ zm_send_data32(zm_t *zm, const char *buf, size_t length, int frameend)
 	crc = 0xFFFFFFFFL;
 	zm_put_escaped_string(zm, buf, length);
 	for (size_t i = 0; i < length; i++) {
-		c = buf[i] & 0377;
+		c = buf[i] & 0xFF;
 		crc = UPDC32(c, crc);
 	}
 	putchar(ZDLE);
@@ -548,7 +556,7 @@ zm_receive_data(zm_t *zm, char *buf, int length, size_t *bytes_received)
 
 	crc = 0;
 	for (int i = 0; i < length + 1; i ++) {
-		if ((c = zm_get_escaped_char(zm)) & ~0377) {
+		if ((c = zm_get_escaped_char(zm)) & ~0xFF) {
 crcfoo:
 			switch (c) {
 			case GOTCRCE:
@@ -557,12 +565,12 @@ crcfoo:
 			case GOTCRCW:
 				{
 					d = c;
-					c &= 0377;
+					c &= 0xFF;
 					crc = updcrc(c, crc);
-					if ((c = zm_get_escaped_char(zm)) & ~0377)
+					if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 						goto crcfoo;
 					crc = updcrc(c, crc);
-					if ((c = zm_get_escaped_char(zm)) & ~0377)
+					if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 						goto crcfoo;
 					crc = updcrc(c, crc);
 					if (crc & 0xFFFF) {
@@ -602,7 +610,7 @@ zm_read_data32(zm_t *zm, char *buf, int length, size_t *bytes_received)
 
 	crc = 0xFFFFFFFFL;
 	for (int i = 0; i < length + 1; i ++) {
-		if ((c = zm_get_escaped_char(zm)) & ~0377) {
+		if ((c = zm_get_escaped_char(zm)) & ~0xFF) {
 crcfoo:
 			switch (c) {
 			case GOTCRCE:
@@ -610,18 +618,18 @@ crcfoo:
 			case GOTCRCQ:
 			case GOTCRCW:
 				d = c;
-				c &= 0377;
+				c &= 0xFF;
 				crc = UPDC32(c, crc);
-				if ((c = zm_get_escaped_char(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
-				if ((c = zm_get_escaped_char(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
-				if ((c = zm_get_escaped_char(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
-				if ((c = zm_get_escaped_char(zm)) & ~0377)
+				if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 					goto crcfoo;
 				crc = UPDC32(c, crc);
 				if (crc != 0xDEBB20E3) {
@@ -708,13 +716,13 @@ agn2:
 			return(ERROR);
 		}
 		if (zm->eflag) {
-			if ((c &= 0177) & 0140)
+			if ((c &= 0x7F) & 0140)
 				log_info("Unknown header character '%c'", c);
 			else
 				log_info("Unknown header character 0x'%u'", (unsigned char) c);
 		}
 		goto startover;
-	case ZPAD|0200:		/* This is what we want. */
+	case ZPAD|0x80:		/* This is what we want. */
 	case ZPAD:		/* This is what we want. */
 		break;
 	}
@@ -755,10 +763,10 @@ splat:
 	default:
 		goto agn2;
 	}
-	rxpos = zm->Rxhdr[ZP3] & 0377;
-	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP2] & 0377);
-	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP1] & 0377);
-	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP0] & 0377);
+	rxpos = zm->Rxhdr[ZP3] & 0xFF;
+	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP2] & 0xFF);
+	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP1] & 0xFF);
+	rxpos = (rxpos<<8) + (zm->Rxhdr[ZP0] & 0xFF);
 fifi:
 	switch (c) {
 	case GOTCAN:
@@ -789,21 +797,21 @@ zm_read_binary_header(zm_t *zm)
 	register int c;
 	register unsigned short crc;
 
-	if ((c = zm_get_escaped_char(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 		return c;
 	zm->rxtype = c;
 	crc = updcrc(c, 0);
 
 	for (int n = 0; n < 4; n++) {
-		if ((c = zm_get_escaped_char(zm)) & ~0377)
+		if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 			return c;
 		crc = updcrc(c, crc);
 		zm->Rxhdr[n] = c;
 	}
-	if ((c = zm_get_escaped_char(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 		return c;
 	crc = updcrc(c, crc);
-	if ((c = zm_get_escaped_char(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 		return c;
 	crc = updcrc(c, crc);
 	if (crc & 0xFFFF) {
@@ -821,7 +829,7 @@ zm_read_binary_header32(zm_t *zm)
 	register int c;
 	register unsigned long crc;
 
-	if ((c = zm_get_escaped_char(zm)) & ~0377)
+	if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 		return c;
 	zm->rxtype = c;
 	crc = 0xFFFFFFFFL; crc = UPDC32(c, crc);
@@ -830,7 +838,7 @@ zm_read_binary_header32(zm_t *zm)
 #endif
 
 	for (int n = 0; n < 4; n++) {
-		if ((c = zm_get_escaped_char(zm)) & ~0377)
+		if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 			return c;
 		crc = UPDC32(c, crc);
 		zm->Rxhdr[n] = c;
@@ -839,7 +847,7 @@ zm_read_binary_header32(zm_t *zm)
 #endif
 	}
 	for (int n = 0; n < 4; n ++) {
-		if ((c = zm_get_escaped_char(zm)) & ~0377)
+		if ((c = zm_get_escaped_char(zm)) & ~0xFF)
 			return c;
 		crc = UPDC32(c, crc);
 #ifdef DEBUGZ
@@ -917,8 +925,8 @@ zsendline_init(zm_t *zm)
 			case ZDLE:
 			case XOFF: /* ^Q */
 			case XON: /* ^S */
-			case (XOFF | 0200):
-			case (XON | 0200):
+			case (XOFF | 0x80):
+			case (XON | 0x80):
 				zm->zsendline_tab[i]=1;
 				break;
 			case 020: /* ^P */
@@ -962,10 +970,10 @@ zm_reclaim_send_header(zm_t *zm)
 {
 	long l;
 
-	l = (zm->Txhdr[ZP3] & 0377);
-	l = (l << 8) | (zm->Txhdr[ZP2] & 0377);
-	l = (l << 8) | (zm->Txhdr[ZP1] & 0377);
-	l = (l << 8) | (zm->Txhdr[ZP0] & 0377);
+	l = (zm->Txhdr[ZP3] & 0xFF);
+	l = (l << 8) | (zm->Txhdr[ZP2] & 0xFF);
+	l = (l << 8) | (zm->Txhdr[ZP1] & 0xFF);
+	l = (l << 8) | (zm->Txhdr[ZP0] & 0xFF);
 	return l;
 }
 
@@ -975,10 +983,10 @@ zm_reclaim_receive_header(zm_t *zm)
 {
 	long l;
 
-	l = (zm->Rxhdr[ZP3] & 0377);
-	l = (l << 8) | (zm->Rxhdr[ZP2] & 0377);
-	l = (l << 8) | (zm->Rxhdr[ZP1] & 0377);
-	l = (l << 8) | (zm->Rxhdr[ZP0] & 0377);
+	l = (zm->Rxhdr[ZP3] & 0xFF);
+	l = (l << 8) | (zm->Rxhdr[ZP2] & 0xFF);
+	l = (l << 8) | (zm->Rxhdr[ZP1] & 0xFF);
+	l = (l << 8) | (zm->Rxhdr[ZP0] & 0xFF);
 	return l;
 }
 
