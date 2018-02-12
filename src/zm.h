@@ -51,5 +51,6 @@ void zm_store_header (size_t pos);
 long zm_reclaim_header (char *hdr);
 int zm_receive_data (zm_t *zm, char *buf, int length, size_t *received);
 int zm_get_header (zm_t *zm, char *hdr, size_t *);
+void zm_ackbibi (zm_t *zm);
 
 #endif

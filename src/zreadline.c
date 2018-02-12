@@ -132,6 +132,19 @@ zreadline_flushline(zreadline_t *zr)
   lseek(zr->readline_fd, 0, SEEK_END);
 }
 
+/* send cancel string to get the other end to shut up */
+void
+zreadline_canit (zreadline_t *zr, int fd)
+{
+	static char canistr[] =
+	{
+		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0
+	};
+	zreadline_flushline(zr);
+	write(fd,canistr,strlen(canistr));
+	if (fd==0)
+		write(1,canistr,strlen(canistr));
+}
 
 
 

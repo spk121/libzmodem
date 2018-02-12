@@ -81,7 +81,7 @@ static const char *frametypes[] = {
 /* static char *badcrc = "Bad CRC"; */
 static inline int noxrd7 (zm_t *zm);
 static inline int zdlread (zm_t *zm);
-static int zdlread2 (zm_t *zm, int) LRZSZ_ATTRIB_REGPARM(1);
+static int zdlread2 (zm_t *zm, int);
 static inline int zgeth1 (zm_t *zm);
 static void zputhex (int c, char *pos);
 static inline int zgethex (zm_t *zm);
@@ -90,7 +90,7 @@ static int zm_read_binary_header32 (zm_t *zm, char *hdr);
 static int zm_read_hex_header (zm_t *zm, char *hdr);
 static int zm_read_data32 (zm_t *zm, char *buf, int length, size_t *);
 static void zm_send_binary_header32 (zm_t *zm, char *hdr, int type);
-static void zsendline_init (zm_t *zm) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+static void zsendline_init (zm_t *zm);
 
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
@@ -974,6 +974,33 @@ zm_reclaim_header(char *hdr)
 	l = (l << 8) | (hdr[ZP1] & 0377);
 	l = (l << 8) | (hdr[ZP0] & 0377);
 	return l;
+}
+
+/*
+ * Ack a ZFIN packet, let byegones be byegones
+ */
+void
+zm_ackbibi(zm_t *zm)
+{
+	int n;
+
+	log_debug("ackbibi:");
+	zm_store_header(0L);
+	for (n=3; --n>=0; ) {
+		zreadline_flushline(zm->zr);
+		zm_send_hex_header(zm, ZFIN, Txhdr);
+		switch (zreadline_getc(zm->zr,100)) {
+		case 'O':
+			zreadline_getc(zm->zr,1);	/* Discard 2nd 'O' */
+			log_debug("ackbibi complete");
+			return;
+		case RCDO:
+			return;
+		case TIMEOUT:
+		default:
+			break;
+		}
+	}
 }
 
 /* End of zm.c */

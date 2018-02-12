@@ -45,7 +45,6 @@
 #include "timing.h"
 #include "log.h"
 #include "zmodem.h"
-#include "canit.h"
 #include "crctab.h"
 #include "zm.h"
 
@@ -339,7 +338,7 @@ size_t zmodem_send(int file_count,
 	/* This is the main loop.  */
 	if (wcsend(sz, zm->zr, zm, file_count, file_list)==ERROR) {
 		sz->exitcode=0200;
-		canit(zm->zr, STDOUT_FILENO);
+		zreadline_canit(zm->zr, STDOUT_FILENO);
 	}
 	fflush(stdout);
 	io_mode(sz->io_mode_fd, 0);
@@ -471,7 +470,7 @@ wcsend (sz_t *sz, zreadline_t *zr, zm_t *zm, int argc, char *argp[])
 	}
 	sz->totsecs = 0;
 	if (sz->filcnt == 0) {			/* bitch if we couldn't open ANY files */
-		canit(zr, STDOUT_FILENO);
+		zreadline_canit(zr, STDOUT_FILENO);
 		log_info (_ ("Can't open any requested files."));
 		return ERROR;
 	}
@@ -516,7 +515,7 @@ wcs(sz_t *sz, zreadline_t *zr, zm_t *zm, const char *oname, const char *remotena
 		 	strlen(MK_STRING(PUBDIR))))
 #endif
 		) {
-			canit(zr, STDOUT_FILENO);
+			zreadline_canit(zr, STDOUT_FILENO);
 			log_fatal(_("security violation: not allowed to upload from %s"),oname);
 			exit(1);
 		}
