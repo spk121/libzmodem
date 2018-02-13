@@ -145,23 +145,23 @@ rz_t *rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 
 
 static int rz_receive_files (rz_t *rz, struct zm_fileinfo *);
-static int rz_tryz (rz_t *rz);
+static int rz_zmodem_session_startup (rz_t *rz);
 static void rz_checkpath (rz_t *rz, const char *name);
 static void chkinvok(const char *s, int *ptopipe);
 static void report (int sct);
 static void uncaps (char *s);
 static int IsAnyLower (const char *s);
-static int rz_putsec (rz_t *rz, struct zm_fileinfo *zi, char *buf, size_t n);
-static int rz_procheader (rz_t *rz, char *name, struct zm_fileinfo *);
-static int rz_wcgetsec (rz_t *rz, size_t *Blklen, char *rxbuf, unsigned int maxtime);
-static int rz_wcrx (rz_t *rz, struct zm_fileinfo *);
-static int rz_wcrxpn (rz_t *rz, struct zm_fileinfo *, char *rpn);
-static int rz_wcreceive (rz_t *rz);
+static int rz_write_string_to_file (rz_t *rz, struct zm_fileinfo *zi, char *buf, size_t n);
+static int rz_process_header (rz_t *rz, char *name, struct zm_fileinfo *);
+static int rz_receive_sector (rz_t *rz, size_t *Blklen, char *rxbuf, unsigned int maxtime);
+static int rz_receive_sectors (rz_t *rz, struct zm_fileinfo *);
+static int rz_receive_pathname (rz_t *rz, struct zm_fileinfo *, char *rpn);
+static int rz_receive (rz_t *rz);
 static int rz_receive_file (rz_t *rz, struct zm_fileinfo *);
 static void exec2 (const char *s);
 static int rz_closeit (rz_t *rz, struct zm_fileinfo *);
 static int sys2 (const char *s);
-static void zmputs (const char *s);
+static void write_modem_escaped_string_to_stdout (const char *s);
 static size_t getfree (void);
 
 rz_t*
@@ -219,7 +219,7 @@ bibi(int n)
 {
 	//FIXME: figure out how to avoid global zmodem_requested
 	// if (zmodem_requested)
-	// 	zmputs(Attn);
+	// 	write_modem_escaped_string_to_stdout(Attn);
 	// canit(zr, STDOUT_FILENO);
 	io_mode(0,0);
 	log_fatal(_("caught signal %s; exiting"), n);
@@ -268,7 +268,7 @@ size_t zmodem_receive(const char *directory,
 		);
 	rz->zm->baudrate = io_mode(0,1);
 	int exitcode = 0;
-	if (rz_wcreceive(rz)==ERROR) {
+	if (rz_receive(rz)==ERROR) {
 		exitcode=0200;
 		zreadline_canit(rz->zm->zr, STDOUT_FILENO);
 	}
@@ -286,7 +286,7 @@ size_t zmodem_receive(const char *directory,
 
 
 static int
-rz_wcreceive(rz_t *rz)
+rz_receive(rz_t *rz)
 {
 	int c;
 	struct zm_fileinfo zi;
@@ -301,7 +301,7 @@ rz_wcreceive(rz_t *rz)
 
 	log_info(_("%s waiting to receive."), program_name);
 	c = 0;
-	c = rz_tryz(rz);
+	c = rz_zmodem_session_startup(rz);
 	if (c != 0) {
 		if (c == ZCOMPL)
 			return OK;
@@ -314,13 +314,13 @@ rz_wcreceive(rz_t *rz)
 	} else {
 		for (;;) {
 			timing(1,NULL);
-			if (rz_wcrxpn(rz, &zi, rz->secbuf)== ERROR)
+			if (rz_receive_pathname(rz, &zi, rz->secbuf)== ERROR)
 				goto fubar;
 			if (rz->secbuf[0]==0)
 				return OK;
-			if (rz_procheader(rz, rz->secbuf, &zi) == ERROR)
+			if (rz_process_header(rz, rz->secbuf, &zi) == ERROR)
 				goto fubar;
-			if (rz_wcrx(rz, &zi)==ERROR)
+			if (rz_receive_sectors(rz, &zi)==ERROR)
 				goto fubar;
 
 			double d;
@@ -357,7 +357,7 @@ fubar:
  * Length is indeterminate as long as less than Blklen
  */
 static int
-rz_wcrxpn(rz_t *rz, struct zm_fileinfo *zi, char *rpn)
+rz_receive_pathname(rz_t *rz, struct zm_fileinfo *zi, char *rpn)
 {
 	register int c;
 	size_t Blklen=0;		/* record length of received packets */
@@ -370,7 +370,7 @@ et_tu:
 	putchar(WANTCRC);
 	fflush(stdout);
 	zreadline_flushline(rz->zm->zr); /* Do read next time ... */
-	while ((c = rz_wcgetsec(rz, &Blklen, rpn, 100)) != 0) {
+	while ((c = rz_receive_sector(rz, &Blklen, rpn, 100)) != 0) {
 		if (c == WCEOT) {
 			log_error( _("Pathname fetch returned EOT"));
 			putchar(ACK);
@@ -391,7 +391,7 @@ et_tu:
  * Jack M. Wierda and Roderick W. Hart
  */
 static int
-rz_wcrx(rz_t *rz, struct zm_fileinfo *zi)
+rz_receive_sectors(rz_t *rz, struct zm_fileinfo *zi)
 {
 	register int sectnum, sectcurr;
 	register char sendchar;
@@ -405,7 +405,7 @@ rz_wcrx(rz_t *rz, struct zm_fileinfo *zi)
 		putchar(sendchar);	/* send it now, we're ready! */
 		fflush(stdout);
 		zreadline_flushline(rz->zm->zr);	/* Do read next time ... */
-		sectcurr=rz_wcgetsec(rz, &Blklen, rz->secbuf,
+		sectcurr=rz_receive_sector(rz, &Blklen, rz->secbuf,
 			(unsigned int) ((sectnum&0177) ? 50 : 130));
 		report(sectcurr);
 		if (sectcurr==((sectnum+1) &0377)) {
@@ -413,7 +413,7 @@ rz_wcrx(rz_t *rz, struct zm_fileinfo *zi)
 			if (zi->bytes_total && R_BYTESLEFT(zi) < Blklen)
 				Blklen=R_BYTESLEFT(zi);
 			zi->bytes_received+=Blklen;
-			if (rz_putsec(rz, zi, rz->secbuf, Blklen)==ERROR)
+			if (rz_write_string_to_file(rz, zi, rz->secbuf, Blklen)==ERROR)
 				return ERROR;
 			sendchar=ACK;
 		}
@@ -439,7 +439,7 @@ rz_wcrx(rz_t *rz, struct zm_fileinfo *zi)
 }
 
 /*
- * Rz_Wcgetsec fetches a Ward Christensen type sector.
+ * Rz_Receive_Sector fetches a Ward Christensen type sector.
  * Returns sector number encountered or ERROR if valid sector not received,
  * or CAN CAN received
  * or WCEOT if eot sector
@@ -448,7 +448,7 @@ rz_wcrx(rz_t *rz, struct zm_fileinfo *zi)
  *    (Caller must do that when he is good and ready to get next sector)
  */
 static int
-rz_wcgetsec(rz_t *rz, size_t *Blklen, char *rxbuf, unsigned int maxtime)
+rz_receive_sector(rz_t *rz, size_t *Blklen, char *rxbuf, unsigned int maxtime)
 {
 	register int checksum, wcj, firstch;
 	register unsigned short oldcrc;
@@ -538,7 +538,7 @@ humbug:
  * Process incoming file information header
  */
 static int
-rz_procheader(rz_t *rz, char *name, struct zm_fileinfo *zi)
+rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 {
 	const char *openmode;
 	char *p;
@@ -807,12 +807,12 @@ buffer_it:
 
 
 /*
- * Rz_Putsec writes the n characters of buf to receive file fout.
+ * Rz_Write_String_To_File writes the n characters of buf to receive file fout.
  *  If not in binary mode, carriage returns, and all characters
  *  starting with CPMEOF are discarded.
  */
 static int
-rz_putsec(rz_t *rz, struct zm_fileinfo *zi, char *buf, size_t n)
+rz_write_string_to_file(rz_t *rz, struct zm_fileinfo *zi, char *buf, size_t n)
 {
 	register char *p;
 
@@ -940,7 +940,7 @@ rz_checkpath(rz_t *rz, const char *name)
  *   ZCOMPL if transaction finished,  else 0
  */
 static int
-rz_tryz(rz_t *rz)
+rz_zmodem_session_startup(rz_t *rz)
 {
 	register int c, n;
 	int zrqinits_received=0;
@@ -948,7 +948,7 @@ rz_tryz(rz_t *rz)
 
 	/* Spec 8.1: "When the ZMODEM receive program starts, it
 	   immediately sends a ZRINIT header to initiate ZMODEM file
-	   transfers...  The receive program resendts its header at
+	   transfers...  The receive program resends its header at
 	   intervals for a suitable period of time (40 seconds
 	   total)...."
 
@@ -958,14 +958,19 @@ rz_tryz(rz_t *rz)
 	for (n=rz->zm->zmodem_requested?15:5;
 		 (--n + zrqinits_received) >=0 && zrqinits_received<10; ) {
 		/* Set buffer length (0) and capability flags */
-		zm_set_send_header(rz->zm, 0L);
+
+		/* We're going to snd a ZRINIT packet. */  
+		zm_set_header_payload_bytes(rz->zm,
 #ifdef CANBREAK
-		rz->zm->Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO|CANBRK;
+					    (rz->zm->zctlesc ?
+					     (CANFC32|CANFDX|CANOVIO|CANBRK|TESCCTL)
+					     : (CANFC32|CANFDX|CANOVIO|CANBRK)),
 #else
-		rz->zm->Txhdr[ZF0] = CANFC32|CANFDX|CANOVIO;
+					    (rz->zm->zctlesc ?
+					     (CANFC32|CANFDX|CANOVIO|TESCCTL)
+					     : (CANFC32|CANFDX|CANOVIO)),
 #endif
-		if (rz->zm->zctlesc)
-			rz->zm->Txhdr[ZF0] |= TESCCTL; /* TESCCTL == ESCCTL */
+					    0, 0, 0);
 		zm_send_hex_header(rz->zm, rz->tryzhdrtype);
 
 		if (rz->tcp_socket==-1 && strlen(rz->tcp_buf) > 0) {
@@ -1043,14 +1048,14 @@ again:
 				 * header in response, containing
 				 * either the serial number of the
 				 * receiving program, or 0." */
-				zm_set_send_header(rz->zm, 1L);
+				zm_set_header_payload(rz->zm, 1L);
 				zm_send_hex_header(rz->zm, ZACK);
 				goto again;
 			}
 			zm_send_hex_header(rz->zm, ZNAK);
 			goto again;
 		case ZFREECNT:
-			zm_set_send_header(rz->zm, getfree());
+			zm_set_header_payload(rz->zm, getfree());
 			zm_send_hex_header(rz->zm, ZACK);
 			goto again;
 		case ZCOMPL:
@@ -1105,7 +1110,7 @@ rz_receive_files(rz_t *rz, struct zm_fileinfo *zi)
 			{
 				log_info(_("Skipped"));
 			}
-			switch (rz_tryz(rz)) {
+			switch (rz_zmodem_session_startup(rz)) {
 			case ZCOMPL:
 				return OK;
 			default:
@@ -1152,12 +1157,12 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 
 	n = 20;
 
-	if (rz_procheader(rz, rz->secbuf,zi) == ERROR) {
+	if (rz_process_header(rz, rz->secbuf,zi) == ERROR) {
 		return (rz->tryzhdrtype = ZSKIP);
 	}
 
 	for (;;) {
-		zm_set_send_header(rz->zm, zi->bytes_received);
+		zm_set_header_payload(rz->zm, zi->bytes_received);
 		zm_send_hex_header(rz->zm, ZRPOS);
 		goto skip_oosb;
 nxthdr:
@@ -1165,7 +1170,7 @@ nxthdr:
 			oosb_t *akt,*last,*next;
 			for (akt=anker,last=NULL;akt;last= akt ? akt : last ,akt=next) {
 				if (akt->pos==zi->bytes_received) {
-					rz_putsec(rz, zi, akt->data, akt->len);
+					rz_write_string_to_file(rz, zi, akt->data, akt->len);
 					zi->bytes_received += akt->len;
 					log_debug("using saved out-of-sync-paket %lx, len %ld",
 						  akt->pos,akt->len);
@@ -1224,7 +1229,7 @@ nxthdr:
 				log_debug("rz_receive_file: zm_get_header returned %d", c);
 				return ERROR;
 			}
-			zmputs(rz->attn);
+			write_modem_escaped_string_to_stdout(rz->attn);
 			continue;
 		case ZSKIP:
 			rz_closeit(rz, zi);
@@ -1261,7 +1266,7 @@ nxthdr:
 							free(neu);
 					}
 				}
-				zmputs(rz->attn);  continue;
+				write_modem_escaped_string_to_stdout(rz->attn);  continue;
 			}
 moredata:
 			if ((rz->min_bps || rz->stop_time || rz->tick_cb)
@@ -1322,7 +1327,7 @@ moredata:
 					log_debug("rz_receive_file: zm_get_header returned %d", c);
 					return ERROR;
 				}
-				zmputs(rz->attn);
+				write_modem_escaped_string_to_stdout(rz->attn);
 				continue;
 			case TIMEOUT:
 				if ( --n < 0) {
@@ -1332,26 +1337,26 @@ moredata:
 				continue;
 			case GOTCRCW:
 				n = 20;
-				rz_putsec(rz, zi, rz->secbuf, bytes_in_block);
+				rz_write_string_to_file(rz, zi, rz->secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
-				zm_set_send_header(rz->zm, zi->bytes_received);
+				zm_set_header_payload(rz->zm, zi->bytes_received);
 				zm_send_hex_header(rz->zm, ZACK | 0x80);
 				goto nxthdr;
 			case GOTCRCQ:
 				n = 20;
-				rz_putsec(rz, zi, rz->secbuf, bytes_in_block);
+				rz_write_string_to_file(rz, zi, rz->secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
-				zm_set_send_header(rz->zm, zi->bytes_received);
+				zm_set_header_payload(rz->zm, zi->bytes_received);
 				zm_send_hex_header(rz->zm, ZACK);
 				goto moredata;
 			case GOTCRCG:
 				n = 20;
-				rz_putsec(rz, zi, rz->secbuf, bytes_in_block);
+				rz_write_string_to_file(rz, zi, rz->secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
 				goto moredata;
 			case GOTCRCE:
 				n = 20;
-				rz_putsec(rz, zi, rz->secbuf, bytes_in_block);
+				rz_write_string_to_file(rz, zi, rz->secbuf, bytes_in_block);
 				zi->bytes_received += bytes_in_block;
 				goto nxthdr;
 			}
@@ -1364,7 +1369,7 @@ moredata:
  *   and \335 (break signal)
  */
 static void
-zmputs(const char *s)
+write_modem_escaped_string_to_stdout(const char *s)
 {
 	const char *p;
 

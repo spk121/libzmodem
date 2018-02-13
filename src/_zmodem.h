@@ -23,8 +23,15 @@
  *    05-23-87  Chuck Forsberg Omen Technology Inc
 */
 #define ZPAD '*'	/* 052 Padding character begins frames */
-#define ZDLE 030	/* Ctrl-X Zmodem escape - `ala BISYNC DLE */
-#define ZDLEE (ZDLE^0100)	/* Escaped ZDLE as transmitted */
+
+/* Spec 7.2: The ZDLE character is special. ZDLE represents a control
+ * sequence of some sort.... The Value of ZDLE is octal 030. */
+#define ZDLE 030
+
+/* Spec 7.2: If a ZDLE character appears in binary data, it is prefixed
+ * with ZDLE, then sent as ZDLEE. */
+#define ZDLEE (ZDLE^0100)
+
 #define ZBIN 'A'	/* Binary frame indicator */
 #define ZHEX 'B'	/* HEX frame indicator */
 #define ZBIN32 'C'	/* Binary frame with 32 bit FCS */

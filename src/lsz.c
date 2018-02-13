@@ -166,21 +166,21 @@ sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	return sz;
 }
 
-static int sz_zsendfile (sz_t *sz, struct zm_fileinfo *zi, const char *buf, size_t blen);
+static int sz_transmit_file_by_zmodem (sz_t *sz, struct zm_fileinfo *zi, const char *buf, size_t blen);
 static int sz_getnak (sz_t *sz);
-static int sz_wctxpn (sz_t *sz, struct zm_fileinfo *);
-static int sz_wcs (sz_t *sz, const char *oname, const char *remotename);
+static int sz_transmit_pathname (sz_t *sz, struct zm_fileinfo *);
+static int sz_transmit_file (sz_t *sz, const char *oname, const char *remotename);
 static size_t sz_zfilbuf (sz_t *sz, struct zm_fileinfo *zi);
 static size_t sz_filbuf (sz_t *sz, char *buf, size_t count);
 static int sz_getzrxinit (sz_t *sz);
 static int sz_calculate_block_length (sz_t *sz, long total_sent);
 static int sz_sendzsinit (sz_t *sz);
-static int sz_wctx (sz_t *sz, struct zm_fileinfo *);
-static int sz_zsendfdata (sz_t *sz, struct zm_fileinfo *);
+static int sz_transmit_file_contents (sz_t *sz, struct zm_fileinfo *);
+static int sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *);
 static int sz_getinsync (sz_t *sz, struct zm_fileinfo *, int flag);
 static void sz_countem (sz_t *sz, int argc, char **argv);
-static int sz_wcsend (sz_t *sz, int argc, char *argp[]);
-static int sz_wcputsec (sz_t *sz, char *buf, int sectnum, size_t cseclen);
+static int sz_transmit_files (sz_t *sz, int argc, char *argp[]);
+static int sz_transmit_sector (sz_t *sz, char *buf, int sectnum, size_t cseclen);
 static int sz_send_pseudo(sz_t *sz, const char *name, const char *data);
 
 #define ZM_SEND_DATA(x,y,z)						\
@@ -326,11 +326,11 @@ size_t zmodem_send(int file_count,
 	}
 
 	zreadline_flushline(sz->zm->zr);
-	zm_set_send_header(sz->zm, 0L);
 
 	/* Spec 8.1: "Then the sender may send a ZRQINIT. The ZRQINIT
 	   header causes a previously started receive program to send
 	   its ZRINIT header without delay." */
+	zm_set_header_payload(sz->zm, 0L);
 	zm_send_hex_header(sz->zm, ZRQINIT);
 	sz->zrqinits_sent++;
 	if (sz->tcp_flag==1) {
@@ -340,7 +340,7 @@ size_t zmodem_send(int file_count,
 	fflush(stdout);
 
 	/* This is the main loop.  */
-	if (sz_wcsend(sz, file_count, file_list)==ERROR) {
+	if (sz_transmit_files(sz, file_count, file_list)==ERROR) {
 		sz->exitcode=0200;
 		zreadline_canit(sz->zm->zr, STDOUT_FILENO);
 	}
@@ -428,7 +428,7 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 		return 1;
 	}
 
-	if (sz_wcs (sz, tmp, name) == ERROR) {
+	if (sz_transmit_file (sz, tmp, name) == ERROR) {
 		log_info (_ ("sz_send_pseudo %s: failed"),name);
 		ret=1;
 	}
@@ -440,7 +440,7 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 /* This routine tries to send multiple files.  The file count and
    filenames are in ARGC and ARGP. */
 static int
-sz_wcsend (sz_t *sz, int argc, char *argp[])
+sz_transmit_files (sz_t *sz, int argc, char *argp[])
 {
 	int n;
 
@@ -469,7 +469,7 @@ sz_wcsend (sz_t *sz, int argc, char *argp[])
 	for (n = 0; n < argc; ++n) {
 		sz->totsecs = 0;
 		/* The files are transmitted one at a time, here. */
-		if (sz_wcs (sz, argp[n], NULL) == ERROR)
+		if (sz_transmit_file (sz, argp[n], NULL) == ERROR)
 			return ERROR;
 	}
 	sz->totsecs = 0;
@@ -492,7 +492,7 @@ sz_wcsend (sz_t *sz, int argc, char *argp[])
 		zi.bytes_sent = 0;
 		zi.bytes_received = 0;
 		zi.bytes_skipped = 0;
-		sz_wctxpn (sz, &zi);
+		sz_transmit_pathname (sz, &zi);
 	}
 	return OK;
 }
@@ -501,7 +501,7 @@ sz_wcsend (sz_t *sz, int argc, char *argp[])
 /* This routine should send one file from a list of files.  The
  filename is ONAME. REMOTENAME can be NULL. */
 static int
-sz_wcs(sz_t *sz, const char *oname, const char *remotename)
+sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 {
 	struct stat f;
 	char name[PATH_MAX+1];
@@ -579,14 +579,14 @@ sz_wcs(sz_t *sz, const char *oname, const char *remotename)
 	++sz->filcnt;
 	/* Now that the file information is validated and is in a ZI
 	 * structure, we try to transmit the file. */
-	switch (sz_wctxpn(sz, &zi)) {
+	switch (sz_transmit_pathname(sz, &zi)) {
 	case ERROR:
 		return ERROR;
 	case ZSKIP:
 		log_error(_("skipped: %s"), name);
 		return OK;
 	}
-	if (!sz->zm->zmodem_requested && sz_wctx(sz, &zi)==ERROR)
+	if (!sz->zm->zmodem_requested && sz_transmit_file_contents(sz, &zi)==ERROR)
 	{
 		return ERROR;
 	}
@@ -614,7 +614,7 @@ sz_wcs(sz_t *sz, const char *oname, const char *remotename)
  *  N.B.: modifies the passed name, may extend it!
  */
 static int
-sz_wctxpn(sz_t *sz, struct zm_fileinfo *zi)
+sz_transmit_pathname(sz_t *sz, struct zm_fileinfo *zi)
 {
 	register char *p, *q;
 	char name2[PATH_MAX+1];
@@ -675,11 +675,11 @@ sz_wctxpn(sz_t *sz, struct zm_fileinfo *zi)
 
 	/* We'll send the file by ZModem, if the sz_getnak process succeeded.  */
 	if (sz->zm->zmodem_requested)
-		return sz_zsendfile(sz, zi, sz->txbuf, 1+strlen(p)+(p-sz->txbuf));
+		return sz_transmit_file_by_zmodem(sz, zi, sz->txbuf, 1+strlen(p)+(p-sz->txbuf));
 
 	/* We'll have to send the file by YModem, I guess.  */
-	if (sz_wcputsec(sz, sz->txbuf, 0, 128)==ERROR) {
-		log_debug("sz_wcputsec failed");
+	if (sz_transmit_sector(sz, sz->txbuf, 0, 128)==ERROR) {
+		log_debug("sz_transmit_sector failed");
 		return ERROR;
 	}
 	return OK;
@@ -723,7 +723,7 @@ sz_getnak(sz_t *sz)
 				 * using zmodem protocol and may send
 				 * further ZRQINITs
 				 */
-				zm_set_send_header(sz->zm, 0L);
+				zm_set_header_payload(sz->zm, 0L);
 				zm_send_hex_header(sz->zm, ZRQINIT);
 				sz->zrqinits_sent++;
 			}
@@ -755,13 +755,14 @@ sz_getnak(sz_t *sz)
 
 
 static int
-sz_wctx(sz_t *sz, struct zm_fileinfo *zi)
+sz_transmit_file_contents(sz_t *sz, struct zm_fileinfo *zi)
 {
 	register size_t thisblklen;
 	register int sectnum, attempts, firstch;
 
-	sz->firstsec=TRUE;  thisblklen = sz->blklen;
-	log_debug("sz_wctx:file length=%ld", (long) zi->bytes_total);
+	sz->firstsec=TRUE;
+	thisblklen = sz->blklen;
+	log_debug("sz_transmit_file_contents:file length=%ld", (long) zi->bytes_total);
 
 	while ((firstch=zreadline_getc(sz->zm->zr, sz->zm->rxtimeout))!=NAK && firstch != WANTCRC
 	  && firstch != WANTG && firstch!=TIMEOUT && firstch!=CAN)
@@ -780,7 +781,7 @@ sz_wctx(sz_t *sz, struct zm_fileinfo *zi)
 			thisblklen = 128;
 		if ( !sz_filbuf(sz, sz->txbuf, thisblklen))
 			break;
-		if (sz_wcputsec(sz, sz->txbuf, ++sectnum, thisblklen)==ERROR)
+		if (sz_transmit_sector(sz, sz->txbuf, ++sectnum, thisblklen)==ERROR)
 			return ERROR;
 		zi->bytes_sent += thisblklen;
 	}
@@ -801,7 +802,7 @@ sz_wctx(sz_t *sz, struct zm_fileinfo *zi)
 }
 
 static int
-sz_wcputsec(sz_t *sz, char *buf, int sectnum, size_t cseclen)
+sz_transmit_sector(sz_t *sz, char *buf, int sectnum, size_t cseclen)
 {
 	int checksum, wcj;
 	char *cp;
@@ -1010,7 +1011,7 @@ sz_getzrxinit(sz_t *sz)
 	int old_timeout=sz->zm->rxtimeout;
 	int n;
 	struct stat f;
-	size_t rxpos;
+	uint32_t rxpos;
 	int timeouts=0;
 
 	sz->zm->rxtimeout=100; /* 10 seconds */
@@ -1024,14 +1025,14 @@ sz_getzrxinit(sz_t *sz)
 		 */
 		if (sz->zrqinits_sent<4 && n!=10 && !dont_send_zrqinit) {
 			sz->zrqinits_sent++;
-			zm_set_send_header(sz->zm, 0L);
+			zm_set_header_payload(sz->zm, 0L);
 			zm_send_hex_header(sz->zm, ZRQINIT);
 		}
 		dont_send_zrqinit=0;
 
 		switch (zm_get_header(sz->zm, &rxpos)) {
 		case ZCHALLENGE:	/* Echo receiver's challenge numbr */
-			zm_set_send_header(sz->zm, rxpos);
+			zm_set_header_payload(sz->zm, rxpos);
 			zm_send_hex_header(sz->zm, ZACK);
 			continue;
 		case ZRINIT:
@@ -1043,7 +1044,7 @@ sz_getzrxinit(sz_t *sz)
 				sz->zm->zctlesc |= sz->rxflags & TESCCTL;
 				/* update table - was initialised to not escape */
 				if (sz->zm->zctlesc && !old)
-					zm_update_table(sz->zm);
+					zm_escape_sequence_update(sz->zm);
 			}
 			sz->rxbuflen = (0377 & sz->zm->Rxhdr[ZP0])+((0377 & sz->zm->Rxhdr[ZP1])<<8);
 			if ( !(sz->rxflags & CANFDX))
@@ -1116,7 +1117,7 @@ sz_sendzsinit(sz_t *sz)
 		return OK;
 	sz->errors = 0;
 	for (;;) {
-		zm_set_send_header(sz->zm, 0L);
+		zm_set_header_payload(sz->zm, 0L);
 		if (sz->zm->zctlesc) {
 			sz->zm->Txhdr[ZF0] |= TESCCTL;
 			zm_send_hex_header(sz->zm, ZSINIT);
@@ -1140,11 +1141,11 @@ sz_sendzsinit(sz_t *sz)
 
 /* Send file name and related info */
 static int
-sz_zsendfile(sz_t *sz, struct zm_fileinfo *zi, const char *buf, size_t blen)
+sz_transmit_file_by_zmodem(sz_t *sz, struct zm_fileinfo *zi, const char *buf, size_t blen)
 {
 	int c;
 	unsigned long crc;
-	size_t rxpos;
+	uint32_t rxpos;
 
 	/* we are going to send a ZFILE. There cannot be much useful
 	 * stuff in the line right now (*except* ZCAN?).
@@ -1235,7 +1236,7 @@ again:
 				clearerr(sz->input_f);	/* Clear EOF */
 				fseek(sz->input_f, 0L, 0);
 			}
-			zm_set_send_header(sz->zm, crc);
+			zm_set_header_payload(sz->zm, crc);
 			zm_send_binary_header(sz->zm, ZCRC);
 			goto again;
 		case ZSKIP:
@@ -1275,14 +1276,14 @@ again:
 			 * sends a ZDATA binary header (with file
 			 * position) followed by one or more data
 			 * subpackets."  */
-	 		return sz_zsendfdata(sz, zi);
+	 		return sz_transmit_file_contents_by_zmodem(sz, zi);
 		}
 	}
 }
 
 /* Send the data in the file */
 static int
-sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
+sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 {
 	static int c;
 	static int junkcount;				/* Counts garbage chars received by TX */
@@ -1372,7 +1373,7 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 	 * data subpackets."  */
 
 	sz->txwcnt = 0;
-	zm_set_send_header (sz->zm, zi->bytes_sent);
+	zm_set_header_payload (sz->zm, zi->bytes_sent);
 	zm_send_binary_header (sz->zm, ZDATA);
 
 	do {
@@ -1445,7 +1446,7 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 					if (last_bps<sz->min_bps) {
 						if (now-low_bps>=sz->min_bps_time) {
 							/* too bad */
-							log_info(_("sz_zsendfdata: bps rate %ld below min %ld"),
+							log_info(_("sz_transmit_file_contents_by_zmodem: bps rate %ld below min %ld"),
 								 last_bps, sz->min_bps);
 							return ERROR;
 						}
@@ -1457,7 +1458,7 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 			}
 			if (sz->stop_time && now>=sz->stop_time) {
 				/* too bad */
-				log_info(_("sz_zsendfdata: reached stop time"));
+				log_info(_("sz_transmit_file_contents_by_zmodem: reached stop time"));
 				return ERROR;
 			}
 
@@ -1468,7 +1469,7 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 				bool more = sz->tick_cb(zi->fname, (long) zi->bytes_sent, (long) zi->bytes_total,
 							last_bps, minleft, secleft);
 				if (!more) {
-					log_info(_("sz_zsendfdata: tick callback returns FALSE"));
+					log_info(_("sz_transmit_file_contents_by_zmodem: tick callback returns FALSE"));
 					return ERROR;
 				}
 			}
@@ -1532,7 +1533,7 @@ sz_zsendfdata (sz_t *sz, struct zm_fileinfo *zi)
 		/* Spec 8.2: [after sending a file] The sender sends a
 		 * ZEOF header with the file ending offset equal to
 		 * the number of characters in the file. */
-		zm_set_send_header (sz->zm, zi->bytes_sent);
+		zm_set_header_payload (sz->zm, zi->bytes_sent);
 		zm_send_binary_header (sz->zm, ZEOF);
 		switch (sz_getinsync (sz, zi, 0)) {
 		case ZACK:
@@ -1676,7 +1677,7 @@ static int
 sz_getinsync(sz_t *sz, struct zm_fileinfo *zi, int flag)
 {
 	int c;
-	size_t rxpos;
+	uint32_t rxpos;
 
 	for (;;) {
 		c = zm_get_header(sz->zm, &rxpos);
