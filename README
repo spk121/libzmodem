@@ -3,19 +3,20 @@
 			      LIBZMODEM
 	     A library that sends and receives via ZModem
 
-Hi.  Mike Gran here.  This project is a a library that I can link to a
+Hi.  Mike Gran here.  This project is a library that I can link to a
 program that will send and receive files from stdout/stdin using the
 ZModem protocol.
 
-This project is *BETA*.  It compiles to a static library that can be
-used to provide ZModem transfer.  The functionality is solid, but, the
-code is poorly organized.
+This project is BETA.  It compiles to a library that can be
+used to provide ZModem transfer.  The functionality is solid, and
+it has the features I desire for it, but, the code is poorly organized.
 
-The library is libzmodem.a
+The build system creates a library named libzmodem.a
 
-The API is described in the src/zmodem.h header file.
+The calling API for the library is described in the src/zmodem.h
+header file.
 
-Two sample applications are make using the library: mrz is a ZMmodem
+Two sample applications are make using the library: mrz is a ZModem
 receiver, and msz is a ZModem sender.
 
 It derives from the lrzsz project, which is code for executables that
@@ -32,12 +33,9 @@ If, for some reason, you want to contact Mike, try
 
 				 TODO
 
-2018/01/21
+2018/02/19
 
-There are still some globals to eliminate.
-
-Dozens of options need to be eliminated and pushed to the callback API
-functions.
+Dozens of vestigal options need to be eliminated.
 
 There needs to be a better strategy to communicate failures.  All
 failures should be error codes, not log information.
@@ -59,7 +57,7 @@ uwe's original README begins below.  Beyond here, the "me" is uwe.
 ----------------------------------------
 
 lrzsz is a X/Y/ZModem package built from the public-domain version of
-Chuck Forsberg´s rzsz package. This package contains NO code from
+Chuck ForsbergÂ´s rzsz package. This package contains NO code from
 later releases of rzsz which would preclude it from being released
 under the GPL.  It has been heavily modified by me and others.
 
