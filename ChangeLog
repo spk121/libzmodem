@@ -1,3 +1,850 @@
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Ship zm.h, zreadline.h and ChangeLog.pre2000 in the distribution
+    
+    The two headers were not listed in the library's sources, so they
+    were left out of the tarball and it did not build ('make distcheck'
+    failed).  Also distribute the old change log.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update ChangeLog from the git history
+    
+    Add the entries for the commits made since the last update.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    TODO: note the sender's byte count after a duplicated session start
+    
+    Seen intermittently in 'make fastcheck' (and with the original code):
+    the transfer is correct but the sender under-reports the size of the
+    first file.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Rewrite COMPATABILITY for libzmodem
+    
+    The file described lrzsz command line options (-8, -S, -C) and
+    conventions (lrz.1, SHELL=rsh) that no longer exist.  Describe what
+    the library and the sample programs do today: the ZMODEM features
+    used, the state of X/YMODEM, and how the receiver treats file names,
+    existing files and file modes.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Make 'make fastcheck' work with mrz and msz; update README.tests
+    
+    fastcheck.sh still ran the lrz and lsz programs, which no longer
+    exist.  Use msz and mrz, send their sources and binaries, build
+    before testing, and pass an absolute source directory so the target
+    also works from a separate build directory.  README.tests, INSTALL
+    and TODO now describe which tests work (fastcheck) and which do not.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Remove README.cvs
+    
+    It described anonymous CVS access to Uwe Ohse's lrzsz repository,
+    which does not apply to this project.  Drop it from EXTRA_DIST and
+    from the list of files in README.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Use the current maintainer address for bug reports
+    
+    AC_INIT still named the old address; README and INSTALL already give
+    the current one.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Remove references to the missing testsuite/global-conf.exp
+    
+    The file is not in the repository (and *.exp is ignored), but it was
+    listed in EXTRA_DIST, which made 'make dist' fail, and used as the
+    default for DEJAGNU, which nothing uses since the dejagnu tests are
+    disabled.  The same lines are removed from the checked-in
+    testsuite/Makefile.in.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update ChangeLog from the git history
+    
+    Add the entries for every commit since "Changes to pass distcheck"
+    (2018-01-11), in the same format as the existing ones.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zmodem.h: include the headers for size_t and time_t
+    
+    The public header used size_t and time_t without including
+    <stddef.h> and <time.h>, so it only compiled when the including file
+    happened to pull them in first.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update the installation instructions in INSTALL
+    
+    The project-specific part still described lrzsz: the lsz program
+    name transform, a self test run by 'make check', /usr as the default
+    prefix and Uwe's contact address.  Describe the current build
+    instead: bootstrapping a git checkout with autoreconf, the configure
+    options that apply, what 'make check' does today, and what gets
+    installed.  The generic GNU text is unchanged.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update TODO for the library
+    
+    Drop the item about argv[0] recognition of X/YMODEM (the programs it
+    applied to are gone), make the error reporting and verbose output
+    items specific to the library as it is now, and add the open issues
+    known from the current code.  The VMIN and no-CRC items still apply.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update NEWS for 0.13.0-mlg
+    
+    Summarize the changes since the 0.12.21-mlg tag: the conversion from
+    the lrz/lsz programs to a library, the API behaviour changes and the
+    memory safety fixes.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Bump version to 0.13.0-mlg and libtool version to 1:0:0
+    
+    The package version moves from 0.12.21-mlg to 0.13.0-mlg.  The shared
+    library had no -version-info (0:0:0); since the public interface has
+    changed incompatibly (the zmodem_send tick callback) and grown
+    (zmodem_last_result), set it to 1:0:0.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zmodem_receive, zmodem_send: enable timeouts
+    
+    Both entry points created their state with timeouts disabled, so a
+    peer that never answered blocked the caller forever.  Use the
+    protocol's normal timeouts: with no peer at all the sender gives up
+    after about 30 seconds and the receiver after about 160 seconds, and
+    the session is reported as failed.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zreadline: restore the caller's SIGALRM handler after a timed read
+    
+    Every timed read installed the library's SIGALRM handler and left it
+    in place, permanently replacing any handler the calling program had
+    set.  Put the previous handler back once the read returns.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    report session failure through zmodem_last_result() and the exit status
+    
+    Since zmodem_receive()/zmodem_send() return a byte count, a caller
+    could not tell a failed session from one that transferred nothing,
+    and mrz/msz always exited 0.  Add zmodem_last_result() and make both
+    tools exit 1 when the session failed (previously 128, or 1 for
+    unreadable files, from the library's own exit()).
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: report path security violations at error level
+    
+    These messages were logged at info level, below the level the library
+    runs at, so a rejected file name ended the session with no visible
+    reason now that the generic fatal message from bibi() is gone.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    return to the caller on fatal errors instead of exiting
+    
+    Out-of-memory, TCP setup failures and the receiver's path security
+    violation still called exit() from inside the library, killing the
+    calling program (the latter on a file name chosen by the sender).
+    These sites now call zm_fatal(), which longjmp()s back to
+    zmodem_receive()/zmodem_send(); those restore the terminal, release
+    the session and return.  The misnamed bibi() in lrz.c is no longer
+    needed.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    mrz: add -d DIR to choose the receive directory
+    
+    zmodem_receive() takes a directory but mrz always passed NULL.  Add a
+    -d option; without it files still go to the current directory.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: only remove the file that was being received when a session fails
+    
+    On a session error the receiver unlinked rz->pathname unconditionally.
+    When no file was open that is the name of the last file handled, so a
+    cancel between files deleted a file that had just been received
+    completely (or an existing file that had been skipped).  Remove it
+    only if it was still open for writing.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: reject absolute pathnames when there is no approver
+    
+    zmodem.h documents that with a NULL APPROVER files with absolute
+    pathnames are rejected, but they were accepted, letting the sender
+    choose any writable location.  Skip such files.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: stop the transfer when the tick callback returns false
+    
+    zmodem.h documents that a false return from TICK terminates the
+    receive, but the receiver ignored the return value.  Abort the session
+    as the sender already does.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zmodem_receive: honour the directory argument
+    
+    The directory argument was ignored and files always went to the
+    current working directory.  Map relative received names below the
+    given directory for every local file operation (existence check,
+    rename probing, open, and the later utime/chmod/unlink through
+    rz->pathname).  Callbacks still see the name as sent.  With a NULL
+    directory nothing changes.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zmodem_receive, zmodem_send: honour the min_bps argument
+    
+    min_bps was accepted but a hard-coded 0 was passed down, so the
+    minimum-rate check was never enabled.  Pass it through, converting
+    the documented bits per second to the bytes per second used
+    internally, with the receiver's existing 120 second grace period on
+    both sides (the sender had 0, which would abort on the second slow
+    sample).
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zmodem_receive, zmodem_send: return instead of calling exit()
+    
+    Both entry points ended with exit(), so the caller never regained
+    control and the documented return value was never produced.  Restore
+    the terminal, release the session state and return the sum of the
+    sizes of the files transferred successfully.
+    
+    Fatal internal errors (out of memory, a path security violation in
+    the receiver) still terminate the process as before.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    mrz, msz: implement the -q (quiet) option
+    
+    -q was listed in both getopt strings (in msz wrongly as taking an
+    argument) but had no case, so it fell into the default branch and
+    called abort().  Make it suppress the progress and per-file reports on
+    stderr; error messages are still printed.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    make the alarm() timeouts actually interrupt blocking calls
+    
+    The SIGALRM handlers were installed with signal(), which on glibc sets
+    SA_RESTART, so read() (and accept()) simply resumed after the alarm
+    and the timeout never fired.  Install them with sigaction() without
+    SA_RESTART in zreadline.c and tcp.c.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: report the received size to the complete callback
+    
+    The receiver passed zi->bytes_sent, which is never set on the
+    receiving side, so the callback always saw a size of 0.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: use %zu to log the size_t block length
+    
+    sz->blklen is a size_t but was formatted with %d.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    check the result of malloc/calloc before using it
+    
+    Several allocations (the zm, zreadline, rz and sz state structures,
+    the intro message buffer, the rename buffer, msz's file list) were
+    written to without a NULL check.  Fail with "out of memory" like the
+    other allocations in the library already do.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zreadline: use %zu to log the size_t read size
+    
+    readline_readnum is a size_t but was formatted with %d, which is
+    undefined and misreads the variadic arguments on LP64.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    rbsb: pass an int to ioctl(FIONREAD)
+    
+    FIONREAD stores an int, but rdchk() passed the address of a long, so
+    only part of the variable was written (the high half on big-endian
+    LP64, making rdchk() always return 0).  It was also static, so a
+    failed ioctl returned the previous call's count; return 0 instead.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    tcp: verify the resolved address fits in sin_addr
+    
+    tcp_connect() copied h_length bytes from gethostbyname() into a 4-byte
+    IPv4 address without checking the address family or length.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    tcp: use socklen_t for socket address lengths
+    
+    getsockname() and accept() were given a size_t * where socklen_t * is
+    required.  On LP64 these have different sizes, so the kernel read and
+    wrote only half of the variable (the wrong half on big-endian).
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: take the file list as const char ** in sz_transmit_files
+    
+    zmodem_send() passed its const char ** file list to a char *[]
+    parameter, an incompatible pointer conversion that newer compilers
+    reject.  The names are never modified.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zmodem_send: declare the tick callback with the arguments it is called with
+    
+    The public prototype declared a five-argument tick callback, but the
+    sender stores and calls it as the six-argument form (with the file
+    name first) used by zmodem_receive() and by msz.  A callback written
+    to the header would be called through an incompatible type and receive
+    shifted arguments.  Make the declaration match the call.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: check the temporary file name length in sz_send_pseudo
+    
+    TMPDIR/TMP and the pseudo file name were copied into a PATH_MAX+1
+    buffer with memcpy()/sprintf() without any length check, so a long
+    TMPDIR overflowed the heap block.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: fix use after free in sz_send_pseudo error message
+    
+    The temporary file name was freed just before being printed in the
+    "cannot open tmpfile" message.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: bound copies into the local file name buffer
+    
+    sz_transmit_file() copied the ONAME environment variable (and the
+    caller's file name) into a PATH_MAX+1 stack buffer with strcpy().
+    An over-long ONAME overflowed the stack; truncate instead.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: initialize struct stat in sz_transmit_pathname
+    
+    fstat() is skipped for stdin and for the empty terminating pathname,
+    but f.st_size was still used to update totalleft and to fill bytes
+    126/127 of the header block, sending uninitialized stack contents.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: detect read errors in sz_filbuf
+    
+    The result of read() was stored in a size_t, so -1 became SIZE_MAX,
+    passed the '<= 0' test and the uninitialized buffer was sent as a
+    full block, repeatedly, for as long as the error persisted.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: clear the input FILE pointer after closing it
+    
+    sz_getinsync() closes input_f on ZSKIP/ZRINIT, and its callers then
+    tested the stale pointer and closed it again (double fclose whenever
+    the file is not mmap()ed, e.g. an empty file that the receiver skips).
+    Set input_f to NULL wherever it is closed, and guard the two places
+    that could then be reached with no open file.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lsz: do not read past the mapped file when ZRPOS is beyond EOF
+    
+    The send offset is taken from the receiver's ZRPOS without checking it
+    against the file size.  For an offset past EOF, 'mm_size - bytes_sent'
+    wrapped to a huge length and the sender read (and transmitted) memory
+    beyond the mmap()ed file.  Send an empty final subpacket instead.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: discard saved out-of-sync blocks when a new file starts
+    
+    Blocks saved beyond the final position of a file stayed on the global
+    list, leaking them and letting them be written into the next file
+    when its offset happened to match.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: do not save empty out-of-sync blocks
+    
+    A saved block is only dropped once the file position has moved past
+    it.  A zero-length block never advances the position, so replaying it
+    looped forever at 'goto nxthdr'.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: fix endless loop on pause/break codes in the Attn string
+    
+    After handling a \335 (break) or \336 (pause) byte the loop advanced
+    p but not s, so it found the same byte again forever.  The Attn string
+    is supplied by the sender in ZSINIT, so a peer could hang the receiver.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: fix buffer underflow on an empty file name
+    
+    For a header with an empty name and no info string, the 'zap trailing
+    period' code read and possibly wrote the byte before the start of the
+    heap-allocated name.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: log the rejected file name, not the previous pathname
+    
+    The approver-rejection message printed rz->pathname, which at that
+    point is NULL for the first file (NULL passed to %s) or the name of
+    the previously received file.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: size the pathname buffer from the received file name
+    
+    pathname was a fixed 2*PATH_MAX (8192) byte buffer filled with strcpy/
+    sprintf, but the name comes from an up to 8192 byte header (plus a
+    ".NNN" rename suffix), so a long name overflowed the heap block.
+    Allocate exactly what is needed.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: stop when rz_process_header reports ZFERR
+    
+    On a failed resume (CRC check error or fseek failure) the header code
+    closes the output file and returns ZFERR, but callers only tested for
+    ERROR and went on to receive data into the closed stream.  Treat ZFERR
+    as a fatal file error, as is done when closing the file fails.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: close the existing file when a transfer is skipped
+    
+    The newer / newer-or-longer / CRC management checks open the existing
+    file for reading and returned without closing it when the file was
+    skipped, leaking one FILE (and descriptor) per skipped file.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: clear the output FILE pointer after closing it
+    
+    rz->fout was left pointing at a closed stream.  After a file completed
+    (or was skipped because it exists) and the session then failed, the
+    error path in rz_receive() saw a non-NULL fout and called fclose() on
+    it a second time.  Set fout to NULL wherever it is closed.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: fix double free and dangling pointers to the saved file name
+    
+    rz_process_header() frees its static name copy on entry but returned
+    early (file name ending in '/') without clearing the pointer, so the
+    next call freed it again.  With nflag set the copy was also replaced
+    while zi->fname still pointed at the freed block, which is later
+    handed to the tick and complete callbacks.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: initialize file info fields before parsing the header
+    
+    sscanf() does not assign fields it fails to parse, so a malformed or
+    short info string left bytes_total, modtime and mode uninitialized
+    and they were then used as the file size, time and mode.  Start from
+    the same defaults used when no info string is present.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: NUL-terminate the received file name header
+    
+    The ZFILE/YMODEM header in secbuf is parsed with strlen() and sscanf()
+    as "name\0info\0", but nothing terminated it.  A header without NULs
+    made the parser run into stale data from earlier blocks or past the
+    end of secbuf.  Append two NULs after the received bytes.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: fix %s format used with an int in bibi()
+    
+    bibi() formatted its integer argument with %s, dereferencing it as a
+    pointer.  It is reached from rz_checkpath() on a path security
+    violation, so a rejected filename crashed instead of exiting cleanly.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: bound the retry loops in zm_do_crc_check
+    
+    The t1/t2 retry counters were never incremented, so a peer that never
+    answers the ZCRC request (timeouts or garbage headers) kept the
+    receiver in this loop forever.  Count the retries as evidently
+    intended: three ZCRC requests, three headers read for each.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: truncate local CRC to 32 bits in zm_do_crc_check
+    
+    'crc = ~crc' on a 64-bit unsigned long sets the upper 32 bits, so the
+    comparison against the 32-bit CRC from the peer could never match and
+    every file was reported as ZCRC_DIFFERS on LP64 systems.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: do not store length+1 bytes when a data subpacket is too long
+    
+    zm_receive_data() and zm_read_data32() wrote one byte past the given
+    length before reporting "Data subpacket too long".  For the ZSINIT
+    attention string this overwrote the terminating NUL of attn[], which
+    is later used as a C string.  The extra byte is now rejected without
+    being stored; return values are unchanged.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: fix leak of intro message buffer on overlong intro
+    
+    zm_get_header() returned without freeing intro_msg when the intro
+    message length was exceeded.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: fix off-by-one that left the intro message unterminated
+    
+    The length check lets max_intro_msg_len + 1 bytes be stored in a buffer
+    of exactly that size, overwriting the terminating NUL, so logging the
+    message read past the end of the heap block.  Allocate one more byte.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: do not use the received intro message as a format string
+    
+    zm_get_header() passed bytes received from the peer directly to
+    log_info() as the format, so a '%s' or '%n' sent before a header could
+    crash or corrupt the process.  Log it through "%s".
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    zm: fix out-of-bounds read of frametypes[] for unknown frame types
+    
+    frametypes[] has 21 non-negative entries (types 0..20) but the range
+    check allowed c <= 22, so a peer sending frame type 21 or 22 made
+    zm_get_header() read past the end of the array and pass the result to
+    a %s format.  Derive the limit from the array size instead.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    lrz: remove duplicate definition of program_name
+    
+    program_name was defined in both lrz.c and lsz.c, so the library fails to
+    link with -fno-common (the GCC 10+ default).  Keep the initialized
+    definition in lsz.c; lrz.c uses the extern declaration in zglobal.h.
+    Previously the two were merged, so the value seen by lrz is unchanged.
+
+Mike Gran <spk121@yahoo.com>	2021-09-24
+
+    update email in readme
+
+Mike Gran <spk121@yahoo.com>	2018-02-19
+
+    Update README
+
+Mike Gran <spk121@yahoo.com>	2018-02-12
+
+    better function names
+
+Mike Gran <spk121@yahoo.com>	2018-02-12
+
+    new ISPRINT macro and prefer hex to octal in zm
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    more expressive function names for zm
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    Put Txhdr and Rxhdr workspaces into zm pseudoclass
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    Rework sz pseudoclass, moving zmodem comm primitives into struct
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    Rework rz pseudoclass, moving zmodem comm primitives into struct
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    test framework update
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    change all callers to zm functions to use internal zreadline member
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    remove bytes_per_error feature
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    make zm_t hold a zreadline_t member
+
+Mike Gran <spk121@yahoo.com>	2018-02-11
+
+    put purgeline into zreadline pseudoclass a zreadline_flushline
+
+Mike Gran <spk121@yahoo.com>	2018-01-29
+
+    Remove lrz.c and lsz.c executable entry points
+
+Mike Gran <spk121@yahoo.com>	2018-01-29
+
+    Remove unused manpages, gettext, lrzszbug. Add flymake
+
+Mike Gran <spk121@yahoo.com>	2018-01-23
+
+    Make an installable shared library
+
+Mike Gran <spk121@yahoo.com>	2018-01-21
+
+    Make executables use API. Declare it beta.
+
+Mike Gran <spk121@yahoo.com>	2018-01-20
+
+    Make msz executable with basic functionality
+
+Mike Gran <spk121@yahoo.com>	2018-01-18
+
+    Create new minimal executables skeletons
+    
+    mrz and msz will be the new sender and receiver programs
+
+Mike Gran <spk121@yahoo.com>	2018-01-18
+
+    Posit a libzmodem API, program names, and library names to start working toward
+    
+    We'll make a zmodem library, a header file for the API,
+    and send and receive executables that link to the library and use
+    the new API.
+    
+    The compatibility library will be removed
+    
+    * src/rzsz.h: new API header
+    * src/Makefile.am: updated
+
+Mike Gran <spk121@yahoo.com>	2018-01-17
+
+    make zreadline into a pseudoclass
+
+Mike Gran <spk121@yahoo.com>	2018-01-17
+
+    Make sz a pseudoclass
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    begin making a sz pseudoclass
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    The turbo_escape functionality is removed
+    
+    Communications are fast and don't need a 1% speedup
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Use default ascii/binary send/receive behavior
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Use default I/O buffering behavior
+    
+    These days, it is better not to second-guess the libc
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Remove remote command execution functionality
+    
+    (seriously this was a thing? Dangerous)
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Remove timesync functionality, since is it lrzsz specific
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Remove dot-to-slash since it is CP/M specifie
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Disable 1k blocks for sender, since that is X/YMODEM only
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Disable ascii mode for sender, since that is X/YMODEM only
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Remove two-stop-bit functionality
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Remove YMODEM functionality
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Remove XMODEM functionality
+
+Mike Gran <spk121@yahoo.com>	2018-01-16
+
+    Make lrz.c globals into a rz pseudoclass
+
+Mike Gran <spk121@yahoo.com>	2018-01-15
+
+    Begin hiding globals as static data
+    
+    * src/lrz.c: most globals rescoped as static
+    * src/lsz.c: most global rescoped as static
+    * src/zglobal.h: remove some global declarations
+    * src/readline.c: most globals rescoped as static
+
+Mike Gran <spk121@yahoo.com>	2018-01-15
+
+    Make zm.c primitives into a zm pseudoclass to avoid global state
+    
+    * src/zglobal.h - new struct zm_t that holds zm pseudoclass
+    * src/zm.c - modify all procedures to use state in zm
+    * src/lrz.c - use zm pseudoclass everywhere
+    * src/lsz.c - use zm pseudoclass everywhere
+    * src/protname.c - stub out for now
+    * src/rbsb.c (io_mode): now returns baudrate instead of setting global
+
+Mike Gran <spk121@yahoo.com>	2018-01-14
+
+    More verbose function names for zm primitives
+    
+    zsbhdr -> zm_send_binary_header
+    zshhdr -> zm_send_hex_header
+    zsdata -> zm_send_data
+    zsda32 -> zm_send_data32
+    zrdata -> zm_receive_data
+    zgethdr -> zm_get_header
+    stohdr -> zm_store_header
+    rclhdr -> zm_reclaim_header
+    
+    zrbhdr -> zm_read_binary_header
+    zrbhdr32 -> zm_read_binary_header32
+    zrhhdr -> zm_read_hex_header
+    zrdat32 -> zm_read_data32
+    zsbh32 -> zm_send_binary_header32
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    adjust Verbose and logging levels to usable levels
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    new logging: replace vstringf, vstring, and VPRINTF
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    new logging: replace vfile as log_debug
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    new logging: replace vperr and vpfatal
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    new logging: replace fprintf and fputs
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    new logging: first convert fatal errors
+    
+    * src/log.h: new logging library
+    * src/log.c: new logging library
+    * src/Makefile.am (lrz_SOURCES, lsz_SOURCES, noinst_HEADERS): add new logging library
+    * src/lrz.c: all error() changed to log_fatal or log_error
+    * src/lsz.c: all error() changed to log_fatal or log_error
+    * src/readline.c: all error() changed to log_fatal
+    * src/tcp.c: all error() changed to log_fatal
+
+Mike Gran <spk121@yahoo.com>	2018-01-14
+
+    Fix repo directory in README
+
+Mike Gran <spk121@yahoo.com>	2018-01-14
+
+    Rename projectto libzmodem
+
+Mike Gran <spk121@yahoo.com>	2018-01-14
+
+    Update README
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    Add some C warnings
+    
+    * src/Makefile.am (AM_CFLAGS): add some warnings
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    Replace xsendline, sendline, and flushmo with their C equivalents
+    
+    xsendline and sendline are just putchar. flushmo is just fflush.
+    
+    * src/lrz.c: all callers changed
+    * src/lsz.c: all callers changed
+    * src/zglobal.h (sendline, xsendline, flushmo): remove
+    * src/zm.c (sendline, xsendline): remove, all callers changed
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    use %zu for size_t in a print
+    
+    * src/zm.c (zsda32): modified
+
+Mike Gran <spk121@yahoo.com>	2018-01-13
+
+    Use C99 loops in zm.c
+    
+    * src/zm.c (zsbhdr, zsbh32, zshhdr, zsdata, zsda32, count_blk)
+      (zrdata, zrdat32, zrbhdr, zrbhdr32, zsendline_init): use C99 for loops
+
+Mike Gran <spk121@yahoo.com>	2018-01-12
+
+    Presume major exists from sys/sysmacros.h
+    
+    * src/rbsb.c: Presume MAJOR_IN_SYSMACROS is true
+      (from_cu): strip macros
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Tag a new release
+
+Mike Gran <spk121@yahoo.com>	2018-01-11
+
+    Move cvs changelog
+    
+    * ChangeLog: rename to ChangeLog.pre2000
+
 Mike Gran <spk121@yahoo.com>	2018-01-11
 
     Changes to pass distcheck

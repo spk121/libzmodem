@@ -43,6 +43,18 @@ tcp_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
     /* doesn't need to do anything */
 }
 
+/* Install the SIGALRM handler without SA_RESTART (which signal() may
+ * set), so that the alarm interrupts a blocking accept or connect. */
+static void
+tcp_set_alarm_handler(void)
+{
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = tcp_alarm_handler;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGALRM, &sa, NULL);
+}
+
 
 /* server/lsz:
  * Get a TCP socket, bind it, listen, figure out the port,
@@ -55,15 +67,15 @@ tcp_server (char *buf)
 	struct sockaddr_in s;
 	struct sockaddr_in t;
 	int on=1;
-	size_t len;
+	socklen_t len;
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		log_fatal("socket: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0) {
 		log_fatal("setsockopt (reuse address): %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	memset (&s, 0, sizeof (s));
 	s.sin_family = AF_INET;
@@ -71,18 +83,18 @@ tcp_server (char *buf)
 	s.sin_addr.s_addr=htonl(INADDR_ANY);
 	if (bind(sock, (struct sockaddr *)&s, sizeof (s)) < 0) {
 		log_fatal("bind: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	len=sizeof(t);
 	if (getsockname (sock, (struct sockaddr *) &t, &len)) {
 		log_fatal("getsockname: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	sprintf(buf,"[%s] <%d>\n",inet_ntoa(t.sin_addr),ntohs(t.sin_port));
 
 	if (listen(sock, 1) < 0) {
 		log_fatal("listen: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	getsockname (sock, (struct sockaddr *) &t, &len);
 
@@ -95,14 +107,14 @@ tcp_accept (int d)
 {
 	int so;
 	struct  sockaddr_in s;
-	size_t namelen;
+	socklen_t namelen;
 	int num=0;
 
 	namelen = sizeof(s);
 	memset((char*)&s,0, namelen);
 
 retry:
-	signal(SIGALRM, tcp_alarm_handler);
+	tcp_set_alarm_handler();
 	alarm(30);
 	if ((so = accept(d, (struct sockaddr*)&s, &namelen)) < 0) {
 		if (errno == EINTR) {
@@ -110,7 +122,7 @@ retry:
 				goto retry;
 		}
 		log_fatal("accept: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	alarm(0);
 	return so;
@@ -133,17 +145,17 @@ tcp_connect (char *buf)
 
 	if (buf == NULL || strlen(buf) == 0) {
 		log_fatal(_("tcp_connect hostname is empty"));
-		exit (1);
+		zm_fatal();
 	}
 	/* i _really_ distrust scanf & co. Or maybe i distrust bad input */
 	if (*buf!='[') {
 		log_fatal(_("tcp_connect: invalid format1 '%s'"), buf);
-		exit(1);
+		zm_fatal();
 	}
 	p=strchr(buf+1,']');
 	if (!p) {
 		log_fatal(_("tcp_connect: illegal format2"));
-		exit(1);
+		zm_fatal();
 	}
 	*p++=0;
 	s_in.sin_addr.s_addr=inet_addr(buf+1);
@@ -153,9 +165,10 @@ tcp_connect (char *buf)
 
 	if (s_in.sin_addr.s_addr== (unsigned long) INADDR_NONE) {
 		struct hostent *h=gethostbyname(buf+1);
-		if (!h) {
+		if (!h || h->h_addrtype != AF_INET
+		    || h->h_length != (int) sizeof(s_in.sin_addr.s_addr)) {
 			log_fatal(_("tcp_connect: illegal format3"));
-			exit(1);
+			zm_fatal();
 		}
 		memcpy(& s_in.sin_addr.s_addr,h->h_addr,h->h_length);
 	}
@@ -163,25 +176,25 @@ tcp_connect (char *buf)
 		p++;
 	if (*p!='<') {
 		log_fatal(_("tcp_connect: illegal format4"));
-		exit(1);
+		zm_fatal();
 	}
 	q=strchr(p+1,'>');
 	if (!q) {
 		log_fatal(_("tcp_connect: illegal format5"));
-		exit(1);
+		zm_fatal();
 	}
 	s_in.sin_port = htons(strtol(p+1,NULL,10));
 
 	if ((sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		log_fatal("socket: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 
-	signal(SIGALRM, tcp_alarm_handler);
+	tcp_set_alarm_handler();
 	alarm(30);
 	if (connect (sock, (struct sockaddr *) &s_in, sizeof (s_in)) < 0) {
 		log_fatal("connect: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	alarm(0);
 	return (sock);

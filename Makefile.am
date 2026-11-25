@@ -1,5 +1,5 @@
 SUBDIRS = src testsuite
-EXTRA_DIST = check.lrzsz COMPATABILITY README.cvs \
+EXTRA_DIST = check.lrzsz COMPATABILITY ChangeLog.pre2000 \
 	fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
 CLEAN_FILES=fastcheck.done
@@ -9,8 +9,8 @@ dist-hook:
 oldcheck-local:
 	QUIET=-q $(srcdir)/check.lrzsz $(srcdir) `pwd`	
 
-fastcheck: 
-	$(srcdir)/fastcheck.sh $(srcdir) `pwd`
+fastcheck: all
+	$(srcdir)/fastcheck.sh $(abs_srcdir) `pwd`
 
 vcheck:
 	$(srcdir)/check.lrzsz $(srcdir) `pwd`

@@ -1,25 +1,50 @@
 ZModem standard:
-    lrzsz is compatible with standard zmodem as long as you don't use
-    certain options:
-    -8 is incompatible with the standard, but should work with most
-       DOS/Atari/Amiga ZModems. It's a common extension, but a dangerous
-       one. Do not use it unless you know that the receiver can handle it.
-    -S is incompatible with certain ZModems which use the TIMESYNC bit
-       for other purposes (timesync is a protocol extension by Peter
-       Mandrella, read timesync.doc for more information). The default
-       is to disable timesync, you must use the `S' option to enable it.
+    libzmodem speaks standard ZMODEM.  The lrzsz options that left the
+    standard (8k blocks with -8, timesync with -S) no longer exist.
+    - The sender (zmodem_send, msz) uses subpackets of at most 1024
+      bytes, a 32 bit CRC if the receiver announces it (16 bit
+      otherwise), and escapes all control characters.  If the receiver
+      does not announce control character escaping itself, the sender
+      asks for it with a ZSINIT frame.
+    - The sender does not request any conversion or management option
+      and never sends commands (ZCOMMAND).
+    - The receiver (zmodem_receive, mrz) accepts subpackets of up to
+      8192 bytes with either CRC, and ignores ZCOMMAND frames: remote
+      command execution has been removed.
 
+XModem and YModem:
+    are not supported.  Some of the YMODEM fallback code of lrzsz is
+    still present (the receiver starts asking for a YMODEM batch if no
+    ZMODEM sender answers), but it is not tested and not part of the
+    API.
 
 Calling conventions:
-    lrzsz is not fully compatible with older UNIX ZModems:
+    libzmodem is not compatible with rz/sz or lrz/lsz on the command
+    line: mrz and msz are small sample programs with their own options
+    (mrz: -b BPS, -d DIR, -q; msz: -b BPS, -q), and both always talk
+    on standard input and standard output.  They exit with status 0 if
+    the session succeeded and 1 if it failed.
+
+    The receiver differs from older UNIX ZModems in these ways:
+    - it always runs in what lrz called restricted mode.  A file name
+      containing "../", or one that would overwrite an existing file
+      whose name starts with a dot, ends the session.
+    - a file with an absolute pathname is only accepted if the
+      approver callback accepts it; without an approver callback it is
+      skipped.  mrz accepts every name it is offered.
     - PUBDIR (/var/spool/uucppublic) is normally disabled. If you like
       public writable directories please use:
         configure --enable-pubdir=/var/spool/uucppublic
-    - lrz defaults to restricted mode, in which the sender must not upload
-      any files outside the working directory or PUBDIR (if pubdir is
-      enabled). With the old version you had to set SHELL=rsh.
-      For more information read the SECURITY paragraph in lrz.1.
-    - lrz: remote command execution is disabled. To enable it use -C (but
-      be careful - the sender might delete all your files).
-    - lrz: does not set executable bits for any files it received under
-      a restricted shell.
+      An absolute pathname outside of PUBDIR then ends the session,
+      even if the approver callback accepted it.
+    - a file that already exists is skipped, unless the sender asks
+      for something else with a ZMODEM management option (overwrite,
+      append, rename, newer, different CRC) or asks to resume.  msz
+      never does.
+    - received files get the modification time and the permission
+      bits the sender reports for them.
+    - if a session fails, the file that was being received is removed.
+
+Timeouts:
+    Without any answer from the other side the sender gives up after
+    about 30 seconds and the receiver after about 160 seconds.

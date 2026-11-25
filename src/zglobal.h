@@ -170,6 +170,17 @@ void sendbrk (int fd);
 
 /* zm.c */
 
+/* Fatal errors (out of memory, security violations, ...) abandon the
+ * session: zm_fatal() jumps back to the zmodem_receive() or
+ * zmodem_send() call that armed zm_fatal_env, which cleans up and
+ * returns to its caller.  If nothing is armed, it exits. */
+#include <setjmp.h>
+extern jmp_buf zm_fatal_env;
+extern int zm_fatal_armed;
+void zm_fatal (void) LRZSZ_ATTRIB_NORET;
+/* Result of the last session, for zmodem_last_result(). */
+extern int zm_last_result;
+
 int tcp_server (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int tcp_connect (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int tcp_accept (int d) LRZSZ_ATTRIB_SECTION(lrzsz_rare);

@@ -13,16 +13,16 @@ if test $objdir = . ; then
 fi
 testdir=$objdir/fastcheck.lrzsz
 
-SZ="$objdir/src/lsz"
-RZ="$objdir/src/lrz"
+SZ="$objdir/src/msz"
+RZ="$objdir/src/mrz"
 
 echo checking with srcdir = $1 and objdir = $2
 
 z_test_files=""
-for i in $srcdir/src/l?z.c ; do
+for i in $srcdir/src/m?z.c ; do
 	z_test_files="$z_test_files $i" 
 done
-for i in $objdir/src/l?z ; do
+for i in $objdir/src/m?z ; do
 	z_test_files="$z_test_files $i" 
 done
 

@@ -46,8 +46,6 @@
 
 #define MAX_BLOCK 8192
 
-const char *program_name;		/* the name by which we were called */
-
 static int no_timeout=FALSE;
 
 struct rz_ {
@@ -57,8 +55,9 @@ struct rz_ {
 				 * synchronization strings from
 				 * fout */
 	char attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
-	char secbuf[MAX_BLOCK + 1]; /* Workspace to store up to 8k
-				     * blocks */
+	char secbuf[MAX_BLOCK + 2]; /* Workspace to store up to 8k
+				     * blocks, plus two NULs to
+				     * terminate a file name header */
 	// Dynamic state
 	FILE *fout;		/* FP to output file. */
 	int lastrx;		/* Either 0, or CAN if last receipt
@@ -68,6 +67,9 @@ struct rz_ {
 	int skip_if_not_found;  /* When true, the operation opens and
 				 * appends to an existing file. */
 	char *pathname;		/* filename of the file being received */
+	const char *directory;	/* Directory that relative filenames
+				 * are received into, or NULL for the
+				 * current directory */
 	int thisbinary;		/* When > 0, current file is to be
 				 * received in bin mode */
 	int in_tcpsync;		/* True when we receive special file
@@ -79,6 +81,8 @@ struct rz_ {
 				 * request byte */
 	int tryzhdrtype;         /* Header type to send corresponding
 				  * to Last rx close */
+	size_t total_received;	/* Sum of the sizes of the files
+				 * received successfully */
 
 	// Constant
 	int restricted;	/* restricted; no /.. or ../ in filenames */
@@ -163,6 +167,10 @@ static int rz_closeit (rz_t *rz, struct zm_fileinfo *);
 static int sys2 (const char *s);
 static void write_modem_escaped_string_to_stdout (const char *s);
 static size_t getfree (void);
+static void oosb_free_all (void);
+static void rz_free (rz_t *rz);
+static char *rz_local_path (rz_t *rz, const char *name);
+static FILE *rz_fopen_local (rz_t *rz, const char *name, const char *mode);
 
 rz_t*
 rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
@@ -179,6 +187,10 @@ rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	)
 {
 	rz_t *rz = (rz_t *)malloc(sizeof(rz_t));
+	if (!rz) {
+		log_fatal(_("out of memory"));
+		zm_fatal();
+	}
 	memset (rz, 0, sizeof(rz_t));
 	rz->zm = zm_init(fd, readnum, bufsize, no_timeout,
 			 rxtimeout, znulls, eflag, baudrate, zctlesc, zrwindow);
@@ -213,19 +225,6 @@ rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 
 }
 
-/* called by signal interrupt or terminate to clean things up */
-static void
-bibi(int n)
-{
-	//FIXME: figure out how to avoid global zmodem_requested
-	// if (zmodem_requested)
-	// 	write_modem_escaped_string_to_stdout(Attn);
-	// canit(zr, STDOUT_FILENO);
-	io_mode(0,0);
-	log_fatal(_("caught signal %s; exiting"), n);
-	exit(128+n);
-}
-
 /*
  * Let's receive something already.
  */
@@ -238,10 +237,27 @@ size_t zmodem_receive(const char *directory,
 		      uint32_t flags)
 {
 	log_set_level(LOG_ERROR);
-	rz_t *rz = rz_init(0, /* fd */
+	/* MIN_BPS is in bits per second; internally rates are measured
+	 * in bytes per second. */
+	unsigned long min_bytes_per_sec = (unsigned long) (min_bps / 8 + (min_bps % 8 != 0));
+	rz_t *volatile rz = NULL;
+
+	zm_fatal_armed = 1;
+	if (setjmp(zm_fatal_env)) {
+		/* zm_fatal() was called: give up, but return to the
+		 * caller with the terminal restored. */
+		size_t total = rz ? rz->total_received : 0;
+		log_info(_("Transfer incomplete"));
+		fflush(stdout);
+		io_mode(0,0);
+		rz_free(rz);
+		zm_last_result = RZSZ_ERROR;
+		return total;
+	}
+	rz = rz_init(0, /* fd */
 			   8192, /* readnum */
 			   16384, /* bufsize */
-			   1, /* no_timeout */
+			   0, /* no_timeout */
 			   100,		 /* rxtimeout */
 			   0,		 /* znulls */
 			   0,		 /* eflag */
@@ -253,7 +269,7 @@ size_t zmodem_receive(const char *directory,
 			   0,		 /* lzmanag */
 			   0,		 /* nflag */
 			   0,		 /* junk_path */
-			   0,		 /* min_bps */
+			   min_bytes_per_sec, /* min_bps */
 			   120,		 /* min_bps_tim */
 			   0,		 /* stop_time */
 			   0,		 /* try_resume */
@@ -266,6 +282,8 @@ size_t zmodem_receive(const char *directory,
 			   complete_cb,
 			   approver_cb
 		);
+	if (directory && *directory)
+		rz->directory = directory;
 	rz->zm->baudrate = io_mode(0,1);
 	int exitcode = 0;
 	if (rz_receive(rz)==ERROR) {
@@ -279,9 +297,31 @@ size_t zmodem_receive(const char *directory,
 		log_info(_("Transfer incomplete"));
 	else
 		log_info(_("Transfer complete"));
-	exit(exitcode);
+	fflush(stdout);
 
-	return 0u;
+	size_t total = rz->total_received;
+	zm_fatal_armed = 0;
+	rz_free(rz);
+	zm_last_result = exitcode ? RZSZ_ERROR : RZSZ_NO_ERROR;
+	return total;
+}
+
+/* Release a receiver state and anything it still holds open. */
+static void
+rz_free(rz_t *rz)
+{
+	oosb_free_all();
+	if (!rz)
+		return;
+	if (rz->fout) {
+		if (rz->topipe)
+			pclose(rz->fout);
+		else
+			fclose(rz->fout);
+	}
+	zm_free(rz->zm);
+	free(rz->pathname);
+	free(rz);
 }
 
 
@@ -318,10 +358,11 @@ rz_receive(rz_t *rz)
 				goto fubar;
 			if (rz->secbuf[0]==0)
 				return OK;
-			if (rz_process_header(rz, rz->secbuf, &zi) == ERROR)
+			if (rz_process_header(rz, rz->secbuf, &zi) != OK)
 				goto fubar;
 			if (rz_receive_sectors(rz, &zi)==ERROR)
 				goto fubar;
+			rz->total_received += zi.bytes_received;
 
 			double d;
 			long bps;
@@ -338,13 +379,21 @@ rz_receive(rz_t *rz)
 	return OK;
 fubar:
 	zreadline_canit(rz->zm->zr, STDOUT_FILENO);
+	/* Only a file that was still being written is incomplete.
+	 * Otherwise rz->pathname names the last finished or skipped
+	 * file, which must be left alone. */
+	int incomplete = (rz->fout != NULL && !rz->in_tcpsync && !rz->nflag);
 	if (rz->topipe && rz->fout) {
-		pclose(rz->fout);  return ERROR;
+		pclose(rz->fout);
+		rz->fout = NULL;
+		return ERROR;
 	}
-	if (rz->fout)
+	if (rz->fout) {
 		fclose(rz->fout);
+		rz->fout = NULL;
+	}
 
-	if (rz->restricted && rz->pathname) {
+	if (rz->restricted && rz->pathname && incomplete) {
 		unlink(rz->pathname);
 		log_info(_("%s: %s removed."), program_name, rz->pathname);
 	}
@@ -381,6 +430,10 @@ et_tu:
 		}
 		return ERROR;
 	}
+	/* The header is parsed as two consecutive C strings; make
+	 * sure both are terminated. */
+	rpn[Blklen] = 0;
+	rpn[Blklen + 1] = 0;
 	putchar(ACK);
 	fflush(stdout);
 	return OK;
@@ -535,6 +588,44 @@ humbug:
 
 
 /*
+ * Return a newly allocated local pathname for the received file name
+ * NAME: relative names are placed below the receive directory, if one
+ * was given.
+ */
+static char *
+rz_local_path(rz_t *rz, const char *name)
+{
+	size_t dirlen = 0;
+	char *path;
+
+	if (rz->directory && name[0] != '/')
+		dirlen = strlen(rz->directory);
+	path = malloc(dirlen + 1 + strlen(name) + 1);
+	if (!path) {
+		log_fatal(_("out of memory"));
+		zm_fatal();
+	}
+	if (dirlen)
+		sprintf(path, "%s/%s", rz->directory, name);
+	else
+		strcpy(path, name);
+	return path;
+}
+
+/* fopen() the local file that the received file name NAME maps to. */
+static FILE *
+rz_fopen_local(rz_t *rz, const char *name, const char *mode)
+{
+	char *path = rz_local_path(rz, name);
+	FILE *f = fopen(path, mode);
+	int e = errno;
+
+	free(path);
+	errno = e;
+	return f;
+}
+
+/*
  * Process incoming file information header
  */
 static int
@@ -545,8 +636,11 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	static char *name_static=NULL;
 	char *nameend;
 
-	if (name_static)
+	if (name_static) {
 		free(name_static);
+		name_static = NULL;
+		zi->fname = NULL;
+	}
 	if (rz->junk_path) {
 		p=strrchr(name,'/');
 		if (p) {
@@ -562,7 +656,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	name_static=malloc(strlen(name)+1);
 	if (!name_static) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	strcpy(name_static,name);
 	zi->fname=name_static;
@@ -601,9 +695,11 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 
 	nameend = name + 1 + strlen(name);
 	if (*nameend) {	/* file coming from Unix or DOS system */
-		long modtime;
-		long bytes_total;
-		int mode;
+		/* sscanf leaves these untouched for fields it cannot
+		 * parse, so start from the defaults set above. */
+		long modtime = 0;
+		long bytes_total = DEFBYTL;
+		unsigned int mode = 0;
 		sscanf(nameend, "%ld%lo%o", &bytes_total, &modtime, &mode);
 		zi->modtime=modtime;
 		zi->bytes_total=bytes_total;
@@ -616,7 +712,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	if (rz->zconv != ZCRESUM && !rz->rxclob && (rz->zmanag&ZF1_ZMMASK) != ZF1_ZMCLOB
 		&& (rz->zmanag&ZF1_ZMMASK) != ZF1_ZMAPND
 	    && !rz->in_tcpsync
-		&& (rz->fout=fopen(name, "r"))) {
+		&& (rz->fout=rz_fopen_local(rz, name, "r"))) {
 		struct stat sta;
 		char *tmpname;
 		char *ptr;
@@ -624,33 +720,45 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 		if (rz->zmanag == ZF1_ZMNEW || rz->zmanag==ZF1_ZMNEWL) {
 			if (-1==fstat(fileno(rz->fout),&sta)) {
 				log_info(_("file exists, skipped: %s"),name);
+				fclose(rz->fout);
+				rz->fout = NULL;
 				return ERROR;
 			}
 			if (rz->zmanag == ZF1_ZMNEW) {
 				if (sta.st_mtime > zi->modtime) {
+					fclose(rz->fout);
+					rz->fout = NULL;
 					return ERROR; /* skips file */
 				}
 			} else {
 				/* newer-or-longer */
 				if (((size_t) sta.st_size) >= zi->bytes_total
 					&& sta.st_mtime > zi->modtime) {
+					fclose(rz->fout);
+					rz->fout = NULL;
 					return ERROR; /* skips file */
 				}
 			}
 			fclose(rz->fout);
+			rz->fout = NULL;
 		} else if (rz->zmanag==ZF1_ZMCRC) {
 			int r = zm_do_crc_check(rz->zm, rz->fout, zi->bytes_total,0);
 			if (r==ERROR) {
 				fclose(rz->fout);
+				rz->fout = NULL;
 				return ERROR;
 			}
 			if (r!=ZCRC_DIFFERS) {
+				fclose(rz->fout);
+				rz->fout = NULL;
 				return ERROR; /* skips */
 			}
 			fclose(rz->fout);
+			rz->fout = NULL;
 		} else {
 			size_t namelen;
 			fclose(rz->fout);
+			rz->fout = NULL;
 			if ((rz->zmanag & ZF1_ZMMASK)!=ZF1_ZMCHNG) {
 				log_info(_("file exists, skipped: %s"),name);
 				return ERROR;
@@ -658,13 +766,22 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			/* try to rename */
 			namelen=strlen(name);
 			tmpname=(char *) malloc(namelen+5);
+			if (!tmpname) {
+				log_fatal(_("out of memory"));
+				zm_fatal();
+			}
 			memcpy(tmpname,name,namelen);
 			ptr=tmpname+namelen;
 			*ptr++='.';
 			i=0;
+			int taken;
 			do {
+				char *local;
 				sprintf(ptr,"%d",i++);
-			} while (i<1000 && stat(tmpname,&sta)==0);
+				local=rz_local_path(rz, tmpname);
+				taken=(stat(local,&sta)==0);
+				free(local);
+			} while (i<1000 && taken);
 			if (i==1000) {
 				free (tmpname);
 				return ERROR;
@@ -673,7 +790,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			name_static=malloc(strlen(tmpname)+1);
 			if (!name_static) {
 				log_fatal(_("out of memory"));
-				exit(1);
+				zm_fatal();
 			}
 			strcpy(name_static,tmpname);
 			free(tmpname);
@@ -686,7 +803,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			if ( *p == '/')
 				*p = '_';
 
-		if ( *--p == '.')		/* zap trailing period */
+		if (p > name_static && *--p == '.')	/* zap trailing period */
 			*p = 0;
 	}
 
@@ -694,7 +811,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 		rz->fout=tmpfile();
 		if (!rz->fout) {
 			log_fatal(_("cannot tmpfile() for tcp protocol synchronization: %s"), strerror(errno));
-			exit(1);
+			zm_fatal();
 		}
 		zi->bytes_received=0;
 		return OK;
@@ -705,19 +822,24 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	  && !(zi->mode&UNIXFILE))
 		uncaps(name_static);
 
-	if (rz->approver_cb)
+	if (rz->approver_cb) {
 		if (!rz->approver_cb(name_static, zi->bytes_total, zi->modtime)) {
-			log_info("%s: rejected by approver callback", rz->pathname);
+			log_info("%s: rejected by approver callback", name_static);
 			return ERROR;
 		}
+	} else if (name_static[0] == '/') {
+		/* Without an approver, only relative pathnames are accepted. */
+		log_info("%s: absolute pathname rejected", name_static);
+		return ERROR;
+	}
 
 	if (rz->topipe > 0) {
 		if (rz->pathname)
 			free(rz->pathname);
-		rz->pathname=malloc((PATH_MAX)*2);
+		rz->pathname=malloc(strlen(program_name+2)+1+strlen(name_static)+1);
 		if (!rz->pathname) {
 			log_fatal(_("out of memory"));
-			exit(1);
+			zm_fatal();
 		}
 		sprintf(rz->pathname, "%s %s", program_name+2, name_static);
 		log_info("%s: %s %s",
@@ -728,12 +850,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	} else {
 		if (rz->pathname)
 			free(rz->pathname);
-		rz->pathname=malloc((PATH_MAX)*2);
-		if (!rz->pathname) {
-			log_fatal(_("out of memory"));
-			exit(1);
-		}
-		strcpy(rz->pathname, name_static);
+		rz->pathname=rz_local_path(rz, name_static);
 		/* overwrite the "waiting to receive" line */
 		log_info(_("Receiving: %s"), name_static);
 		rz_checkpath(rz, name_static);
@@ -744,12 +861,16 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			if (!name_static)
 			{
 				log_fatal(_("out of memory"));
-				exit(1);
+				zm_fatal();
 			}
+			zi->fname=name_static;
 		}
+		/* The file to open: /dev/null with nflag, otherwise
+		 * the received name below the receive directory. */
+		const char *openname = rz->nflag ? name_static : rz->pathname;
 		if (rz->thisbinary && rz->zconv==ZCRESUM) {
 			struct stat st;
-			rz->fout = fopen(name_static, "r+");
+			rz->fout = fopen(openname, "r+");
 			if (rz->fout && 0==fstat(fileno(rz->fout),&st))
 			{
 				int can_resume=TRUE;
@@ -757,6 +878,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 					int r = zm_do_crc_check(rz->zm, rz->fout,zi->bytes_total,st.st_size);
 					if (r==ERROR) {
 						fclose(rz->fout);
+						rz->fout = NULL;
 						return ZFERR;
 					}
 					if (r==ZCRC_DIFFERS) {
@@ -771,6 +893,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 				if (can_resume) {
 					if (fseek(rz->fout, (long) zi->bytes_skipped, SEEK_SET)) {
 						fclose(rz->fout);
+						rz->fout = NULL;
 						return ZFERR;
 					}
 				}
@@ -782,10 +905,10 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			if (rz->fout)
 				fclose(rz->fout);
 		}
-		rz->fout = fopen(name_static, openmode);
+		rz->fout = fopen(openname, openmode);
 		if ( !rz->fout)
 		{
-			log_error(_("cannot open %s: %s"), name_static, strerror(errno));
+			log_error(_("cannot open %s: %s"), openname, strerror(errno));
 			return ERROR;
 		}
 	}
@@ -906,11 +1029,11 @@ rz_checkpath(rz_t *rz, const char *name)
 			p=name;
 		/* don't overwrite any file in very restricted mode.
 		 * don't overwrite hidden files in restricted mode */
-		if ((rz->restricted==2 || *name=='.') && fopen(name, "r") != NULL) {
+		if ((rz->restricted==2 || *name=='.') && fopen(rz->pathname, "r") != NULL) {
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
-			log_info(_("%s: %s exists"),
+			log_error(_("%s: %s exists"),
 				program_name, name);
-			bibi(-1);
+			zm_fatal();
 		}
 		/* restrict pathnames to current tree or uucppublic */
 		if ( strstr(name, "../")
@@ -920,14 +1043,14 @@ rz_checkpath(rz_t *rz, const char *name)
 #endif
 		) {
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
-			log_info(_("%s: Security Violation"),program_name);
-			bibi(-1);
+			log_error(_("%s: Security Violation"),program_name);
+			zm_fatal();
 		}
 		if (rz->restricted > 1) {
 			if (name[0]=='.' || strstr(name,"/.")) {
 				zreadline_canit(rz->zm->zr, STDOUT_FILENO);
-				log_info(_("%s: Security Violation"),program_name);
-				bibi(-1);
+				log_error(_("%s: Security Violation"),program_name);
+				zm_fatal();
 			}
 		}
 	}
@@ -1016,6 +1139,10 @@ again:
 			rz->ztrans = rz->zm->Rxhdr[ZF2];
 			rz->tryzhdrtype = ZRINIT;
 			c = zm_receive_data(rz->zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
+			/* The header is parsed as two consecutive C
+			 * strings; make sure both are terminated. */
+			rz->secbuf[bytes_in_block] = 0;
+			rz->secbuf[bytes_in_block + 1] = 0;
 			rz->zm->baudrate = io_mode(0,3);
 			if (c == GOTCRCW)
 				return ZFILE;
@@ -1139,6 +1266,17 @@ typedef struct oosb_t {
 } oosb_t;
 struct oosb_t *anker=NULL;
 
+static void
+oosb_free_all(void)
+{
+	while (anker) {
+		oosb_t *next = anker->next;
+		free(anker->data);
+		free(anker);
+		anker = next;
+	}
+}
+
 /*
  * Receive a file with ZMODEM protocol
  *  Assumes file name frame is in rz->secbuf
@@ -1157,8 +1295,18 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 
 	n = 20;
 
-	if (rz_process_header(rz, rz->secbuf,zi) == ERROR) {
+	/* Blocks saved for a previous file must not be replayed into
+	 * this one. */
+	oosb_free_all();
+
+	c = rz_process_header(rz, rz->secbuf,zi);
+	if (c == ERROR) {
 		return (rz->tryzhdrtype = ZSKIP);
+	}
+	if (c != OK) {
+		/* ZFERR: the output file has already been closed. */
+		rz->tryzhdrtype = ZFERR;
+		return ERROR;
 	}
 
 	for (;;) {
@@ -1221,8 +1369,9 @@ nxthdr:
 				return ERROR;
 			}
 			log_debug("rz_receive_file: normal EOF");
+			rz->total_received += zi->bytes_received;
 			if (rz->complete_cb)
-				rz->complete_cb(zi->fname, 0, zi->bytes_sent, zi->modtime);
+				rz->complete_cb(zi->fname, 0, zi->bytes_received, zi->modtime);
 			return c;
 		case ERROR:	/* Too much garbage in header search error */
 			if ( --n < 0) {
@@ -1249,7 +1398,8 @@ nxthdr:
 				case GOTCRCG:
 				case GOTCRCE:
 				case GOTCRCQ:
-					if (pos>zi->bytes_received) {
+					/* an empty block would never be consumed */
+					if (pos>zi->bytes_received && bytes_in_block>0) {
 						neu=malloc(sizeof(oosb_t));
 						if (neu)
 							neu->data=malloc(bytes_in_block);
@@ -1309,10 +1459,13 @@ moredata:
 				log_info(_("\rBytes received: %7ld/%7ld   BPS:%-6ld ETA %02d:%02d  "),
 					 (long) zi->bytes_received, (long) zi->bytes_total,
 					 last_bps, minleft, secleft);
-				if (rz->tick_cb)
-					rz->tick_cb(zi->fname, zi->bytes_received,
+				if (rz->tick_cb
+				    && !rz->tick_cb(zi->fname, zi->bytes_received,
 						    zi->bytes_total, last_bps, minleft,
-						    secleft);
+						    secleft)) {
+					log_info(_("rz_receive_file: tick callback returns FALSE"));
+					return ERROR;
+				}
 				last_rxbytes=zi->bytes_received;
 				not_printed=0;
 			} else
@@ -1390,7 +1543,7 @@ write_modem_escaped_string_to_stdout(const char *s)
 			sleep(1);
 		else
 			sendbrk(0);
-		p++;
+		s=p+1;
 	}
 }
 
@@ -1402,21 +1555,22 @@ rz_closeit(rz_t *rz, struct zm_fileinfo *zi)
 {
 	int ret;
 	if (rz->topipe) {
-		if (pclose(rz->fout)) {
-			return ERROR;
-		}
-		return OK;
+		ret=pclose(rz->fout);
+		rz->fout = NULL;
+		return ret ? ERROR : OK;
 	}
 	if (rz->in_tcpsync) {
 		rewind(rz->fout);
 		if (!fgets(rz->tcp_buf, sizeof(rz->tcp_buf), rz->fout)) {
 			log_fatal(_("fgets for tcp protocol synchronization failed: %s"), strerror(errno));
-			exit(1);
+			zm_fatal();
 		}
 		fclose(rz->fout);
+		rz->fout = NULL;
 		return OK;
 	}
 	ret=fclose(rz->fout);
+	rz->fout = NULL;
 	if (ret) {
 		log_error(_("file close error: %s"), strerror(errno));
 		/* this may be any sort of error, including random data corruption */

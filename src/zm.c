@@ -40,6 +40,7 @@
 #include "log.h"
 #include "crctab.h"
 #include "zm.h"
+#include "zmodem.h"
 
 /* Globals used by ZMODEM functions */
 long Txpos;		/* Transmitted file position */
@@ -75,9 +76,10 @@ static const char *frametypes[] = {
 	"ZCOMMAND",
 	"ZSTDERR",
 	"xxxxx"
-#define FRTYPES 22	/* Total number of frame types in this array */
-			/*  not including psuedo negative entries */
 };
+/* Total number of entries in this array, including the pseudo
+ * negative entries and the trailing "xxxxx". */
+#define FRTYPES ((int) (sizeof(frametypes) / sizeof(frametypes[0])))
 
 #define badcrc _("Bad CRC")
 /* static char *badcrc = "Bad CRC"; */
@@ -95,12 +97,38 @@ static void zm_escape_sequence_init (zm_t *zm);
 static void zm_put_escaped_string(zm_t *zm, const char *str, size_t len);
 
 
+int zm_last_result = RZSZ_NO_ERROR;
+
+int
+zmodem_last_result(void)
+{
+	return zm_last_result;
+}
+
+jmp_buf zm_fatal_env;
+int zm_fatal_armed = 0;
+
+/* Abandon the session after a fatal error; see zglobal.h. */
+void
+zm_fatal(void)
+{
+	if (zm_fatal_armed) {
+		zm_fatal_armed = 0;
+		longjmp(zm_fatal_env, 1);
+	}
+	exit(1);
+}
+
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
 zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow)
 {
 	zm_t *zm = (zm_t *) malloc (sizeof (zm_t));
+	if (!zm) {
+		log_fatal(_("out of memory"));
+		zm_fatal();
+	}
 	memset(zm, 0, sizeof(zm_t));
 	zm->zr = zreadline_init(fd, readnum, bufsize, no_timeout);
 	zm->rxtimeout = rxtimeout;
@@ -111,6 +139,16 @@ zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	zm->zrwindow = zrwindow;
 	zm_escape_sequence_init(zm);
 	return zm;
+}
+
+/* Release a state machine allocated by zm_init. */
+void
+zm_free(zm_t *zm)
+{
+	if (!zm)
+		return;
+	zreadline_free(zm->zr);
+	free(zm);
 }
 
 int
@@ -591,7 +629,7 @@ count_blk(int size)
 /*
  * Receive array buf of max length with ending ZDLE sequence
  *  and CRC.  Returns the ending character or error code.
- *  NB: On errors may store length+1 bytes!
+ *  Never stores more than length bytes.
  */
 int
 zm_receive_data(zm_t *zm, char *buf, int length, size_t *bytes_received)
@@ -644,6 +682,8 @@ crcfoo:
 				return c;
 			}
 		}
+		if (i >= length)
+			break;	/* subpacket too long: buf holds only length bytes */
 		buf[i] = c;
 		crc = updcrc(c, crc);
 	}
@@ -702,6 +742,8 @@ crcfoo:
 				return c;
 			}
 		}
+		if (i >= length)
+			break;	/* subpacket too long: buf holds only length bytes */
 		buf[i] = c;
 		crc = UPDC32(c, crc);
 	}
@@ -729,7 +771,13 @@ zm_get_header(zm_t *zm, uint32_t *payload)
 
 	/* Max bytes before start of frame */
 	max_intro_msg_len = zm->zrwindow + zm->baudrate;
-	intro_msg = (char *) calloc (max_intro_msg_len + 1, sizeof(char));
+	/* Up to max_intro_msg_len + 1 bytes are stored before the length
+	 * check below trips, plus one for the terminating NUL. */
+	intro_msg = (char *) calloc (max_intro_msg_len + 2, sizeof(char));
+	if (!intro_msg) {
+		log_fatal(_("out of memory"));
+		zm_fatal();
+	}
 	intro_msg_len = 0;
 
 	zm->rxframeind = zm->rxtype = 0;
@@ -774,6 +822,7 @@ gotcan:
 agn2:
 		if (intro_msg_len > max_intro_msg_len) {
 			log_error(_("Intro message length exceeded"));
+			free(intro_msg);
 			return(ERROR);
 		}
 		if (zm->eflag == 1 && isprint(c))
@@ -854,7 +903,7 @@ fifi:
 		log_error(_("Got %s"), frametypes[c+FTOFFSET]);
 	/* **** FALL THRU TO **** */
 	default:
-		if (c >= -3 && c <= FRTYPES)
+		if (c >= -FTOFFSET && c < FRTYPES - FTOFFSET)
 			log_trace("zm_get_header: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos);
 		else
 			log_trace("zm_get_header: %d %lx", c, (unsigned long) rxpos);
@@ -865,7 +914,7 @@ fifi:
 	/* If we got an intro message, log it. */
 	if (intro_msg_len > 0) {
 		log_info("zm_get_header: received intro msg from sender...");
-		log_info(intro_msg);
+		log_info("%s", intro_msg);
 	}
 	free(intro_msg);
 	
@@ -1168,14 +1217,14 @@ zm_do_crc_check(zm_t *zm, FILE *f, size_t remote_bytes, size_t check_bytes)
 		n=st.st_size;
 	while (n-- && ((c = getc(f)) != EOF))
 		crc = UPDC32(c, crc);
-	crc = ~crc;
+	crc = ~crc & 0xFFFFFFFFUL;	/* unsigned long may be 64 bits wide */
 	clearerr(f);  /* Clear EOF */
 	fseek(f, 0L, 0);
 
-	while (t1<3) {
+	for (t1=0; t1<3; t1++) {
 		zm_set_header_payload(zm, check_bytes);
 		zm_send_hex_header(zm, ZCRC);
-		while(t2<3) {
+		for (t2=0; t2<3; t2++) {
 			uint32_t tmp;
 			c = zm_get_header(zm, &tmp);
 			rcrc=(unsigned long) tmp;

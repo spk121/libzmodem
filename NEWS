@@ -1,3 +1,47 @@
+Version 0.13.0-mlg - November 2026, Michael L. Gran
+
+* the project is now libzmodem, a library with a small API declared in
+  zmodem.h (zmodem_receive, zmodem_send), instead of the lrz and lsz
+  programs.  It installs a libtool shared library (interface version
+  1:0:0), the header, and two sample programs, mrz and msz.
+
+* the lrz and lsz programs, their many command line options and their
+  manual pages are gone, as are the XMODEM and YMODEM modes, remote
+  command execution, timesync and turbo escape.
+
+* zmodem_receive and zmodem_send return to the caller with the number
+  of bytes transferred instead of calling exit(), also after fatal
+  errors.  The new zmodem_last_result() tells whether the session
+  succeeded.
+
+* zmodem_receive honours its directory argument; both functions honour
+  min_bps (bits per second, with a 120 second grace period).
+
+* API change: the tick callback of zmodem_send takes the file name as
+  its first argument, like the one of zmodem_receive.
+
+* without an approver callback, files with absolute pathnames are
+  rejected.  A false return from the receiver's tick callback stops
+  the transfer.  The complete callback reports the received size.
+
+* timeouts work and are enabled: without a peer the sender gives up
+  after about 30 seconds and the receiver after about 160 seconds.
+
+* mrz and msz: new option -q (quiet); mrz: new option -d DIR (receive
+  directory).  Both exit with status 1 if the session failed.
+
+* many memory safety fixes, several of them reachable by a hostile
+  peer: buffer overflows in the receiver's file name handling and in
+  data subpackets, a format string taken from the line, double
+  fclose() and use after free on error paths, and a read beyond the
+  end of the file in the sender when asked to resume past its end.
+
+* a failed session no longer deletes a file that had already been
+  received completely.
+
+* builds with current compilers (-fno-common), and fixes for 64 bit
+  systems (file CRC comparison, socket address lengths).
+
 Version 0.12.21-mlg - Jan 2018, Michael L. Gran
 
 * assume a modern C environment

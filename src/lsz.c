@@ -86,6 +86,8 @@ struct sz_ {
 	jmp_buf intrjmp;	/* For the interrupt on RX CAN */
 	int zrqinits_sent;
 	int play_with_sigint;
+	size_t total_sent;	/* Sum of the sizes of the files sent
+				 * successfully */
 
 	// parameters
 	char lzconv;	/* Local ZMODEM file conversion request */
@@ -129,6 +131,10 @@ sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	)
 {
 	sz_t *sz = malloc(sizeof(sz_t));
+	if (!sz) {
+		log_fatal(_("out of memory"));
+		zm_fatal();
+	}
 	memset(sz, 0, sizeof(sz_t));
 	sz->zm = zm_init(fd, readnum, bufsize, no_timeout,
 			 rxtimeout, znulls, eflag, baudrate, zctlesc, zrwindow);
@@ -179,9 +185,10 @@ static int sz_transmit_file_contents (sz_t *sz, struct zm_fileinfo *);
 static int sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *);
 static int sz_getinsync (sz_t *sz, struct zm_fileinfo *, int flag);
 static void sz_countem (sz_t *sz, int argc, char **argv);
-static int sz_transmit_files (sz_t *sz, int argc, char *argp[]);
+static int sz_transmit_files (sz_t *sz, int argc, const char *argp[]);
 static int sz_transmit_sector (sz_t *sz, char *buf, int sectnum, size_t cseclen);
 static int sz_send_pseudo(sz_t *sz, const char *name, const char *data);
+static void sz_free (sz_t *sz);
 
 #define ZM_SEND_DATA(x,y,z)						\
 	do { if (sz->zm->crc32t) {zm_send_data32(sz->zm,x,y,z); } else {zm_send_data(sz->zm,x,y,z);}} while(0)
@@ -243,16 +250,35 @@ const char *program_name = "sz";
 
 size_t zmodem_send(int file_count,
 		   const char **file_list,
-		   bool (*tick)(long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
+		   bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		   void (*complete)(const char *filename, int result, size_t size, time_t date),
 		   uint64_t min_bps,
 		   uint32_t flags)
 {
 	log_set_level(LOG_ERROR);
-	sz_t *sz = sz_init(0, /* fd */
+	/* MIN_BPS is in bits per second; internally rates are measured
+	 * in bytes per second. */
+	uint64_t min_bytes_per_sec = min_bps / 8 + (min_bps % 8 != 0);
+	if (min_bytes_per_sec > LONG_MAX)
+		min_bytes_per_sec = LONG_MAX;
+	sz_t *volatile sz = NULL;
+
+	zm_fatal_armed = 1;
+	if (setjmp(zm_fatal_env)) {
+		/* zm_fatal() was called: give up, but return to the
+		 * caller with the terminal restored. */
+		size_t total = sz ? sz->total_sent : 0;
+		log_info(_("Transfer incomplete"));
+		fflush(stdout);
+		io_mode(sz ? sz->io_mode_fd : 0, 0);
+		sz_free(sz);
+		zm_last_result = RZSZ_ERROR;
+		return total;
+	}
+	sz = sz_init(0, /* fd */
 			   128, /* readnum */
 			   256, /* bufsize */
-			   1, /* no_timeout */
+			   0, /* no_timeout */
 			   600,	/* rxtimeout */
 			   0, 	/* znulls */
 			   0,	/* eflag */
@@ -276,8 +302,8 @@ size_t zmodem_send(int file_count,
 			   1024,  /* max_blklen */
 			   1024,  /* start_blklen */
 			   0,	  /* stop_time */
-			   0,	  /* min_bps */
-			   0,	  /* min_bps_time */
+			   (long) min_bytes_per_sec, /* min_bps */
+			   120,	  /* min_bps_time */
 			   0x0,	  /* tcp_server_address */
 			   -1,	  /* tcp_socket */
 			   0,	  /* hyperterm */
@@ -357,11 +383,27 @@ size_t zmodem_send(int file_count,
 		log_info(_("Transfer incomplete"));
 	else
 		log_info(_("Transfer complete"));
-	exit(dm);
-	/*NOTREACHED*/
 
+	size_t total = sz->total_sent;
+	zm_fatal_armed = 0;
+	sz_free(sz);
+	zm_last_result = dm ? RZSZ_ERROR : RZSZ_NO_ERROR;
+	return total;
+}
 
-	return 0u;
+/* Release a sender state and whatever a failed transfer left behind. */
+static void
+sz_free(sz_t *sz)
+{
+	if (!sz)
+		return;
+	if (sz->mm_addr)
+		munmap(sz->mm_addr, sz->mm_size);
+	if (sz->input_f && sz->input_f != stdin)
+		fclose(sz->input_f);
+	free(sz->tcp_server_address);
+	zm_free(sz->zm);
+	free(sz);
 }
 
 static int
@@ -382,19 +424,25 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 	tmp=malloc(PATH_MAX+1);
 	if (!tmp) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 
 	plen=strlen(p);
+	/* leave room for '/', the name, ".<pid>.<n>" and the NUL */
+	if (plen + 1 + strlen(name) + 32 > PATH_MAX) {
+		log_info (_ ("sz_send_pseudo %s: tmpfile name too long"), name);
+		free(tmp);
+		return 1;
+	}
 	memcpy(tmp,p,plen);
 	tmp[plen++]='/';
 
 	lfd=0;
 	do {
 		if (lfd++==10) {
-			free(tmp);
 			log_info (_ ("sz_send_pseudo %s: cannot open tmpfile %s: %s"),
 					 name, tmp, strerror (errno));
+			free(tmp);
 			return 1;
 		}
 		sprintf(tmp+plen,"%s.%lu.%d",name,(unsigned long) getpid(),lfd);
@@ -440,7 +488,7 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 /* This routine tries to send multiple files.  The file count and
    filenames are in ARGC and ARGP. */
 static int
-sz_transmit_files (sz_t *sz, int argc, char *argp[])
+sz_transmit_files (sz_t *sz, int argc, const char *argp[])
 {
 	int n;
 
@@ -456,7 +504,7 @@ sz_transmit_files (sz_t *sz, int argc, char *argp[])
 		d=tcp_server(buf);
 		if (sz_send_pseudo(sz, "/$tcp$.t",buf)) {
 			log_fatal(_("tcp protocol init failed"));
-			exit(1);
+			zm_fatal();
 		}
 		/* ok, now that this file is sent we can switch to tcp */
 
@@ -521,7 +569,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 		) {
 			zreadline_canit(sz->zm->zr, STDOUT_FILENO);
 			log_fatal(_("security violation: not allowed to upload from %s"),oname);
-			exit(1);
+			zm_fatal();
 		}
 	}
 
@@ -532,7 +580,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	if (0==strcmp(oname,"-")) {
 		char *p=getenv("ONAME");
 		if (p) {
-			strcpy(name, p);
+			snprintf(name, sizeof(name), "%s", p);
 		} else {
 			sprintf(name, "s%lu.lsz", (unsigned long) getpid());
 		}
@@ -544,13 +592,14 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 		++sz->errcnt;
 		return OK;	/* pass over it, there may be others */
 	} else {
-		strcpy(name, oname);
+		snprintf(name, sizeof(name), "%s", oname);
 	}
 	/* Check for directory or block special files */
 	fstat(fileno(sz->input_f), &f);
 	if (S_ISDIR(f.st_mode) || S_ISBLK(f.st_mode)) {
 		log_error(_("is not a file: %s"), name);
 		fclose(sz->input_f);
+		sz->input_f = NULL;
 		return OK;
 	}
 
@@ -600,6 +649,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	bps=zi.bytes_sent/d;
 	log_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
 		  (long) zi.bytes_sent,bps);
+	sz->total_sent += zi.bytes_sent;
 	if (sz->complete_cb)
 	  sz->complete_cb(zi.fname, 0, zi.bytes_sent, zi.modtime);
 
@@ -630,6 +680,8 @@ sz_transmit_pathname(sz_t *sz, struct zm_fileinfo *zi)
 		}
 
 	q = (char *) 0;
+	/* f is used below even when it is not filled in by fstat. */
+	memset(&f, 0, sizeof(f));
 
 	for (p=zi->fname, q=sz->txbuf ; *p; )
 		if ((*q++ = *p++) == '/' && !sz->fullname)
@@ -786,6 +838,7 @@ sz_transmit_file_contents(sz_t *sz, struct zm_fileinfo *zi)
 		zi->bytes_sent += thisblklen;
 	}
 	fclose(sz->input_f);
+	sz->input_f = NULL;
 	attempts=0;
 	do {
 		zreadline_flushline(sz->zm->zr);
@@ -881,11 +934,13 @@ static size_t
 sz_filbuf(sz_t *sz, char *buf, size_t count)
 {
 	int c;
+	ssize_t r;
 	size_t m;
 
-	m = read(fileno(sz->input_f), buf, count);
-	if (m <= 0)
+	r = read(fileno(sz->input_f), buf, count);
+	if (r <= 0)
 		return 0;
+	m = (size_t) r;
 	while (m < count)
 		buf[m++] = 032;
 	return count;
@@ -1069,8 +1124,9 @@ sz_getzrxinit(sz_t *sz)
 			 * If input is not a regular file, force ACK's to
 			 *  prevent running beyond the buffer limits
 			 */
-			fstat(fileno(sz->input_f), &f);
-			if (!(S_ISREG(f.st_mode))) {
+			if (sz->input_f == NULL
+			    || fstat(fileno(sz->input_f), &f) != 0
+			    || !(S_ISREG(f.st_mode))) {
 				sz->canseek = -1;
 				/* return ERROR; */
 			}
@@ -1087,7 +1143,7 @@ sz_getzrxinit(sz_t *sz)
 				sz->blklen = sz->rxbuflen;
 			if (sz->blkopt && sz->blklen > sz->blkopt)
 				sz->blklen = sz->blkopt;
-			log_debug("Rxbuflen=%d blklen=%d", sz->rxbuflen, sz->blklen);
+			log_debug("Rxbuflen=%u blklen=%zu", sz->rxbuflen, sz->blklen);
 			log_debug("Txwindow = %u Txwspac = %d", sz->txwindow, sz->txwspac);
 			sz->zm->rxtimeout = old_timeout;
 			return (sz_sendzsinit(sz));
@@ -1146,6 +1202,11 @@ sz_transmit_file_by_zmodem(sz_t *sz, struct zm_fileinfo *zi, const char *buf, si
 	int c;
 	unsigned long crc;
 	uint32_t rxpos;
+
+	/* No open file to send, e.g. the receiver switched to ZMODEM
+	 * at the terminating empty pathname of a YMODEM batch. */
+	if (sz->input_f == NULL)
+		return ERROR;
 
 	/* we are going to send a ZFILE. There cannot be much useful
 	 * stuff in the line right now (*except* ZCAN?).
@@ -1244,9 +1305,10 @@ again:
 		 * size, etc are acceptable] The receiver may respond
 		 * with a ZSKIP header, which makes the sender proceed
 		 * to the next file (if any)." */
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose(sz->input_f);
-			else if (sz->mm_addr) {
+				sz->input_f = NULL;
+			} else if (sz->mm_addr) {
 				munmap(sz->mm_addr,sz->mm_size);
 				sz->mm_addr=NULL;
 			}
@@ -1328,16 +1390,22 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 	  gotack:
 		switch (c) {
 		default:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return ERROR;
 		case ZCAN:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return ERROR;
 		case ZSKIP:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return c;
 		case ZACK:
 		case ZRPOS:
@@ -1383,12 +1451,17 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 		sz->blklen = sz_calculate_block_length (sz, total_sent);
 		total_sent += sz->blklen + OVERHEAD;
 		if (sz->blklen != old)
-			log_trace (_("blklen now %d\n"), sz->blklen);
+			log_trace (_("blklen now %zu\n"), sz->blklen);
 		if (sz->mm_addr) {
 			if (zi->bytes_sent + sz->blklen < sz->mm_size)
 				n = sz->blklen;
 			else {
-				n = sz->mm_size - zi->bytes_sent;
+				/* The receiver may have asked (ZRPOS)
+				 * for an offset beyond end of file. */
+				if (zi->bytes_sent < sz->mm_size)
+					n = sz->mm_size - zi->bytes_sent;
+				else
+					n = 0;
 				zi->eof_seen = 1;
 			}
 		} else
@@ -1545,12 +1618,16 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 			 * it returns ZRINIT. */
 			return OK;
 		case ZSKIP:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return c;
 		default:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return ERROR;
 		}
 	}
@@ -1711,9 +1788,10 @@ sz_getinsync(sz_t *sz, struct zm_fileinfo *zi, int flag)
 			continue;
 		case ZRINIT:
 		case ZSKIP:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose(sz->input_f);
-			else if (sz->mm_addr) {
+				sz->input_f = NULL;
+			} else if (sz->mm_addr) {
 				munmap(sz->mm_addr,sz->mm_size);
 				sz->mm_addr=NULL;
 			}

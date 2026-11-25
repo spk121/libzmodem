@@ -45,6 +45,7 @@ typedef struct zm_ zm_t;
 
 zm_t *zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	      int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow);
+void zm_free(zm_t *zm);
 int zm_get_zctlesc(zm_t *zm);
 void zm_set_zctlesc(zm_t *zm, int zctlesc);
 void zm_escape_sequence_update(zm_t *zm);

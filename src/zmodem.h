@@ -1,8 +1,10 @@
 #ifndef LIBZMODEM_ZMODEM_H
 #define LIBZMODEM_ZMODEM_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +52,7 @@ extern "C" {
 
    MIN_BPS is the minimum data transfer rate that will be tolerated,
    in bits per second.  If the sender transfers data slower than
-   MIN_BPS, the fetch will terminate.
+   MIN_BPS for 120 seconds, the fetch will terminate.
 
    If MIN_BPS is zero, this check will be disabled.
 
@@ -94,9 +96,9 @@ size_t zmodem_receive(const char *directory,
 
    COMPLETE may be NULL.
 
-   MIN_BPS is the minimum data transfer rate that will be tolerated.
-   If the sender transfers data slower than MIN_BPS, the fetch
-   will terminate.
+   MIN_BPS is the minimum data transfer rate that will be tolerated,
+   in bits per second.  If data is transferred slower than MIN_BPS
+   for 120 seconds, the send will terminate.
 
    If MIN_BPS is zero, this test will be disabled.
 
@@ -106,10 +108,18 @@ size_t zmodem_receive(const char *directory,
    transfered. */
 size_t zmodem_send(int file_count,
 		   const char **file_list,
-		   bool (*tick)(long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
+		   bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		   void (*complete)(const char *filename, int result, size_t size, time_t date),
 		   uint64_t min_bps,
 		   uint32_t flags);
+
+/* The return values above cannot tell a failed session from one that
+   transferred nothing.  This returns the result of the most recent
+   zmodem_receive or zmodem_send call: RZSZ_NO_ERROR if the session
+   ran to completion, or RZSZ_ERROR if it failed, was cancelled or
+   timed out, or (when sending) if a file could not be read.  A file
+   the receiver chose to skip is not an error. */
+int zmodem_last_result(void);
 
 #ifdef __cplusplus
 }

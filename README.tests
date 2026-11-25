@@ -1,19 +1,21 @@
-From "ease of use" onwards:
-
 "make fastcheck"
-	will do a simple self check, sending lsz, lrz, lsz.c and lrz.c
-	over a named pipe. 
-	This test just covers basic zmodem functionality, and it's
-	the only one which will work under BeOS: All other tests
-	need "real" named pipes, /pipe under BeOS simply hasn't
-	the right semantics.
+	builds the library and the sample programs and does a simple
+	self check: msz sends mrz.c, msz.c and the mrz and msz programs
+	themselves to mrz over a named pipe, and the received files are
+	compared with the originals.  It prints "the test failed" and
+	exits with an error if a file differs.
+	This test just covers basic ZMODEM functionality.
 
-"make vcheck" and "make oldcheck-local"
-	will do a fast check of the most important features.
-	"vcheck" gives some more output, especially CPS-rates.
+	The receiver may log a line like "Got ERROR" during the test.
+	That is the protocol recovering from a duplicated header at
+	the start of the session; the test still passes.
 
 "make check"
-	will do a _long_ regression test.
-	Some tests need special programs (omen.sz, omen.rz, zmtx, zmrx).
-	Some might only work on my system.
-	In any case you'll need dejagnu for this.
+	does not run any tests at the moment.
+
+"make vcheck", "make oldcheck-local" and the dejagnu tests in the
+testsuite directory
+	are left over from lrzsz and do not work: check.lrzsz and the
+	.exp files run the lrz and lsz programs with command line
+	options that mrz and msz do not have, and some of them need
+	other ZMODEM implementations (omen.sz, omen.rz, zmtx, zmrx).

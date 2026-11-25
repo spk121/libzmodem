@@ -1,4 +1,25 @@
-- make argv[0]-recognition of X/YModem work with program_name_transform.
+- call the complete callback for files that fail, as zmodem.h
+  documents; at the moment it is only called on success.
+- fix the size the sender reports when the session start is
+  duplicated: if the receiver's ZRINIT crosses the sender's ZRQINIT,
+  ZSINIT and ZFILE are sent twice, the first file is restarted, and
+  the sender can take a late ZRINIT for the end of that file.  The
+  file arrives intact, but the complete callback and the return value
+  of zmodem_send then report fewer bytes than were sent.
+- improve error reporting: zmodem_last_result() only says whether a
+  session failed, not why.  Failures should be error codes, not log
+  messages.
+- make the library reentrant and threadsafe: it still keeps state in
+  static variables, uses alarm()/SIGALRM for timeouts (which cancels an
+  alarm set by the calling program), and only talks to stdin/stdout.
+- make the log level selectable by the caller; it is fixed at "error",
+  so there is no verbose output any more.
+- remove the vestigial lrzsz code and options that the API cannot
+  reach (TCP mode, pipe output, most file management options, ...), or
+  expose them through the flags argument.
+- revive the tests: "make check" runs nothing, and check.lrzsz and the
+  dejagnu suite still expect the lrz and lsz programs.  Only
+  "make fastcheck" works.
 - look into VMIN code: how to determine if it's usable (it isn't unter
   FreeBSD and NetBSD (might have changed) and possibly many other 
   system), and what is the max value?
@@ -8,6 +29,3 @@
   a) think that lrzsz is to slow for their serial lines, or b) think
   that their transmission lines are safe. Oh well, some people don't
   learn without having pain).
-- improve error reporting.
-- clean up Output in verbose mode. (document what's printed if
-  verbose is `n')

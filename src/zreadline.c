@@ -44,16 +44,29 @@ zreadline_t *
 zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout)
 {
 	zreadline_t *zr = (zreadline_t *) malloc (sizeof(zreadline_t));
+	if (!zr) {
+		log_fatal(_("out of memory"));
+		zm_fatal();
+	}
 	memset (zr, 0, sizeof(zreadline_t));
 	zr->readline_fd = fd;
 	zr->readline_readnum = readnum;
 	zr->readline_buffer = malloc(bufsize > readnum ? bufsize : readnum);
 	if (!zr->readline_buffer) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	zr->no_timeout = no_timeout;
 	return zr;
+}
+
+void
+zreadline_free(zreadline_t *zr)
+{
+	if (!zr)
+		return;
+	free(zr->readline_buffer);
+	free(zr);
 }
 
 int
@@ -84,6 +97,8 @@ zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
 static int
 readline_internal(zreadline_t *zr, unsigned int timeout)
 {
+	struct sigaction old_sa;
+
 	if (!zr->no_timeout)
 	{
 		unsigned int n;
@@ -92,19 +107,31 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 			n = 3;
 		else if (n==0)
 			n=1;
-		log_trace("Calling read: alarm=%d  Readnum=%d ",
+		log_trace("Calling read: alarm=%u  Readnum=%zu ",
 			 n, zr->readline_readnum);
-		signal(SIGALRM, zreadline_alarm_handler);
+		/* Not signal(): it may install the handler with
+		 * SA_RESTART, and then the alarm would not interrupt
+		 * the read below. */
+		struct sigaction sa;
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_handler = zreadline_alarm_handler;
+		sigemptyset(&sa.sa_mask);
+		sigaction(SIGALRM, &sa, &old_sa);
 		alarm(n);
 	}
 	else
-		log_trace("Calling read: Readnum=%d ", zr->readline_readnum);
+		log_trace("Calling read: Readnum=%zu ", zr->readline_readnum);
 	zr->readline_ptr = zr->readline_buffer;
 	zr->readline_left = read(zr->readline_fd,
 				 zr->readline_ptr,
 				 zr->readline_readnum);
-	if (!zr->no_timeout)
+	if (!zr->no_timeout) {
+		int e = errno;
 		alarm(0);
+		/* Give the caller's SIGALRM handler back. */
+		sigaction(SIGALRM, &old_sa, NULL);
+		errno = e;
+	}
 	if (zr->readline_left == -1)
 		log_trace("Read failure :%s\n", strerror(errno));
 	else

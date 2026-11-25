@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([libzmodem], [0.12.21-mlg], [mike@lonelycactus.com])
+AC_INIT([libzmodem], [0.13.0-mlg], [spk121@yahoo.com])
 AC_PREREQ(2.69)
 AC_CONFIG_SRCDIR([src/mrz.c])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -39,11 +39,7 @@ dnl AM_GNU_GETTEXT([no-libtool])
 dnl AM_GNU_GETTEXT([external],[],[])
 dnl AM_GNU_GETTEXT_VERSION([0.19.8])
 
-if test x"$DEJAGNU" = x
-then
-  DEJAGNU="\$(top_srcdir)/testsuite/global-conf.exp"
-fi
-AC_SUBST(DEJAGNU)
+
 
 AC_CONFIG_FILES([Makefile testsuite/Makefile src/Makefile])
 AC_OUTPUT
