@@ -1286,7 +1286,8 @@ nxthdr:
 				case GOTCRCG:
 				case GOTCRCE:
 				case GOTCRCQ:
-					if (pos>zi->bytes_received) {
+					/* an empty block would never be consumed */
+					if (pos>zi->bytes_received && bytes_in_block>0) {
 						neu=malloc(sizeof(oosb_t));
 						if (neu)
 							neu->data=malloc(bytes_in_block);
