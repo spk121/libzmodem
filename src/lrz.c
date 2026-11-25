@@ -1188,6 +1188,15 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 
 	n = 20;
 
+	/* Blocks saved for a previous file must not be replayed into
+	 * this one. */
+	while (anker) {
+		oosb_t *next = anker->next;
+		free(anker->data);
+		free(anker);
+		anker = next;
+	}
+
 	c = rz_process_header(rz, rz->secbuf,zi);
 	if (c == ERROR) {
 		return (rz->tryzhdrtype = ZSKIP);
