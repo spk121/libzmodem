@@ -738,7 +738,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	if (rz->topipe > 0) {
 		if (rz->pathname)
 			free(rz->pathname);
-		rz->pathname=malloc((PATH_MAX)*2);
+		rz->pathname=malloc(strlen(program_name+2)+1+strlen(name_static)+1);
 		if (!rz->pathname) {
 			log_fatal(_("out of memory"));
 			exit(1);
@@ -752,7 +752,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	} else {
 		if (rz->pathname)
 			free(rz->pathname);
-		rz->pathname=malloc((PATH_MAX)*2);
+		rz->pathname=malloc(strlen(name_static)+1);
 		if (!rz->pathname) {
 			log_fatal(_("out of memory"));
 			exit(1);
