@@ -255,6 +255,11 @@ size_t zmodem_send(int file_count,
 		   uint32_t flags)
 {
 	log_set_level(LOG_ERROR);
+	/* MIN_BPS is in bits per second; internally rates are measured
+	 * in bytes per second. */
+	uint64_t min_bytes_per_sec = min_bps / 8 + (min_bps % 8 != 0);
+	if (min_bytes_per_sec > LONG_MAX)
+		min_bytes_per_sec = LONG_MAX;
 	sz_t *sz = sz_init(0, /* fd */
 			   128, /* readnum */
 			   256, /* bufsize */
@@ -282,8 +287,8 @@ size_t zmodem_send(int file_count,
 			   1024,  /* max_blklen */
 			   1024,  /* start_blklen */
 			   0,	  /* stop_time */
-			   0,	  /* min_bps */
-			   0,	  /* min_bps_time */
+			   (long) min_bytes_per_sec, /* min_bps */
+			   120,	  /* min_bps_time */
 			   0x0,	  /* tcp_server_address */
 			   -1,	  /* tcp_socket */
 			   0,	  /* hyperterm */

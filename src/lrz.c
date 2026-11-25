@@ -244,6 +244,9 @@ size_t zmodem_receive(const char *directory,
 		      uint32_t flags)
 {
 	log_set_level(LOG_ERROR);
+	/* MIN_BPS is in bits per second; internally rates are measured
+	 * in bytes per second. */
+	unsigned long min_bytes_per_sec = (unsigned long) (min_bps / 8 + (min_bps % 8 != 0));
 	rz_t *rz = rz_init(0, /* fd */
 			   8192, /* readnum */
 			   16384, /* bufsize */
@@ -259,7 +262,7 @@ size_t zmodem_receive(const char *directory,
 			   0,		 /* lzmanag */
 			   0,		 /* nflag */
 			   0,		 /* junk_path */
-			   0,		 /* min_bps */
+			   min_bytes_per_sec, /* min_bps */
 			   120,		 /* min_bps_tim */
 			   0,		 /* stop_time */
 			   0,		 /* try_resume */
