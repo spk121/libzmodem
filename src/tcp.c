@@ -71,11 +71,11 @@ tcp_server (char *buf)
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		log_fatal("socket: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0) {
 		log_fatal("setsockopt (reuse address): %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	memset (&s, 0, sizeof (s));
 	s.sin_family = AF_INET;
@@ -83,18 +83,18 @@ tcp_server (char *buf)
 	s.sin_addr.s_addr=htonl(INADDR_ANY);
 	if (bind(sock, (struct sockaddr *)&s, sizeof (s)) < 0) {
 		log_fatal("bind: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	len=sizeof(t);
 	if (getsockname (sock, (struct sockaddr *) &t, &len)) {
 		log_fatal("getsockname: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	sprintf(buf,"[%s] <%d>\n",inet_ntoa(t.sin_addr),ntohs(t.sin_port));
 
 	if (listen(sock, 1) < 0) {
 		log_fatal("listen: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	getsockname (sock, (struct sockaddr *) &t, &len);
 
@@ -122,7 +122,7 @@ retry:
 				goto retry;
 		}
 		log_fatal("accept: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	alarm(0);
 	return so;
@@ -145,17 +145,17 @@ tcp_connect (char *buf)
 
 	if (buf == NULL || strlen(buf) == 0) {
 		log_fatal(_("tcp_connect hostname is empty"));
-		exit (1);
+		zm_fatal();
 	}
 	/* i _really_ distrust scanf & co. Or maybe i distrust bad input */
 	if (*buf!='[') {
 		log_fatal(_("tcp_connect: invalid format1 '%s'"), buf);
-		exit(1);
+		zm_fatal();
 	}
 	p=strchr(buf+1,']');
 	if (!p) {
 		log_fatal(_("tcp_connect: illegal format2"));
-		exit(1);
+		zm_fatal();
 	}
 	*p++=0;
 	s_in.sin_addr.s_addr=inet_addr(buf+1);
@@ -168,7 +168,7 @@ tcp_connect (char *buf)
 		if (!h || h->h_addrtype != AF_INET
 		    || h->h_length != (int) sizeof(s_in.sin_addr.s_addr)) {
 			log_fatal(_("tcp_connect: illegal format3"));
-			exit(1);
+			zm_fatal();
 		}
 		memcpy(& s_in.sin_addr.s_addr,h->h_addr,h->h_length);
 	}
@@ -176,25 +176,25 @@ tcp_connect (char *buf)
 		p++;
 	if (*p!='<') {
 		log_fatal(_("tcp_connect: illegal format4"));
-		exit(1);
+		zm_fatal();
 	}
 	q=strchr(p+1,'>');
 	if (!q) {
 		log_fatal(_("tcp_connect: illegal format5"));
-		exit(1);
+		zm_fatal();
 	}
 	s_in.sin_port = htons(strtol(p+1,NULL,10));
 
 	if ((sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		log_fatal("socket: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 
 	tcp_set_alarm_handler();
 	alarm(30);
 	if (connect (sock, (struct sockaddr *) &s_in, sizeof (s_in)) < 0) {
 		log_fatal("connect: %s", strerror(errno));
-		exit(1);
+		zm_fatal();
 	}
 	alarm(0);
 	return (sock);

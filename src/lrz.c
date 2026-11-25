@@ -168,6 +168,7 @@ static int sys2 (const char *s);
 static void write_modem_escaped_string_to_stdout (const char *s);
 static size_t getfree (void);
 static void oosb_free_all (void);
+static void rz_free (rz_t *rz);
 static char *rz_local_path (rz_t *rz, const char *name);
 static FILE *rz_fopen_local (rz_t *rz, const char *name, const char *mode);
 
@@ -188,7 +189,7 @@ rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	rz_t *rz = (rz_t *)malloc(sizeof(rz_t));
 	if (!rz) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	memset (rz, 0, sizeof(rz_t));
 	rz->zm = zm_init(fd, readnum, bufsize, no_timeout,
@@ -224,19 +225,6 @@ rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 
 }
 
-/* called by signal interrupt or terminate to clean things up */
-static void
-bibi(int n)
-{
-	//FIXME: figure out how to avoid global zmodem_requested
-	// if (zmodem_requested)
-	// 	write_modem_escaped_string_to_stdout(Attn);
-	// canit(zr, STDOUT_FILENO);
-	io_mode(0,0);
-	log_fatal(_("caught signal %d; exiting"), n);
-	exit(128+n);
-}
-
 /*
  * Let's receive something already.
  */
@@ -252,7 +240,20 @@ size_t zmodem_receive(const char *directory,
 	/* MIN_BPS is in bits per second; internally rates are measured
 	 * in bytes per second. */
 	unsigned long min_bytes_per_sec = (unsigned long) (min_bps / 8 + (min_bps % 8 != 0));
-	rz_t *rz = rz_init(0, /* fd */
+	rz_t *volatile rz = NULL;
+
+	zm_fatal_armed = 1;
+	if (setjmp(zm_fatal_env)) {
+		/* zm_fatal() was called: give up, but return to the
+		 * caller with the terminal restored. */
+		size_t total = rz ? rz->total_received : 0;
+		log_info(_("Transfer incomplete"));
+		fflush(stdout);
+		io_mode(0,0);
+		rz_free(rz);
+		return total;
+	}
+	rz = rz_init(0, /* fd */
 			   8192, /* readnum */
 			   16384, /* bufsize */
 			   1, /* no_timeout */
@@ -298,11 +299,27 @@ size_t zmodem_receive(const char *directory,
 	fflush(stdout);
 
 	size_t total = rz->total_received;
+	zm_fatal_armed = 0;
+	rz_free(rz);
+	return total;
+}
+
+/* Release a receiver state and anything it still holds open. */
+static void
+rz_free(rz_t *rz)
+{
 	oosb_free_all();
+	if (!rz)
+		return;
+	if (rz->fout) {
+		if (rz->topipe)
+			pclose(rz->fout);
+		else
+			fclose(rz->fout);
+	}
 	zm_free(rz->zm);
 	free(rz->pathname);
 	free(rz);
-	return total;
 }
 
 
@@ -584,7 +601,7 @@ rz_local_path(rz_t *rz, const char *name)
 	path = malloc(dirlen + 1 + strlen(name) + 1);
 	if (!path) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	if (dirlen)
 		sprintf(path, "%s/%s", rz->directory, name);
@@ -637,7 +654,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	name_static=malloc(strlen(name)+1);
 	if (!name_static) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	strcpy(name_static,name);
 	zi->fname=name_static;
@@ -749,7 +766,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			tmpname=(char *) malloc(namelen+5);
 			if (!tmpname) {
 				log_fatal(_("out of memory"));
-				exit(1);
+				zm_fatal();
 			}
 			memcpy(tmpname,name,namelen);
 			ptr=tmpname+namelen;
@@ -771,7 +788,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			name_static=malloc(strlen(tmpname)+1);
 			if (!name_static) {
 				log_fatal(_("out of memory"));
-				exit(1);
+				zm_fatal();
 			}
 			strcpy(name_static,tmpname);
 			free(tmpname);
@@ -792,7 +809,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 		rz->fout=tmpfile();
 		if (!rz->fout) {
 			log_fatal(_("cannot tmpfile() for tcp protocol synchronization: %s"), strerror(errno));
-			exit(1);
+			zm_fatal();
 		}
 		zi->bytes_received=0;
 		return OK;
@@ -820,7 +837,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 		rz->pathname=malloc(strlen(program_name+2)+1+strlen(name_static)+1);
 		if (!rz->pathname) {
 			log_fatal(_("out of memory"));
-			exit(1);
+			zm_fatal();
 		}
 		sprintf(rz->pathname, "%s %s", program_name+2, name_static);
 		log_info("%s: %s %s",
@@ -842,7 +859,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			if (!name_static)
 			{
 				log_fatal(_("out of memory"));
-				exit(1);
+				zm_fatal();
 			}
 			zi->fname=name_static;
 		}
@@ -1014,7 +1031,7 @@ rz_checkpath(rz_t *rz, const char *name)
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
 			log_info(_("%s: %s exists"),
 				program_name, name);
-			bibi(-1);
+			zm_fatal();
 		}
 		/* restrict pathnames to current tree or uucppublic */
 		if ( strstr(name, "../")
@@ -1025,13 +1042,13 @@ rz_checkpath(rz_t *rz, const char *name)
 		) {
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
 			log_info(_("%s: Security Violation"),program_name);
-			bibi(-1);
+			zm_fatal();
 		}
 		if (rz->restricted > 1) {
 			if (name[0]=='.' || strstr(name,"/.")) {
 				zreadline_canit(rz->zm->zr, STDOUT_FILENO);
 				log_info(_("%s: Security Violation"),program_name);
-				bibi(-1);
+				zm_fatal();
 			}
 		}
 	}
@@ -1544,7 +1561,7 @@ rz_closeit(rz_t *rz, struct zm_fileinfo *zi)
 		rewind(rz->fout);
 		if (!fgets(rz->tcp_buf, sizeof(rz->tcp_buf), rz->fout)) {
 			log_fatal(_("fgets for tcp protocol synchronization failed: %s"), strerror(errno));
-			exit(1);
+			zm_fatal();
 		}
 		fclose(rz->fout);
 		rz->fout = NULL;

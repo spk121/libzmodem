@@ -133,7 +133,7 @@ sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	sz_t *sz = malloc(sizeof(sz_t));
 	if (!sz) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	memset(sz, 0, sizeof(sz_t));
 	sz->zm = zm_init(fd, readnum, bufsize, no_timeout,
@@ -188,6 +188,7 @@ static void sz_countem (sz_t *sz, int argc, char **argv);
 static int sz_transmit_files (sz_t *sz, int argc, const char *argp[]);
 static int sz_transmit_sector (sz_t *sz, char *buf, int sectnum, size_t cseclen);
 static int sz_send_pseudo(sz_t *sz, const char *name, const char *data);
+static void sz_free (sz_t *sz);
 
 #define ZM_SEND_DATA(x,y,z)						\
 	do { if (sz->zm->crc32t) {zm_send_data32(sz->zm,x,y,z); } else {zm_send_data(sz->zm,x,y,z);}} while(0)
@@ -260,7 +261,20 @@ size_t zmodem_send(int file_count,
 	uint64_t min_bytes_per_sec = min_bps / 8 + (min_bps % 8 != 0);
 	if (min_bytes_per_sec > LONG_MAX)
 		min_bytes_per_sec = LONG_MAX;
-	sz_t *sz = sz_init(0, /* fd */
+	sz_t *volatile sz = NULL;
+
+	zm_fatal_armed = 1;
+	if (setjmp(zm_fatal_env)) {
+		/* zm_fatal() was called: give up, but return to the
+		 * caller with the terminal restored. */
+		size_t total = sz ? sz->total_sent : 0;
+		log_info(_("Transfer incomplete"));
+		fflush(stdout);
+		io_mode(sz ? sz->io_mode_fd : 0, 0);
+		sz_free(sz);
+		return total;
+	}
+	sz = sz_init(0, /* fd */
 			   128, /* readnum */
 			   256, /* bufsize */
 			   1, /* no_timeout */
@@ -369,16 +383,25 @@ size_t zmodem_send(int file_count,
 	else
 		log_info(_("Transfer complete"));
 
-	/* Release whatever a failed transfer left behind. */
+	size_t total = sz->total_sent;
+	zm_fatal_armed = 0;
+	sz_free(sz);
+	return total;
+}
+
+/* Release a sender state and whatever a failed transfer left behind. */
+static void
+sz_free(sz_t *sz)
+{
+	if (!sz)
+		return;
 	if (sz->mm_addr)
 		munmap(sz->mm_addr, sz->mm_size);
 	if (sz->input_f && sz->input_f != stdin)
 		fclose(sz->input_f);
-	size_t total = sz->total_sent;
 	free(sz->tcp_server_address);
 	zm_free(sz->zm);
 	free(sz);
-	return total;
 }
 
 static int
@@ -399,7 +422,7 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 	tmp=malloc(PATH_MAX+1);
 	if (!tmp) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 
 	plen=strlen(p);
@@ -479,7 +502,7 @@ sz_transmit_files (sz_t *sz, int argc, const char *argp[])
 		d=tcp_server(buf);
 		if (sz_send_pseudo(sz, "/$tcp$.t",buf)) {
 			log_fatal(_("tcp protocol init failed"));
-			exit(1);
+			zm_fatal();
 		}
 		/* ok, now that this file is sent we can switch to tcp */
 
@@ -544,7 +567,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 		) {
 			zreadline_canit(sz->zm->zr, STDOUT_FILENO);
 			log_fatal(_("security violation: not allowed to upload from %s"),oname);
-			exit(1);
+			zm_fatal();
 		}
 	}
 

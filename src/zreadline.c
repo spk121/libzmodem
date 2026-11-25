@@ -46,7 +46,7 @@ zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout)
 	zreadline_t *zr = (zreadline_t *) malloc (sizeof(zreadline_t));
 	if (!zr) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	memset (zr, 0, sizeof(zreadline_t));
 	zr->readline_fd = fd;
@@ -54,7 +54,7 @@ zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout)
 	zr->readline_buffer = malloc(bufsize > readnum ? bufsize : readnum);
 	if (!zr->readline_buffer) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	zr->no_timeout = no_timeout;
 	return zr;

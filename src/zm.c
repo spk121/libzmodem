@@ -96,6 +96,20 @@ static void zm_escape_sequence_init (zm_t *zm);
 static void zm_put_escaped_string(zm_t *zm, const char *str, size_t len);
 
 
+jmp_buf zm_fatal_env;
+int zm_fatal_armed = 0;
+
+/* Abandon the session after a fatal error; see zglobal.h. */
+void
+zm_fatal(void)
+{
+	if (zm_fatal_armed) {
+		zm_fatal_armed = 0;
+		longjmp(zm_fatal_env, 1);
+	}
+	exit(1);
+}
+
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
 zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
@@ -104,7 +118,7 @@ zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	zm_t *zm = (zm_t *) malloc (sizeof (zm_t));
 	if (!zm) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	memset(zm, 0, sizeof(zm_t));
 	zm->zr = zreadline_init(fd, readnum, bufsize, no_timeout);
@@ -753,7 +767,7 @@ zm_get_header(zm_t *zm, uint32_t *payload)
 	intro_msg = (char *) calloc (max_intro_msg_len + 2, sizeof(char));
 	if (!intro_msg) {
 		log_fatal(_("out of memory"));
-		exit(1);
+		zm_fatal();
 	}
 	intro_msg_len = 0;
 
