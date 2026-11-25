@@ -883,11 +883,13 @@ static size_t
 sz_filbuf(sz_t *sz, char *buf, size_t count)
 {
 	int c;
+	ssize_t r;
 	size_t m;
 
-	m = read(fileno(sz->input_f), buf, count);
-	if (m <= 0)
+	r = read(fileno(sz->input_f), buf, count);
+	if (r <= 0)
 		return 0;
+	m = (size_t) r;
 	while (m < count)
 		buf[m++] = 032;
 	return count;
