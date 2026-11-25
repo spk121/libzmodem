@@ -1104,7 +1104,7 @@ sz_getzrxinit(sz_t *sz)
 				sz->blklen = sz->rxbuflen;
 			if (sz->blkopt && sz->blklen > sz->blkopt)
 				sz->blklen = sz->blkopt;
-			log_debug("Rxbuflen=%d blklen=%d", sz->rxbuflen, sz->blklen);
+			log_debug("Rxbuflen=%u blklen=%zu", sz->rxbuflen, sz->blklen);
 			log_debug("Txwindow = %u Txwspac = %d", sz->txwindow, sz->txwspac);
 			sz->zm->rxtimeout = old_timeout;
 			return (sz_sendzsinit(sz));
@@ -1412,7 +1412,7 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 		sz->blklen = sz_calculate_block_length (sz, total_sent);
 		total_sent += sz->blklen + OVERHEAD;
 		if (sz->blklen != old)
-			log_trace (_("blklen now %d\n"), sz->blklen);
+			log_trace (_("blklen now %zu\n"), sz->blklen);
 		if (sz->mm_addr) {
 			if (zi->bytes_sent + sz->blklen < sz->mm_size)
 				n = sz->blklen;
