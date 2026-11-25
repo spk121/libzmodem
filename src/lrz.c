@@ -548,8 +548,11 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	static char *name_static=NULL;
 	char *nameend;
 
-	if (name_static)
+	if (name_static) {
 		free(name_static);
+		name_static = NULL;
+		zi->fname = NULL;
+	}
 	if (rz->junk_path) {
 		p=strrchr(name,'/');
 		if (p) {
@@ -751,6 +754,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 				log_fatal(_("out of memory"));
 				exit(1);
 			}
+			zi->fname=name_static;
 		}
 		if (rz->thisbinary && rz->zconv==ZCRESUM) {
 			struct stat st;
