@@ -97,6 +97,8 @@ zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
 static int
 readline_internal(zreadline_t *zr, unsigned int timeout)
 {
+	struct sigaction old_sa;
+
 	if (!zr->no_timeout)
 	{
 		unsigned int n;
@@ -114,7 +116,7 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 		memset(&sa, 0, sizeof(sa));
 		sa.sa_handler = zreadline_alarm_handler;
 		sigemptyset(&sa.sa_mask);
-		sigaction(SIGALRM, &sa, NULL);
+		sigaction(SIGALRM, &sa, &old_sa);
 		alarm(n);
 	}
 	else
@@ -123,8 +125,13 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 	zr->readline_left = read(zr->readline_fd,
 				 zr->readline_ptr,
 				 zr->readline_readnum);
-	if (!zr->no_timeout)
+	if (!zr->no_timeout) {
+		int e = errno;
 		alarm(0);
+		/* Give the caller's SIGALRM handler back. */
+		sigaction(SIGALRM, &old_sa, NULL);
+		errno = e;
+	}
 	if (zr->readline_left == -1)
 		log_trace("Read failure :%s\n", strerror(errno));
 	else
