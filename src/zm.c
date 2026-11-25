@@ -730,7 +730,9 @@ zm_get_header(zm_t *zm, uint32_t *payload)
 
 	/* Max bytes before start of frame */
 	max_intro_msg_len = zm->zrwindow + zm->baudrate;
-	intro_msg = (char *) calloc (max_intro_msg_len + 1, sizeof(char));
+	/* Up to max_intro_msg_len + 1 bytes are stored before the length
+	 * check below trips, plus one for the terminating NUL. */
+	intro_msg = (char *) calloc (max_intro_msg_len + 2, sizeof(char));
 	intro_msg_len = 0;
 
 	zm->rxframeind = zm->rxtype = 0;
