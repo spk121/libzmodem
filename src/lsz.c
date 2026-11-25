@@ -278,7 +278,7 @@ size_t zmodem_send(int file_count,
 	sz = sz_init(0, /* fd */
 			   128, /* readnum */
 			   256, /* bufsize */
-			   1, /* no_timeout */
+			   0, /* no_timeout */
 			   600,	/* rxtimeout */
 			   0, 	/* znulls */
 			   0,	/* eflag */

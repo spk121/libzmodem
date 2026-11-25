@@ -257,7 +257,7 @@ size_t zmodem_receive(const char *directory,
 	rz = rz_init(0, /* fd */
 			   8192, /* readnum */
 			   16384, /* bufsize */
-			   1, /* no_timeout */
+			   0, /* no_timeout */
 			   100,		 /* rxtimeout */
 			   0,		 /* znulls */
 			   0,		 /* eflag */
