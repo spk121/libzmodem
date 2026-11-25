@@ -2,28 +2,32 @@ To install:
 
 0) if you are uncommon with configuration and installation of GNU/autoconf'd
    software please read to generic install text at the end of this file.
-1) configure the package, possibly with
+1) if you got the sources from the git repository, there is no
+   `configure' script yet.  Create it with
+		autoreconf -i
+   (this needs autoconf 2.69 or newer, automake and libtool).
+2) configure the package, possibly with
 		CFLAGS=-O2 ./configure
    Use the following options if you need to:
    --enable-pubdir=/var/spool/uucppublic
      if you want support for a public writeable directory.
-   --prefix=/usr/local
-     to install the programs and documentation under /usr/local instead
-     of /usr (default).
-   --program-transform-name=s/l//
-     to install the programs and manual pages under the traditional
-     names (sz, sz.1 instead of lsz, lsz.1).
-2) make
-   (please contact uwe@ohse.de if there are any problems. Sorry,
-   for the moment i only have access to linux machines)
-3) make check
-   will perform a selftest, sending some files in the distribution 
-   through a nimed pipe.
-   ("make vcheck" will do the same as "make check" does, but prints
-   a progres report)
-4) please read COMPATABILITY
+   --prefix=/usr
+     to install under /usr instead of /usr/local (default).
+   --disable-shared or --disable-static
+     to build only the static or only the shared library.
+3) make
+   (please contact spk121@yahoo.com if there are any problems.)
+4) make check
+   does not run any tests at the moment.  The old self tests
+   (fastcheck.sh, check.lrzsz, the dejagnu testsuite and README.tests)
+   still expect the lrz and lsz programs, which no longer exist.
 5) make install
-   if everything is ok.
+   if everything is ok.  This installs
+   - the library libzmodem into $(libdir),
+   - its header zmodem.h into $(includedir)/libzmodem,
+   - the sample programs mrz (receiver) and msz (sender) into $(bindir).
+   A program using the library includes <libzmodem/zmodem.h> and links
+   with -lzmodem.
 
 -------------------- generic GNU INSTALL text -----------------------------
 Basic Installation
