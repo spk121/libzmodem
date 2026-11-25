@@ -777,6 +777,7 @@ gotcan:
 agn2:
 		if (intro_msg_len > max_intro_msg_len) {
 			log_error(_("Intro message length exceeded"));
+			free(intro_msg);
 			return(ERROR);
 		}
 		if (zm->eflag == 1 && isprint(c))
