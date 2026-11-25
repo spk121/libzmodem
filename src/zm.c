@@ -75,9 +75,10 @@ static const char *frametypes[] = {
 	"ZCOMMAND",
 	"ZSTDERR",
 	"xxxxx"
-#define FRTYPES 22	/* Total number of frame types in this array */
-			/*  not including psuedo negative entries */
 };
+/* Total number of entries in this array, including the pseudo
+ * negative entries and the trailing "xxxxx". */
+#define FRTYPES ((int) (sizeof(frametypes) / sizeof(frametypes[0])))
 
 #define badcrc _("Bad CRC")
 /* static char *badcrc = "Bad CRC"; */
@@ -854,7 +855,7 @@ fifi:
 		log_error(_("Got %s"), frametypes[c+FTOFFSET]);
 	/* **** FALL THRU TO **** */
 	default:
-		if (c >= -3 && c <= FRTYPES)
+		if (c >= -FTOFFSET && c < FRTYPES - FTOFFSET)
 			log_trace("zm_get_header: %s %lx", frametypes[c+FTOFFSET], (unsigned long) rxpos);
 		else
 			log_trace("zm_get_header: %d %lx", c, (unsigned long) rxpos);
