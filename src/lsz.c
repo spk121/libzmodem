@@ -243,7 +243,7 @@ const char *program_name = "sz";
 
 size_t zmodem_send(int file_count,
 		   const char **file_list,
-		   bool (*tick)(long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
+		   bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		   void (*complete)(const char *filename, int result, size_t size, time_t date),
 		   uint64_t min_bps,
 		   uint32_t flags)
