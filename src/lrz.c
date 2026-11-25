@@ -1276,7 +1276,7 @@ nxthdr:
 			}
 			log_debug("rz_receive_file: normal EOF");
 			if (rz->complete_cb)
-				rz->complete_cb(zi->fname, 0, zi->bytes_sent, zi->modtime);
+				rz->complete_cb(zi->fname, 0, zi->bytes_received, zi->modtime);
 			return c;
 		case ERROR:	/* Too much garbage in header search error */
 			if ( --n < 0) {
