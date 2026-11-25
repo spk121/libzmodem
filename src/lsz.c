@@ -386,6 +386,12 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 	}
 
 	plen=strlen(p);
+	/* leave room for '/', the name, ".<pid>.<n>" and the NUL */
+	if (plen + 1 + strlen(name) + 32 > PATH_MAX) {
+		log_info (_ ("sz_send_pseudo %s: tmpfile name too long"), name);
+		free(tmp);
+		return 1;
+	}
 	memcpy(tmp,p,plen);
 	tmp[plen++]='/';
 
