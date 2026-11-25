@@ -55,8 +55,9 @@ struct rz_ {
 				 * synchronization strings from
 				 * fout */
 	char attn[ZATTNLEN+1];  /* Attention string rx sends to tx on err */
-	char secbuf[MAX_BLOCK + 1]; /* Workspace to store up to 8k
-				     * blocks */
+	char secbuf[MAX_BLOCK + 2]; /* Workspace to store up to 8k
+				     * blocks, plus two NULs to
+				     * terminate a file name header */
 	// Dynamic state
 	FILE *fout;		/* FP to output file. */
 	int lastrx;		/* Either 0, or CAN if last receipt
@@ -379,6 +380,10 @@ et_tu:
 		}
 		return ERROR;
 	}
+	/* The header is parsed as two consecutive C strings; make
+	 * sure both are terminated. */
+	rpn[Blklen] = 0;
+	rpn[Blklen + 1] = 0;
 	putchar(ACK);
 	fflush(stdout);
 	return OK;
@@ -1014,6 +1019,10 @@ again:
 			rz->ztrans = rz->zm->Rxhdr[ZF2];
 			rz->tryzhdrtype = ZRINIT;
 			c = zm_receive_data(rz->zm, rz->secbuf, MAX_BLOCK,&bytes_in_block);
+			/* The header is parsed as two consecutive C
+			 * strings; make sure both are terminated. */
+			rz->secbuf[bytes_in_block] = 0;
+			rz->secbuf[bytes_in_block + 1] = 0;
 			rz->zm->baudrate = io_mode(0,3);
 			if (c == GOTCRCW)
 				return ZFILE;
