@@ -1431,10 +1431,13 @@ moredata:
 				log_info(_("\rBytes received: %7ld/%7ld   BPS:%-6ld ETA %02d:%02d  "),
 					 (long) zi->bytes_received, (long) zi->bytes_total,
 					 last_bps, minleft, secleft);
-				if (rz->tick_cb)
-					rz->tick_cb(zi->fname, zi->bytes_received,
+				if (rz->tick_cb
+				    && !rz->tick_cb(zi->fname, zi->bytes_received,
 						    zi->bytes_total, last_bps, minleft,
-						    secleft);
+						    secleft)) {
+					log_info(_("rz_receive_file: tick callback returns FALSE"));
+					return ERROR;
+				}
 				last_rxbytes=zi->bytes_received;
 				not_printed=0;
 			} else
