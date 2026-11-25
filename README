@@ -81,7 +81,6 @@ Please read:
 - NEWS for a list of major changes between the releases
 - ChangeLog for the list of minor changes.
 - AUTHORS and THANKS to see whom to thank for this package.
-- README.cvs for informations about CVS access to the lrzsz sources.
 - README.tests for information about how to do a self test
 - README.systems for a list of systems lrzsz has been compiled
   and passed a simple self test under.
