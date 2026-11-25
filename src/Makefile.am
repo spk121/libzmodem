@@ -20,6 +20,13 @@ libzmodem_la_SOURCES = \
 	zreadline.c
 pkginclude_HEADERS = zmodem.h
 
+# The libtool interface version, CURRENT:REVISION:AGE.  This is not the
+# package version and takes no suffix.  For a release: if only the
+# source changed, increment REVISION; if interfaces were added, removed
+# or changed, increment CURRENT and set REVISION to 0, then increment
+# AGE if they were only added, or set AGE to 0 otherwise.
+libzmodem_la_LDFLAGS = -version-info 1:0:0
+
 AM_CFLAGS = -Wall -Wextra -Wconversion
 
 include flymake.mk
