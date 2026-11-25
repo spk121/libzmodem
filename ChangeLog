@@ -1,5 +1,19 @@
 Claude <noreply@anthropic.com>	2026-11-25
 
+    Ship zm.h, zreadline.h and ChangeLog.pre2000 in the distribution
+    
+    The two headers were not listed in the library's sources, so they
+    were left out of the tarball and it did not build ('make distcheck'
+    failed).  Also distribute the old change log.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update ChangeLog from the git history
+    
+    Add the entries for the commits made since the last update.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
     TODO: note the sender's byte count after a duplicated session start
     
     Seen intermittently in 'make fastcheck' (and with the original code):
