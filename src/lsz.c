@@ -86,6 +86,8 @@ struct sz_ {
 	jmp_buf intrjmp;	/* For the interrupt on RX CAN */
 	int zrqinits_sent;
 	int play_with_sigint;
+	size_t total_sent;	/* Sum of the sizes of the files sent
+				 * successfully */
 
 	// parameters
 	char lzconv;	/* Local ZMODEM file conversion request */
@@ -361,11 +363,17 @@ size_t zmodem_send(int file_count,
 		log_info(_("Transfer incomplete"));
 	else
 		log_info(_("Transfer complete"));
-	exit(dm);
-	/*NOTREACHED*/
 
-
-	return 0u;
+	/* Release whatever a failed transfer left behind. */
+	if (sz->mm_addr)
+		munmap(sz->mm_addr, sz->mm_size);
+	if (sz->input_f && sz->input_f != stdin)
+		fclose(sz->input_f);
+	size_t total = sz->total_sent;
+	free(sz->tcp_server_address);
+	zm_free(sz->zm);
+	free(sz);
+	return total;
 }
 
 static int
@@ -611,6 +619,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	bps=zi.bytes_sent/d;
 	log_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
 		  (long) zi.bytes_sent,bps);
+	sz->total_sent += zi.bytes_sent;
 	if (sz->complete_cb)
 	  sz->complete_cb(zi.fname, 0, zi.bytes_sent, zi.modtime);
 

@@ -60,6 +60,15 @@ zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout)
 	return zr;
 }
 
+void
+zreadline_free(zreadline_t *zr)
+{
+	if (!zr)
+		return;
+	free(zr->readline_buffer);
+	free(zr);
+}
+
 int
 zreadline_getc(zreadline_t *zr, int timeout)
 {

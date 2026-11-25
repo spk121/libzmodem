@@ -118,6 +118,16 @@ zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	return zm;
 }
 
+/* Release a state machine allocated by zm_init. */
+void
+zm_free(zm_t *zm)
+{
+	if (!zm)
+		return;
+	zreadline_free(zm->zr);
+	free(zm);
+}
+
 int
 zm_get_zctlesc(zm_t *zm)
 {

@@ -78,6 +78,8 @@ struct rz_ {
 				 * request byte */
 	int tryzhdrtype;         /* Header type to send corresponding
 				  * to Last rx close */
+	size_t total_received;	/* Sum of the sizes of the files
+				 * received successfully */
 
 	// Constant
 	int restricted;	/* restricted; no /.. or ../ in filenames */
@@ -162,6 +164,7 @@ static int rz_closeit (rz_t *rz, struct zm_fileinfo *);
 static int sys2 (const char *s);
 static void write_modem_escaped_string_to_stdout (const char *s);
 static size_t getfree (void);
+static void oosb_free_all (void);
 
 rz_t*
 rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
@@ -282,9 +285,14 @@ size_t zmodem_receive(const char *directory,
 		log_info(_("Transfer incomplete"));
 	else
 		log_info(_("Transfer complete"));
-	exit(exitcode);
+	fflush(stdout);
 
-	return 0u;
+	size_t total = rz->total_received;
+	oosb_free_all();
+	zm_free(rz->zm);
+	free(rz->pathname);
+	free(rz);
+	return total;
 }
 
 
@@ -325,6 +333,7 @@ rz_receive(rz_t *rz)
 				goto fubar;
 			if (rz_receive_sectors(rz, &zi)==ERROR)
 				goto fubar;
+			rz->total_received += zi.bytes_received;
 
 			double d;
 			long bps;
@@ -1178,6 +1187,17 @@ typedef struct oosb_t {
 } oosb_t;
 struct oosb_t *anker=NULL;
 
+static void
+oosb_free_all(void)
+{
+	while (anker) {
+		oosb_t *next = anker->next;
+		free(anker->data);
+		free(anker);
+		anker = next;
+	}
+}
+
 /*
  * Receive a file with ZMODEM protocol
  *  Assumes file name frame is in rz->secbuf
@@ -1198,12 +1218,7 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 
 	/* Blocks saved for a previous file must not be replayed into
 	 * this one. */
-	while (anker) {
-		oosb_t *next = anker->next;
-		free(anker->data);
-		free(anker);
-		anker = next;
-	}
+	oosb_free_all();
 
 	c = rz_process_header(rz, rz->secbuf,zi);
 	if (c == ERROR) {
@@ -1275,6 +1290,7 @@ nxthdr:
 				return ERROR;
 			}
 			log_debug("rz_receive_file: normal EOF");
+			rz->total_received += zi->bytes_received;
 			if (rz->complete_cb)
 				rz->complete_cb(zi->fname, 0, zi->bytes_received, zi->modtime);
 			return c;
