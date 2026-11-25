@@ -15,9 +15,9 @@ libzmodem_la_SOURCES = \
 	tcp.c \
 	timing.h timing.c \
 	zglobal.h \
-	zm.c \
+	zm.c zm.h \
 	_zmodem.h \
-	zreadline.c
+	zreadline.c zreadline.h
 pkginclude_HEADERS = zmodem.h
 
 # The libtool interface version, CURRENT:REVISION:AGE.  This is not the

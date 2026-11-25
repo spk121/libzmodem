@@ -1,5 +1,5 @@
 SUBDIRS = src testsuite
-EXTRA_DIST = check.lrzsz COMPATABILITY \
+EXTRA_DIST = check.lrzsz COMPATABILITY ChangeLog.pre2000 \
 	fastcheck.sh README.tests
 PR=@PACKAGE@-@VERSION@
 CLEAN_FILES=fastcheck.done
