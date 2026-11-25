@@ -604,9 +604,11 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 
 	nameend = name + 1 + strlen(name);
 	if (*nameend) {	/* file coming from Unix or DOS system */
-		long modtime;
-		long bytes_total;
-		int mode;
+		/* sscanf leaves these untouched for fields it cannot
+		 * parse, so start from the defaults set above. */
+		long modtime = 0;
+		long bytes_total = DEFBYTL;
+		unsigned int mode = 0;
 		sscanf(nameend, "%ld%lo%o", &bytes_total, &modtime, &mode);
 		zi->modtime=modtime;
 		zi->bytes_total=bytes_total;
