@@ -532,7 +532,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	if (0==strcmp(oname,"-")) {
 		char *p=getenv("ONAME");
 		if (p) {
-			strcpy(name, p);
+			snprintf(name, sizeof(name), "%s", p);
 		} else {
 			sprintf(name, "s%lu.lsz", (unsigned long) getpid());
 		}
@@ -544,7 +544,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 		++sz->errcnt;
 		return OK;	/* pass over it, there may be others */
 	} else {
-		strcpy(name, oname);
+		snprintf(name, sizeof(name), "%s", oname);
 	}
 	/* Check for directory or block special files */
 	fstat(fileno(sz->input_f), &f);
