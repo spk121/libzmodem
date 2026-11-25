@@ -1,8 +1,10 @@
 #ifndef LIBZMODEM_ZMODEM_H
 #define LIBZMODEM_ZMODEM_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
