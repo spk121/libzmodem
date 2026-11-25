@@ -39,11 +39,7 @@ dnl AM_GNU_GETTEXT([no-libtool])
 dnl AM_GNU_GETTEXT([external],[],[])
 dnl AM_GNU_GETTEXT_VERSION([0.19.8])
 
-if test x"$DEJAGNU" = x
-then
-  DEJAGNU="\$(top_srcdir)/testsuite/global-conf.exp"
-fi
-AC_SUBST(DEJAGNU)
+
 
 AC_CONFIG_FILES([Makefile testsuite/Makefile src/Makefile])
 AC_OUTPUT
