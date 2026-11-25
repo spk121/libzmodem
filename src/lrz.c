@@ -799,11 +799,16 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	  && !(zi->mode&UNIXFILE))
 		uncaps(name_static);
 
-	if (rz->approver_cb)
+	if (rz->approver_cb) {
 		if (!rz->approver_cb(name_static, zi->bytes_total, zi->modtime)) {
 			log_info("%s: rejected by approver callback", name_static);
 			return ERROR;
 		}
+	} else if (name_static[0] == '/') {
+		/* Without an approver, only relative pathnames are accepted. */
+		log_info("%s: absolute pathname rejected", name_static);
+		return ERROR;
+	}
 
 	if (rz->topipe > 0) {
 		if (rz->pathname)
