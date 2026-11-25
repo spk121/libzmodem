@@ -636,16 +636,22 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 		if (rz->zmanag == ZF1_ZMNEW || rz->zmanag==ZF1_ZMNEWL) {
 			if (-1==fstat(fileno(rz->fout),&sta)) {
 				log_info(_("file exists, skipped: %s"),name);
+				fclose(rz->fout);
+				rz->fout = NULL;
 				return ERROR;
 			}
 			if (rz->zmanag == ZF1_ZMNEW) {
 				if (sta.st_mtime > zi->modtime) {
+					fclose(rz->fout);
+					rz->fout = NULL;
 					return ERROR; /* skips file */
 				}
 			} else {
 				/* newer-or-longer */
 				if (((size_t) sta.st_size) >= zi->bytes_total
 					&& sta.st_mtime > zi->modtime) {
+					fclose(rz->fout);
+					rz->fout = NULL;
 					return ERROR; /* skips file */
 				}
 			}
@@ -659,6 +665,8 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 				return ERROR;
 			}
 			if (r!=ZCRC_DIFFERS) {
+				fclose(rz->fout);
+				rz->fout = NULL;
 				return ERROR; /* skips */
 			}
 			fclose(rz->fout);
