@@ -126,10 +126,10 @@ from_cu(void)
 int
 rdchk(int fd)
 {
-	static long lf;
+	int lf = 0;
 
 	ioctl(fd, FIONREAD, &lf);
-	return ((int) lf);
+	return lf;
 }
 
 
