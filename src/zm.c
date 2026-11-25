@@ -592,7 +592,7 @@ count_blk(int size)
 /*
  * Receive array buf of max length with ending ZDLE sequence
  *  and CRC.  Returns the ending character or error code.
- *  NB: On errors may store length+1 bytes!
+ *  Never stores more than length bytes.
  */
 int
 zm_receive_data(zm_t *zm, char *buf, int length, size_t *bytes_received)
@@ -645,6 +645,8 @@ crcfoo:
 				return c;
 			}
 		}
+		if (i >= length)
+			break;	/* subpacket too long: buf holds only length bytes */
 		buf[i] = c;
 		crc = updcrc(c, crc);
 	}
@@ -703,6 +705,8 @@ crcfoo:
 				return c;
 			}
 		}
+		if (i >= length)
+			break;	/* subpacket too long: buf holds only length bytes */
 		buf[i] = c;
 		crc = UPDC32(c, crc);
 	}
