@@ -220,7 +220,7 @@ bibi(int n)
 	// 	write_modem_escaped_string_to_stdout(Attn);
 	// canit(zr, STDOUT_FILENO);
 	io_mode(0,0);
-	log_fatal(_("caught signal %s; exiting"), n);
+	log_fatal(_("caught signal %d; exiting"), n);
 	exit(128+n);
 }
 
