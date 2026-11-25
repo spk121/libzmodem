@@ -7,11 +7,14 @@
 #include <sys/stat.h>
 #include "zmodem.h"
 
+/* Set by -q: no progress or per-file reports. */
+static bool quiet = false;
+
 static
 bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
 {
   static long last_sec_left = 0;
-  if (last_sec_left != sec_left && sec_left != 0) {
+  if (!quiet && last_sec_left != sec_left && sec_left != 0) {
     fprintf(stderr, "%s: Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
 	    fname, bytes_sent, bytes_total,
 	    last_bps, min_left, sec_left);
@@ -23,6 +26,8 @@ bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps
 
 void complete_cb(const char *filename, int result, size_t size, time_t date)
 {
+  if (quiet)
+    return;
   if (result == RZSZ_NO_ERROR)
     fprintf(stderr, "'%s (%zu bytes)': successful send\n", filename, size);
   else
@@ -39,7 +44,7 @@ main(int argc, char *argv[])
   int n_filenames = 0;
   const char **filenames = NULL;
 
-  while ((c = getopt(argc, argv, "b:hq:")) != -1)
+  while ((c = getopt(argc, argv, "b:hq")) != -1)
     switch(c)
       {
       case 'b':
@@ -49,6 +54,9 @@ main(int argc, char *argv[])
 	break;
       case 'h':
 	hold_flag = true;
+	break;
+      case 'q':
+	quiet = true;
 	break;
       case '?':
 	if (optopt == 'b')
@@ -109,7 +117,8 @@ main(int argc, char *argv[])
 			     complete_cb,
 			     bps_flag ? bps : 0,
 			     RZSZ_FLAGS_NONE);
-  fprintf(stderr, "Sent %zu bytes.\n", bytes);
+  if (!quiet)
+    fprintf(stderr, "Sent %zu bytes.\n", bytes);
   for (int i = 0; i < argc; i ++)
     free (filenames[i]);
   free (filenames);

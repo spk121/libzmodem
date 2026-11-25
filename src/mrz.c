@@ -7,10 +7,14 @@
 #include <sys/stat.h>
 #include "zmodem.h"
 
+/* Set by -q: no progress or per-file reports. */
+static bool quiet = false;
+
 static bool
 approver_cb(const char *filename, size_t size, time_t date)
 {
-  fprintf(stderr, "Sender requests to send %s: %zu bytes\n", filename, size);
+  if (!quiet)
+    fprintf(stderr, "Sender requests to send %s: %zu bytes\n", filename, size);
   return true;
 }
 
@@ -18,7 +22,7 @@ static
 bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
 {
   static long last_sec_left = 0;
-  if (last_sec_left != sec_left && sec_left != 0) {
+  if (!quiet && last_sec_left != sec_left && sec_left != 0) {
     fprintf(stderr, "%s: Bytes Received:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
 	    fname, bytes_sent, bytes_total,
 	    last_bps, min_left, sec_left);
@@ -31,6 +35,8 @@ bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps
 
 void complete_cb(const char *filename, int result, size_t size, time_t date)
 {
+  if (quiet)
+    return;
   if (result == RZSZ_NO_ERROR)
     fprintf(stderr, "'%s': received\n", filename);
   else
@@ -52,6 +58,9 @@ main(int argc, char *argv[])
 	if (bps > 0)
 	  bps_flag = true;
 	break;
+      case 'q':
+	quiet = true;
+	break;
       case '?':
 	if (optopt == 'b')
 	  fprintf(stderr, "Option -b requires an integer argument.\n");
@@ -69,6 +78,7 @@ main(int argc, char *argv[])
 				complete_cb,
 				bps_flag ? bps : 0,
 				RZSZ_FLAGS_NONE);
-  fprintf(stderr, "Received %zu bytes.\n", bytes);
+  if (!quiet)
+    fprintf(stderr, "Received %zu bytes.\n", bytes);
   return 0;
 }
