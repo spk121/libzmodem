@@ -1180,10 +1180,10 @@ zm_do_crc_check(zm_t *zm, FILE *f, size_t remote_bytes, size_t check_bytes)
 	clearerr(f);  /* Clear EOF */
 	fseek(f, 0L, 0);
 
-	while (t1<3) {
+	for (t1=0; t1<3; t1++) {
 		zm_set_header_payload(zm, check_bytes);
 		zm_send_hex_header(zm, ZCRC);
-		while(t2<3) {
+		for (t2=0; t2<3; t2++) {
 			uint32_t tmp;
 			c = zm_get_header(zm, &tmp);
 			rcrc=(unsigned long) tmp;
