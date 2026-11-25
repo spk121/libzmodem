@@ -92,13 +92,13 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 			n = 3;
 		else if (n==0)
 			n=1;
-		log_trace("Calling read: alarm=%d  Readnum=%d ",
+		log_trace("Calling read: alarm=%u  Readnum=%zu ",
 			 n, zr->readline_readnum);
 		signal(SIGALRM, zreadline_alarm_handler);
 		alarm(n);
 	}
 	else
-		log_trace("Calling read: Readnum=%d ", zr->readline_readnum);
+		log_trace("Calling read: Readnum=%zu ", zr->readline_readnum);
 	zr->readline_ptr = zr->readline_buffer;
 	zr->readline_left = read(zr->readline_fd,
 				 zr->readline_ptr,
