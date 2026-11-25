@@ -1427,7 +1427,7 @@ write_modem_escaped_string_to_stdout(const char *s)
 			sleep(1);
 		else
 			sendbrk(0);
-		p++;
+		s=p+1;
 	}
 }
 
