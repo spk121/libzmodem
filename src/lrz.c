@@ -67,6 +67,9 @@ struct rz_ {
 	int skip_if_not_found;  /* When true, the operation opens and
 				 * appends to an existing file. */
 	char *pathname;		/* filename of the file being received */
+	const char *directory;	/* Directory that relative filenames
+				 * are received into, or NULL for the
+				 * current directory */
 	int thisbinary;		/* When > 0, current file is to be
 				 * received in bin mode */
 	int in_tcpsync;		/* True when we receive special file
@@ -165,6 +168,8 @@ static int sys2 (const char *s);
 static void write_modem_escaped_string_to_stdout (const char *s);
 static size_t getfree (void);
 static void oosb_free_all (void);
+static char *rz_local_path (rz_t *rz, const char *name);
+static FILE *rz_fopen_local (rz_t *rz, const char *name, const char *mode);
 
 rz_t*
 rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
@@ -275,6 +280,8 @@ size_t zmodem_receive(const char *directory,
 			   complete_cb,
 			   approver_cb
 		);
+	if (directory && *directory)
+		rz->directory = directory;
 	rz->zm->baudrate = io_mode(0,1);
 	int exitcode = 0;
 	if (rz_receive(rz)==ERROR) {
@@ -558,6 +565,44 @@ humbug:
 
 
 /*
+ * Return a newly allocated local pathname for the received file name
+ * NAME: relative names are placed below the receive directory, if one
+ * was given.
+ */
+static char *
+rz_local_path(rz_t *rz, const char *name)
+{
+	size_t dirlen = 0;
+	char *path;
+
+	if (rz->directory && name[0] != '/')
+		dirlen = strlen(rz->directory);
+	path = malloc(dirlen + 1 + strlen(name) + 1);
+	if (!path) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
+	if (dirlen)
+		sprintf(path, "%s/%s", rz->directory, name);
+	else
+		strcpy(path, name);
+	return path;
+}
+
+/* fopen() the local file that the received file name NAME maps to. */
+static FILE *
+rz_fopen_local(rz_t *rz, const char *name, const char *mode)
+{
+	char *path = rz_local_path(rz, name);
+	FILE *f = fopen(path, mode);
+	int e = errno;
+
+	free(path);
+	errno = e;
+	return f;
+}
+
+/*
  * Process incoming file information header
  */
 static int
@@ -644,7 +689,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	if (rz->zconv != ZCRESUM && !rz->rxclob && (rz->zmanag&ZF1_ZMMASK) != ZF1_ZMCLOB
 		&& (rz->zmanag&ZF1_ZMMASK) != ZF1_ZMAPND
 	    && !rz->in_tcpsync
-		&& (rz->fout=fopen(name, "r"))) {
+		&& (rz->fout=rz_fopen_local(rz, name, "r"))) {
 		struct stat sta;
 		char *tmpname;
 		char *ptr;
@@ -706,9 +751,14 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			ptr=tmpname+namelen;
 			*ptr++='.';
 			i=0;
+			int taken;
 			do {
+				char *local;
 				sprintf(ptr,"%d",i++);
-			} while (i<1000 && stat(tmpname,&sta)==0);
+				local=rz_local_path(rz, tmpname);
+				taken=(stat(local,&sta)==0);
+				free(local);
+			} while (i<1000 && taken);
 			if (i==1000) {
 				free (tmpname);
 				return ERROR;
@@ -772,12 +822,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 	} else {
 		if (rz->pathname)
 			free(rz->pathname);
-		rz->pathname=malloc(strlen(name_static)+1);
-		if (!rz->pathname) {
-			log_fatal(_("out of memory"));
-			exit(1);
-		}
-		strcpy(rz->pathname, name_static);
+		rz->pathname=rz_local_path(rz, name_static);
 		/* overwrite the "waiting to receive" line */
 		log_info(_("Receiving: %s"), name_static);
 		rz_checkpath(rz, name_static);
@@ -792,9 +837,12 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			}
 			zi->fname=name_static;
 		}
+		/* The file to open: /dev/null with nflag, otherwise
+		 * the received name below the receive directory. */
+		const char *openname = rz->nflag ? name_static : rz->pathname;
 		if (rz->thisbinary && rz->zconv==ZCRESUM) {
 			struct stat st;
-			rz->fout = fopen(name_static, "r+");
+			rz->fout = fopen(openname, "r+");
 			if (rz->fout && 0==fstat(fileno(rz->fout),&st))
 			{
 				int can_resume=TRUE;
@@ -829,10 +877,10 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			if (rz->fout)
 				fclose(rz->fout);
 		}
-		rz->fout = fopen(name_static, openmode);
+		rz->fout = fopen(openname, openmode);
 		if ( !rz->fout)
 		{
-			log_error(_("cannot open %s: %s"), name_static, strerror(errno));
+			log_error(_("cannot open %s: %s"), openname, strerror(errno));
 			return ERROR;
 		}
 	}
@@ -953,7 +1001,7 @@ rz_checkpath(rz_t *rz, const char *name)
 			p=name;
 		/* don't overwrite any file in very restricted mode.
 		 * don't overwrite hidden files in restricted mode */
-		if ((rz->restricted==2 || *name=='.') && fopen(name, "r") != NULL) {
+		if ((rz->restricted==2 || *name=='.') && fopen(rz->pathname, "r") != NULL) {
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
 			log_info(_("%s: %s exists"),
 				program_name, name);
