@@ -631,6 +631,8 @@ sz_transmit_pathname(sz_t *sz, struct zm_fileinfo *zi)
 		}
 
 	q = (char *) 0;
+	/* f is used below even when it is not filled in by fstat. */
+	memset(&f, 0, sizeof(f));
 
 	for (p=zi->fname, q=sz->txbuf ; *p; )
 		if ((*q++ = *p++) == '/' && !sz->fullname)
