@@ -1029,7 +1029,7 @@ rz_checkpath(rz_t *rz, const char *name)
 		 * don't overwrite hidden files in restricted mode */
 		if ((rz->restricted==2 || *name=='.') && fopen(rz->pathname, "r") != NULL) {
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
-			log_info(_("%s: %s exists"),
+			log_error(_("%s: %s exists"),
 				program_name, name);
 			zm_fatal();
 		}
@@ -1041,13 +1041,13 @@ rz_checkpath(rz_t *rz, const char *name)
 #endif
 		) {
 			zreadline_canit(rz->zm->zr, STDOUT_FILENO);
-			log_info(_("%s: Security Violation"),program_name);
+			log_error(_("%s: Security Violation"),program_name);
 			zm_fatal();
 		}
 		if (rz->restricted > 1) {
 			if (name[0]=='.' || strstr(name,"/.")) {
 				zreadline_canit(rz->zm->zr, STDOUT_FILENO);
-				log_info(_("%s: Security Violation"),program_name);
+				log_error(_("%s: Security Violation"),program_name);
 				zm_fatal();
 			}
 		}
