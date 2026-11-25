@@ -9,8 +9,8 @@ dist-hook:
 oldcheck-local:
 	QUIET=-q $(srcdir)/check.lrzsz $(srcdir) `pwd`	
 
-fastcheck: 
-	$(srcdir)/fastcheck.sh $(srcdir) `pwd`
+fastcheck: all
+	$(srcdir)/fastcheck.sh $(abs_srcdir) `pwd`
 
 vcheck:
 	$(srcdir)/check.lrzsz $(srcdir) `pwd`

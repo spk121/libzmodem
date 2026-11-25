@@ -17,10 +17,10 @@ To install:
      to build only the static or only the shared library.
 3) make
    (please contact spk121@yahoo.com if there are any problems.)
-4) make check
-   does not run any tests at the moment.  The old self tests
-   (fastcheck.sh, check.lrzsz, the dejagnu testsuite and README.tests)
-   still expect the lrz and lsz programs, which no longer exist.
+4) make fastcheck
+   will perform a selftest, sending some files in the distribution
+   through a named pipe.  "make check" does not run any tests at the
+   moment; see README.tests.
 5) make install
    if everything is ok.  This installs
    - the library libzmodem into $(libdir),

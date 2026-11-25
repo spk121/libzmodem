@@ -11,9 +11,9 @@
 - remove the vestigial lrzsz code and options that the API cannot
   reach (TCP mode, pipe output, most file management options, ...), or
   expose them through the flags argument.
-- revive the tests: "make check" runs nothing, and fastcheck.sh,
-  check.lrzsz and the dejagnu suite still expect the lrz and lsz
-  programs.
+- revive the tests: "make check" runs nothing, and check.lrzsz and the
+  dejagnu suite still expect the lrz and lsz programs.  Only
+  "make fastcheck" works.
 - look into VMIN code: how to determine if it's usable (it isn't unter
   FreeBSD and NetBSD (might have changed) and possibly many other 
   system), and what is the max value?
