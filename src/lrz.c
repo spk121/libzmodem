@@ -338,10 +338,14 @@ rz_receive(rz_t *rz)
 fubar:
 	zreadline_canit(rz->zm->zr, STDOUT_FILENO);
 	if (rz->topipe && rz->fout) {
-		pclose(rz->fout);  return ERROR;
+		pclose(rz->fout);
+		rz->fout = NULL;
+		return ERROR;
 	}
-	if (rz->fout)
+	if (rz->fout) {
 		fclose(rz->fout);
+		rz->fout = NULL;
+	}
 
 	if (rz->restricted && rz->pathname) {
 		unlink(rz->pathname);
@@ -646,19 +650,23 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 				}
 			}
 			fclose(rz->fout);
+			rz->fout = NULL;
 		} else if (rz->zmanag==ZF1_ZMCRC) {
 			int r = zm_do_crc_check(rz->zm, rz->fout, zi->bytes_total,0);
 			if (r==ERROR) {
 				fclose(rz->fout);
+				rz->fout = NULL;
 				return ERROR;
 			}
 			if (r!=ZCRC_DIFFERS) {
 				return ERROR; /* skips */
 			}
 			fclose(rz->fout);
+			rz->fout = NULL;
 		} else {
 			size_t namelen;
 			fclose(rz->fout);
+			rz->fout = NULL;
 			if ((rz->zmanag & ZF1_ZMMASK)!=ZF1_ZMCHNG) {
 				log_info(_("file exists, skipped: %s"),name);
 				return ERROR;
@@ -766,6 +774,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 					int r = zm_do_crc_check(rz->zm, rz->fout,zi->bytes_total,st.st_size);
 					if (r==ERROR) {
 						fclose(rz->fout);
+						rz->fout = NULL;
 						return ZFERR;
 					}
 					if (r==ZCRC_DIFFERS) {
@@ -780,6 +789,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 				if (can_resume) {
 					if (fseek(rz->fout, (long) zi->bytes_skipped, SEEK_SET)) {
 						fclose(rz->fout);
+						rz->fout = NULL;
 						return ZFERR;
 					}
 				}
@@ -1415,10 +1425,9 @@ rz_closeit(rz_t *rz, struct zm_fileinfo *zi)
 {
 	int ret;
 	if (rz->topipe) {
-		if (pclose(rz->fout)) {
-			return ERROR;
-		}
-		return OK;
+		ret=pclose(rz->fout);
+		rz->fout = NULL;
+		return ret ? ERROR : OK;
 	}
 	if (rz->in_tcpsync) {
 		rewind(rz->fout);
@@ -1427,9 +1436,11 @@ rz_closeit(rz_t *rz, struct zm_fileinfo *zi)
 			exit(1);
 		}
 		fclose(rz->fout);
+		rz->fout = NULL;
 		return OK;
 	}
 	ret=fclose(rz->fout);
+	rz->fout = NULL;
 	if (ret) {
 		log_error(_("file close error: %s"), strerror(errno));
 		/* this may be any sort of error, including random data corruption */
