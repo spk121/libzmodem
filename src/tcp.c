@@ -55,7 +55,7 @@ tcp_server (char *buf)
 	struct sockaddr_in s;
 	struct sockaddr_in t;
 	int on=1;
-	size_t len;
+	socklen_t len;
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		log_fatal("socket: %s", strerror(errno));
@@ -95,7 +95,7 @@ tcp_accept (int d)
 {
 	int so;
 	struct  sockaddr_in s;
-	size_t namelen;
+	socklen_t namelen;
 	int num=0;
 
 	namelen = sizeof(s);
