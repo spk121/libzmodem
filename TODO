@@ -1,5 +1,11 @@
 - call the complete callback for files that fail, as zmodem.h
   documents; at the moment it is only called on success.
+- fix the size the sender reports when the session start is
+  duplicated: if the receiver's ZRINIT crosses the sender's ZRQINIT,
+  ZSINIT and ZFILE are sent twice, the first file is restarted, and
+  the sender can take a late ZRINIT for the end of that file.  The
+  file arrives intact, but the complete callback and the return value
+  of zmodem_send then report fewer bytes than were sent.
 - improve error reporting: zmodem_last_result() only says whether a
   session failed, not why.  Failures should be error codes, not log
   messages.
