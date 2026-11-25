@@ -1,5 +1,65 @@
 Claude <noreply@anthropic.com>	2026-11-25
 
+    TODO: note the sender's byte count after a duplicated session start
+    
+    Seen intermittently in 'make fastcheck' (and with the original code):
+    the transfer is correct but the sender under-reports the size of the
+    first file.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Rewrite COMPATABILITY for libzmodem
+    
+    The file described lrzsz command line options (-8, -S, -C) and
+    conventions (lrz.1, SHELL=rsh) that no longer exist.  Describe what
+    the library and the sample programs do today: the ZMODEM features
+    used, the state of X/YMODEM, and how the receiver treats file names,
+    existing files and file modes.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Make 'make fastcheck' work with mrz and msz; update README.tests
+    
+    fastcheck.sh still ran the lrz and lsz programs, which no longer
+    exist.  Use msz and mrz, send their sources and binaries, build
+    before testing, and pass an absolute source directory so the target
+    also works from a separate build directory.  README.tests, INSTALL
+    and TODO now describe which tests work (fastcheck) and which do not.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Remove README.cvs
+    
+    It described anonymous CVS access to Uwe Ohse's lrzsz repository,
+    which does not apply to this project.  Drop it from EXTRA_DIST and
+    from the list of files in README.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Use the current maintainer address for bug reports
+    
+    AC_INIT still named the old address; README and INSTALL already give
+    the current one.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Remove references to the missing testsuite/global-conf.exp
+    
+    The file is not in the repository (and *.exp is ignored), but it was
+    listed in EXTRA_DIST, which made 'make dist' fail, and used as the
+    default for DEJAGNU, which nothing uses since the dejagnu tests are
+    disabled.  The same lines are removed from the checked-in
+    testsuite/Makefile.in.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
+    Update ChangeLog from the git history
+    
+    Add the entries for every commit since "Changes to pass distcheck"
+    (2018-01-11), in the same format as the existing ones.
+
+Claude <noreply@anthropic.com>	2026-11-25
+
     zmodem.h: include the headers for size_t and time_t
     
     The public header used size_t and time_t without including
