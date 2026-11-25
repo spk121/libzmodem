@@ -1176,7 +1176,7 @@ zm_do_crc_check(zm_t *zm, FILE *f, size_t remote_bytes, size_t check_bytes)
 		n=st.st_size;
 	while (n-- && ((c = getc(f)) != EOF))
 		crc = UPDC32(c, crc);
-	crc = ~crc;
+	crc = ~crc & 0xFFFFFFFFUL;	/* unsigned long may be 64 bits wide */
 	clearerr(f);  /* Clear EOF */
 	fseek(f, 0L, 0);
 
