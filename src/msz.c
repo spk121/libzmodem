@@ -65,6 +65,11 @@ main(int argc, char *argv[])
   struct stat st;
   int ret;
   filenames = (const char **) malloc (argc * sizeof(char *));
+  if (filenames == NULL)
+    {
+      fprintf(stderr, "Out of memory.\n");
+      return 1;
+    }
   memset(filenames, 0, argc * sizeof(char *));
   for (int i = optind; i < argc; i++)
     {

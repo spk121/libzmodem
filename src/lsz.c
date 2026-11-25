@@ -129,6 +129,10 @@ sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	)
 {
 	sz_t *sz = malloc(sizeof(sz_t));
+	if (!sz) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 	memset(sz, 0, sizeof(sz_t));
 	sz->zm = zm_init(fd, readnum, bufsize, no_timeout,
 			 rxtimeout, znulls, eflag, baudrate, zctlesc, zrwindow);

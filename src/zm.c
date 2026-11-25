@@ -102,6 +102,10 @@ zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow)
 {
 	zm_t *zm = (zm_t *) malloc (sizeof (zm_t));
+	if (!zm) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 	memset(zm, 0, sizeof(zm_t));
 	zm->zr = zreadline_init(fd, readnum, bufsize, no_timeout);
 	zm->rxtimeout = rxtimeout;
@@ -737,6 +741,10 @@ zm_get_header(zm_t *zm, uint32_t *payload)
 	/* Up to max_intro_msg_len + 1 bytes are stored before the length
 	 * check below trips, plus one for the terminating NUL. */
 	intro_msg = (char *) calloc (max_intro_msg_len + 2, sizeof(char));
+	if (!intro_msg) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 	intro_msg_len = 0;
 
 	zm->rxframeind = zm->rxtype = 0;

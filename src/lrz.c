@@ -178,6 +178,10 @@ rz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	)
 {
 	rz_t *rz = (rz_t *)malloc(sizeof(rz_t));
+	if (!rz) {
+		log_fatal(_("out of memory"));
+		exit(1);
+	}
 	memset (rz, 0, sizeof(rz_t));
 	rz->zm = zm_init(fd, readnum, bufsize, no_timeout,
 			 rxtimeout, znulls, eflag, baudrate, zctlesc, zrwindow);
@@ -682,6 +686,10 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			/* try to rename */
 			namelen=strlen(name);
 			tmpname=(char *) malloc(namelen+5);
+			if (!tmpname) {
+				log_fatal(_("out of memory"));
+				exit(1);
+			}
 			memcpy(tmpname,name,namelen);
 			ptr=tmpname+namelen;
 			*ptr++='.';
