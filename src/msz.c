@@ -122,5 +122,5 @@ main(int argc, char *argv[])
   for (int i = 0; i < argc; i ++)
     free (filenames[i]);
   free (filenames);
-  return 0;
+  return zmodem_last_result() == RZSZ_NO_ERROR ? 0 : 1;
 }

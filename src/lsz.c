@@ -272,6 +272,7 @@ size_t zmodem_send(int file_count,
 		fflush(stdout);
 		io_mode(sz ? sz->io_mode_fd : 0, 0);
 		sz_free(sz);
+		zm_last_result = RZSZ_ERROR;
 		return total;
 	}
 	sz = sz_init(0, /* fd */
@@ -386,6 +387,7 @@ size_t zmodem_send(int file_count,
 	size_t total = sz->total_sent;
 	zm_fatal_armed = 0;
 	sz_free(sz);
+	zm_last_result = dm ? RZSZ_ERROR : RZSZ_NO_ERROR;
 	return total;
 }
 

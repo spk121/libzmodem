@@ -40,6 +40,7 @@
 #include "log.h"
 #include "crctab.h"
 #include "zm.h"
+#include "zmodem.h"
 
 /* Globals used by ZMODEM functions */
 long Txpos;		/* Transmitted file position */
@@ -95,6 +96,14 @@ static void zm_send_binary_header32 (zm_t *zm, int type);
 static void zm_escape_sequence_init (zm_t *zm);
 static void zm_put_escaped_string(zm_t *zm, const char *str, size_t len);
 
+
+int zm_last_result = RZSZ_NO_ERROR;
+
+int
+zmodem_last_result(void)
+{
+	return zm_last_result;
+}
 
 jmp_buf zm_fatal_env;
 int zm_fatal_armed = 0;

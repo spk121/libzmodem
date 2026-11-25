@@ -178,6 +178,8 @@ void sendbrk (int fd);
 extern jmp_buf zm_fatal_env;
 extern int zm_fatal_armed;
 void zm_fatal (void) LRZSZ_ATTRIB_NORET;
+/* Result of the last session, for zmodem_last_result(). */
+extern int zm_last_result;
 
 int tcp_server (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
 int tcp_connect (char *buf) LRZSZ_ATTRIB_SECTION(lrzsz_rare);

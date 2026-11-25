@@ -111,6 +111,14 @@ size_t zmodem_send(int file_count,
 		   uint64_t min_bps,
 		   uint32_t flags);
 
+/* The return values above cannot tell a failed session from one that
+   transferred nothing.  This returns the result of the most recent
+   zmodem_receive or zmodem_send call: RZSZ_NO_ERROR if the session
+   ran to completion, or RZSZ_ERROR if it failed, was cancelled or
+   timed out, or (when sending) if a file could not be read.  A file
+   the receiver chose to skip is not an error. */
+int zmodem_last_result(void);
+
 #ifdef __cplusplus
 }
 #endif

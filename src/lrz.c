@@ -251,6 +251,7 @@ size_t zmodem_receive(const char *directory,
 		fflush(stdout);
 		io_mode(0,0);
 		rz_free(rz);
+		zm_last_result = RZSZ_ERROR;
 		return total;
 	}
 	rz = rz_init(0, /* fd */
@@ -301,6 +302,7 @@ size_t zmodem_receive(const char *directory,
 	size_t total = rz->total_received;
 	zm_fatal_armed = 0;
 	rz_free(rz);
+	zm_last_result = exitcode ? RZSZ_ERROR : RZSZ_NO_ERROR;
 	return total;
 }
 
