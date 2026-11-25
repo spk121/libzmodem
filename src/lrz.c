@@ -317,7 +317,7 @@ rz_receive(rz_t *rz)
 				goto fubar;
 			if (rz->secbuf[0]==0)
 				return OK;
-			if (rz_process_header(rz, rz->secbuf, &zi) == ERROR)
+			if (rz_process_header(rz, rz->secbuf, &zi) != OK)
 				goto fubar;
 			if (rz_receive_sectors(rz, &zi)==ERROR)
 				goto fubar;
@@ -1188,8 +1188,14 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 
 	n = 20;
 
-	if (rz_process_header(rz, rz->secbuf,zi) == ERROR) {
+	c = rz_process_header(rz, rz->secbuf,zi);
+	if (c == ERROR) {
 		return (rz->tryzhdrtype = ZSKIP);
+	}
+	if (c != OK) {
+		/* ZFERR: the output file has already been closed. */
+		rz->tryzhdrtype = ZFERR;
+		return ERROR;
 	}
 
 	for (;;) {
