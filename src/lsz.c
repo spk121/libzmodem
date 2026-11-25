@@ -551,6 +551,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	if (S_ISDIR(f.st_mode) || S_ISBLK(f.st_mode)) {
 		log_error(_("is not a file: %s"), name);
 		fclose(sz->input_f);
+		sz->input_f = NULL;
 		return OK;
 	}
 
@@ -786,6 +787,7 @@ sz_transmit_file_contents(sz_t *sz, struct zm_fileinfo *zi)
 		zi->bytes_sent += thisblklen;
 	}
 	fclose(sz->input_f);
+	sz->input_f = NULL;
 	attempts=0;
 	do {
 		zreadline_flushline(sz->zm->zr);
@@ -1069,8 +1071,9 @@ sz_getzrxinit(sz_t *sz)
 			 * If input is not a regular file, force ACK's to
 			 *  prevent running beyond the buffer limits
 			 */
-			fstat(fileno(sz->input_f), &f);
-			if (!(S_ISREG(f.st_mode))) {
+			if (sz->input_f == NULL
+			    || fstat(fileno(sz->input_f), &f) != 0
+			    || !(S_ISREG(f.st_mode))) {
 				sz->canseek = -1;
 				/* return ERROR; */
 			}
@@ -1146,6 +1149,11 @@ sz_transmit_file_by_zmodem(sz_t *sz, struct zm_fileinfo *zi, const char *buf, si
 	int c;
 	unsigned long crc;
 	uint32_t rxpos;
+
+	/* No open file to send, e.g. the receiver switched to ZMODEM
+	 * at the terminating empty pathname of a YMODEM batch. */
+	if (sz->input_f == NULL)
+		return ERROR;
 
 	/* we are going to send a ZFILE. There cannot be much useful
 	 * stuff in the line right now (*except* ZCAN?).
@@ -1244,9 +1252,10 @@ again:
 		 * size, etc are acceptable] The receiver may respond
 		 * with a ZSKIP header, which makes the sender proceed
 		 * to the next file (if any)." */
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose(sz->input_f);
-			else if (sz->mm_addr) {
+				sz->input_f = NULL;
+			} else if (sz->mm_addr) {
 				munmap(sz->mm_addr,sz->mm_size);
 				sz->mm_addr=NULL;
 			}
@@ -1328,16 +1337,22 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 	  gotack:
 		switch (c) {
 		default:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return ERROR;
 		case ZCAN:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return ERROR;
 		case ZSKIP:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return c;
 		case ZACK:
 		case ZRPOS:
@@ -1550,12 +1565,16 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 			 * it returns ZRINIT. */
 			return OK;
 		case ZSKIP:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return c;
 		default:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose (sz->input_f);
+				sz->input_f = NULL;
+			}
 			return ERROR;
 		}
 	}
@@ -1716,9 +1735,10 @@ sz_getinsync(sz_t *sz, struct zm_fileinfo *zi, int flag)
 			continue;
 		case ZRINIT:
 		case ZSKIP:
-			if (sz->input_f)
+			if (sz->input_f) {
 				fclose(sz->input_f);
-			else if (sz->mm_addr) {
+				sz->input_f = NULL;
+			} else if (sz->mm_addr) {
 				munmap(sz->mm_addr,sz->mm_size);
 				sz->mm_addr=NULL;
 			}
