@@ -46,8 +46,6 @@
 
 #define MAX_BLOCK 8192
 
-const char *program_name;		/* the name by which we were called */
-
 static int no_timeout=FALSE;
 
 struct rz_ {
