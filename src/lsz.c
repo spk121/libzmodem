@@ -1388,7 +1388,12 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 			if (zi->bytes_sent + sz->blklen < sz->mm_size)
 				n = sz->blklen;
 			else {
-				n = sz->mm_size - zi->bytes_sent;
+				/* The receiver may have asked (ZRPOS)
+				 * for an offset beyond end of file. */
+				if (zi->bytes_sent < sz->mm_size)
+					n = sz->mm_size - zi->bytes_sent;
+				else
+					n = 0;
 				zi->eof_seen = 1;
 			}
 		} else
