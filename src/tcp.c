@@ -43,6 +43,18 @@ tcp_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
     /* doesn't need to do anything */
 }
 
+/* Install the SIGALRM handler without SA_RESTART (which signal() may
+ * set), so that the alarm interrupts a blocking accept or connect. */
+static void
+tcp_set_alarm_handler(void)
+{
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = tcp_alarm_handler;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGALRM, &sa, NULL);
+}
+
 
 /* server/lsz:
  * Get a TCP socket, bind it, listen, figure out the port,
@@ -102,7 +114,7 @@ tcp_accept (int d)
 	memset((char*)&s,0, namelen);
 
 retry:
-	signal(SIGALRM, tcp_alarm_handler);
+	tcp_set_alarm_handler();
 	alarm(30);
 	if ((so = accept(d, (struct sockaddr*)&s, &namelen)) < 0) {
 		if (errno == EINTR) {
@@ -178,7 +190,7 @@ tcp_connect (char *buf)
 		exit(1);
 	}
 
-	signal(SIGALRM, tcp_alarm_handler);
+	tcp_set_alarm_handler();
 	alarm(30);
 	if (connect (sock, (struct sockaddr *) &s_in, sizeof (s_in)) < 0) {
 		log_fatal("connect: %s", strerror(errno));

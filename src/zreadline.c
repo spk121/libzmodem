@@ -98,7 +98,14 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 			n=1;
 		log_trace("Calling read: alarm=%u  Readnum=%zu ",
 			 n, zr->readline_readnum);
-		signal(SIGALRM, zreadline_alarm_handler);
+		/* Not signal(): it may install the handler with
+		 * SA_RESTART, and then the alarm would not interrupt
+		 * the read below. */
+		struct sigaction sa;
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_handler = zreadline_alarm_handler;
+		sigemptyset(&sa.sa_mask);
+		sigaction(SIGALRM, &sa, NULL);
 		alarm(n);
 	}
 	else
