@@ -360,6 +360,10 @@ rz_receive(rz_t *rz)
 	return OK;
 fubar:
 	zreadline_canit(rz->zm->zr, STDOUT_FILENO);
+	/* Only a file that was still being written is incomplete.
+	 * Otherwise rz->pathname names the last finished or skipped
+	 * file, which must be left alone. */
+	int incomplete = (rz->fout != NULL && !rz->in_tcpsync && !rz->nflag);
 	if (rz->topipe && rz->fout) {
 		pclose(rz->fout);
 		rz->fout = NULL;
@@ -370,7 +374,7 @@ fubar:
 		rz->fout = NULL;
 	}
 
-	if (rz->restricted && rz->pathname) {
+	if (rz->restricted && rz->pathname && incomplete) {
 		unlink(rz->pathname);
 		log_info(_("%s: %s removed."), program_name, rz->pathname);
 	}
