@@ -866,7 +866,7 @@ fifi:
 	/* If we got an intro message, log it. */
 	if (intro_msg_len > 0) {
 		log_info("zm_get_header: received intro msg from sender...");
-		log_info(intro_msg);
+		log_info("%s", intro_msg);
 	}
 	free(intro_msg);
 	
