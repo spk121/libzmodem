@@ -153,7 +153,8 @@ tcp_connect (char *buf)
 
 	if (s_in.sin_addr.s_addr== (unsigned long) INADDR_NONE) {
 		struct hostent *h=gethostbyname(buf+1);
-		if (!h) {
+		if (!h || h->h_addrtype != AF_INET
+		    || h->h_length != (int) sizeof(s_in.sin_addr.s_addr)) {
 			log_fatal(_("tcp_connect: illegal format3"));
 			exit(1);
 		}
