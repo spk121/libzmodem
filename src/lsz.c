@@ -179,7 +179,7 @@ static int sz_transmit_file_contents (sz_t *sz, struct zm_fileinfo *);
 static int sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *);
 static int sz_getinsync (sz_t *sz, struct zm_fileinfo *, int flag);
 static void sz_countem (sz_t *sz, int argc, char **argv);
-static int sz_transmit_files (sz_t *sz, int argc, char *argp[]);
+static int sz_transmit_files (sz_t *sz, int argc, const char *argp[]);
 static int sz_transmit_sector (sz_t *sz, char *buf, int sectnum, size_t cseclen);
 static int sz_send_pseudo(sz_t *sz, const char *name, const char *data);
 
@@ -446,7 +446,7 @@ sz_send_pseudo(sz_t *sz, const char *name, const char *data)
 /* This routine tries to send multiple files.  The file count and
    filenames are in ARGC and ARGP. */
 static int
-sz_transmit_files (sz_t *sz, int argc, char *argp[])
+sz_transmit_files (sz_t *sz, int argc, const char *argp[])
 {
 	int n;
 
